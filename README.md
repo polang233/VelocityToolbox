@@ -1,61 +1,67 @@
 # VelocityToolbox
 
-A public-API-first toolbox and reloadable module host for Velocity.
+面向 Velocity 公共 API 的工具箱与可重载模块宿主。
 
-## Current status
+英文文档位于 [`docs/`](docs/) 目录：
 
-Version: 0.1.0-SNAPSHOT
+- [English README](docs/README.en.md)
+- [English architecture guide](docs/ARCHITECTURE.en.md)
+- [English module guide](docs/MODULES.en.md)
 
-The first version provides:
+## 当前状态
 
-- A Velocity plugin built against velocity-api 4.1.0-SNAPSHOT.
-- A reloadable module directory at plugins/VelocityToolbox/modules.
-- Module lifecycle methods: enable and disable.
-- Automatic cleanup of module-owned listeners, commands, scheduled tasks and plugin channels.
-- Commands for status, configuration acknowledgement and module load/unload/reload.
-- A public module API for small self-owned proxy features.
+版本：`0.1.0-SNAPSHOT`
 
-The public Velocity 4.1 API exposes plugin discovery and classpath injection, but not a supported external plugin load/unload operation. VelocityToolbox therefore treats reloadable modules as the stable extension boundary and does not depend on Velocity internals.
+首版提供：
 
-## Requirements
+- 基于 `velocity-api:4.1.0-SNAPSHOT` 构建的 Velocity 插件。
+- 模块目录：`plugins/VelocityToolbox/modules`。
+- 模块生命周期：`enable` 和 `disable`。
+- 自动清理模块注册的监听器、命令、定时任务和插件消息频道。
+- 模块状态查询、模块加载、卸载和重载命令。
+- 面向小型自有代理功能的公开模块 API。
 
-- Java 25 or newer for the current `4.1.0-SNAPSHOT` build. This snapshot is currently published with JVM 25 bytecode.
-- Velocity 4.1.0-SNAPSHOT or a compatible later API/runtime.
-- A test proxy before production use.
+Velocity 4.1 公共 API 提供插件查询和 classpath 注入能力，但没有受支持的外部插件加载/卸载接口。因此，VelocityToolbox 选择把可重载模块作为扩展边界，不依赖 Velocity 内部实现。
 
-## Build
+## 环境要求
 
-A Gradle installation or Gradle wrapper is required:
+- 当前 `4.1.0-SNAPSHOT` 构建需要 Java 25 或更高版本；该快照目前发布为 JVM 25 字节码。
+- Velocity 4.1.0-SNAPSHOT 或兼容的更高版本 API/运行时。
+- 正式使用前，建议先在测试代理上验证。
 
-~~~powershell
+## 构建
+
+项目自带 Gradle Wrapper：
+
+```powershell
 .\gradlew.bat build
-~~~
+```
 
-The output JAR is:
+构建产物：
 
-~~~text
+```text
 build/libs/VelocityToolbox-0.1.0-SNAPSHOT.jar
-~~~
+```
 
-## Installation
+## 安装
 
-1. Build the project.
-2. Copy the output JAR into Velocity's plugins directory.
-3. Start the proxy once.
-4. Put module JARs into plugins/VelocityToolbox/modules.
-5. Use the module commands.
+1. 构建项目。
+2. 将输出 JAR 复制到 Velocity 的 `plugins` 目录。
+3. 启动代理一次。
+4. 将模块 JAR 放入 `plugins/VelocityToolbox/modules`。
+5. 使用模块命令管理模块。
 
-## Commands
+## 命令
 
-All commands require the permission:
+所有命令都需要权限：
 
-~~~text
+```text
 velocitytoolbox.admin
-~~~
+```
 
-Commands:
+可用命令：
 
-~~~text
+```text
 /vtoolbox help
 /vtoolbox version
 /vtoolbox status
@@ -64,39 +70,33 @@ Commands:
 /vtoolbox module load <file.jar>
 /vtoolbox module unload <module-id>
 /vtoolbox module reload <module-id>
-~~~
+```
 
-The reload command only acknowledges configuration reload. Code reload is explicit through module reload.
+`/vtoolbox reload` 目前只确认代理配置重载请求；代码重载需要显式使用 `/vtoolbox module reload <module-id>`。
 
-## Module JAR contract
+## 模块 JAR 约定
 
-A module JAR must:
+模块 JAR 必须：
 
-1. Implement io.github.velocitytoolbox.api.ToolboxModule.
-2. Contain a service registration file at:
+1. 实现 `io.github.velocitytoolbox.api.ToolboxModule`。
+2. 包含 ServiceLoader 注册文件：
 
-~~~text
-META-INF/services/io.github.velocitytoolbox.api.ToolboxModule
-~~~
+   ```text
+   META-INF/services/io.github.velocitytoolbox.api.ToolboxModule
+   ```
 
-3. Expose one module implementation per JAR.
-4. Return a stable lowercase ID matching:
+3. 每个 JAR 只提供一个模块实现。
+4. 返回稳定的小写 ID，并符合：
 
-~~~text
-[a-z][a-z0-9-_]{0,63}
-~~~
+   ```text
+   [a-z][a-z0-9-_]{0,63}
+   ```
 
-5. Register runtime resources through ToolboxContext.registrations().
+5. 通过 `ToolboxContext.registrations()` 注册运行时资源。
 
-Example service file:
+示例模块：
 
-~~~text
-com.example.myproxy.HelloModule
-~~~
-
-Example module:
-
-~~~java
+```java
 public final class HelloModule implements ToolboxModule {
     @Override
     public String id() {
@@ -110,44 +110,44 @@ public final class HelloModule implements ToolboxModule {
 
     @Override
     public void disable() {
-        // Close module-owned external resources here.
+        // 在这里关闭模块自行创建的外部资源。
     }
 }
-~~~
+```
 
-## Reload rules
+## 重载规则
 
-A module must release everything it owns in disable():
+模块必须在 `disable()` 中释放自己拥有的资源，包括：
 
-- Database connections.
-- Executor services and threads.
-- Scheduled tasks.
-- Event listeners.
-- Commands.
-- Plugin messaging channels.
-- References to proxy objects and other modules.
+- 数据库连接；
+- Executor、线程和线程池；
+- 定时任务；
+- 监听器；
+- 命令；
+- 插件消息频道；
+- 对代理对象或其他模块的引用。
 
-VelocityToolbox automatically cleans resources registered through RegistrationScope, but it cannot clean arbitrary resources created directly by a module.
+通过 `RegistrationScope` 注册的资源由 VelocityToolbox 自动清理，但模块直接创建的任意资源无法被宿主自动识别。若模块泄漏线程、Future、静态引用或第三方库的全局注册点，旧类加载器仍可能无法回收。
 
-The old classloader may remain reachable if a module leaks references. Module reload is intended for self-owned, small modules and test/development workflows.
+首版重载功能定位于自己维护的小型模块以及测试/开发流程，不等同于完整 Velocity 插件的安全热卸载。
 
-## Security
+## 安全提示
 
-Do not give velocitytoolbox.admin to ordinary players. Loading a JAR executes arbitrary code inside the proxy process.
+不要给普通玩家授予 `velocitytoolbox.admin`。加载模块 JAR 等同于在代理进程中执行任意代码。
 
-Only load JARs produced by your own build pipeline or reviewed source.
+只加载自己构建或已经审查过源码的模块 JAR。
 
-## Roadmap
+## 后续计划
 
-- Separate published velocitytoolbox-api artifact.
-- Module metadata and dependency declarations.
-- Better command suggestions.
-- Module health state and reload transaction reporting.
-- Optional module file watcher.
-- Resource-pack module.
-- Cross-server event and routing modules.
-- Experimental adapter for Velocity internal plugin loading, only if a stable public API remains unavailable.
+- 拆分独立发布的 `velocitytoolbox-api` 工件；
+- 模块元数据与依赖声明；
+- 更完善的命令补全；
+- 模块健康状态和重载事务报告；
+- 可选的模块文件监听器；
+- 资源包模块；
+- 跨服事件与路由模块；
+- 在公共 API 仍不提供完整能力的前提下，评估 Velocity 内部插件加载的实验性适配器。
 
-## License
+## 许可证
 
-No license has been selected yet. Choose and add a license before publishing publicly.
+目前尚未选择许可证。正式公开发布前，请补充 MIT、Apache-2.0、GPL-3.0 等明确许可证。
