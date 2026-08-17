@@ -1,153 +1,116 @@
+<p align="center">
+  <img src="assets/logo.png" alt="VelocityToolbox" width="168">
+</p>
+
 # VelocityToolbox
 
-面向 Velocity 公共 API 的工具箱与可重载模块宿主。
+[Velocity](https://papermc.io/software/velocity) 4.1+ 的代理端工具插件，用来托管资源包，以及在运行时加载、卸载、重载其它 Velocity 插件。
 
-英文文档位于 [`docs/`](docs/) 目录：
+[English](docs/README.en.md) · [架构说明](docs/ARCHITECTURE.md)
 
-- [English README](docs/README.en.md)
-- [English architecture guide](docs/ARCHITECTURE.en.md)
-- [English module guide](docs/MODULES.en.md)
+## 功能
 
-## 当前状态
+- **资源包 HTTP 托管**：扫描指定目录里的 `.zip`，计算 SHA-1，在本机提供玩家客户端能下载的 URL。
+- **插件热加载**：对 `plugins/` 里的其它 Velocity 插件执行 load / unload / reload。
 
-版本：`0.1.0-SNAPSHOT`
+## 环境
 
-首版提供：
+- Java 25+
+- Velocity 4.1.0-SNAPSHOT 或兼容的更高版本
 
-- 基于 `velocity-api:4.1.0-SNAPSHOT` 构建的 Velocity 插件。
-- 模块目录：`plugins/VelocityToolbox/modules`。
-- 模块生命周期：`enable` 和 `disable`。
-- 自动清理模块注册的监听器、命令、定时任务和插件消息频道。
-- 模块状态查询、模块加载、卸载和重载命令。
-- 面向小型自有代理功能的公开模块 API。
+## 安装
 
-Velocity 4.1 公共 API 提供插件查询和 classpath 注入能力，但没有受支持的外部插件加载/卸载接口。因此，VelocityToolbox 选择把可重载模块作为扩展边界，不依赖 Velocity 内部实现。
-
-## 环境要求
-
-- 当前 `4.1.0-SNAPSHOT` 构建需要 Java 25 或更高版本；该快照目前发布为 JVM 25 字节码。
-- Velocity 4.1.0-SNAPSHOT 或兼容的更高版本 API/运行时。
-- 正式使用前，建议先在测试代理上验证。
-
-## 构建
-
-项目自带 Gradle Wrapper：
+1. 把构建出的 `VelocityToolbox-*.jar` 放到 Velocity 的 `plugins` 目录。
+2. 启动一次代理，生成 `plugins/VelocityToolbox/config.yml`。
+3. 按下面两节配置资源包目录，或使用插件管理命令。
 
 ```powershell
 .\gradlew.bat build
 ```
 
-构建产物：
+产物：`build/libs/VelocityToolbox-0.1.0-SNAPSHOT.jar`
 
-```text
-build/libs/VelocityToolbox-0.1.0-SNAPSHOT.jar
+## 资源包托管
+
+Minecraft 客户端从 HTTP URL 下载资源包。本插件只在**代理本机**起一个 HTTP 服务，把目录里的 zip 变成下载地址；发给哪个玩家、用哪个包，仍由 [VelocityResourcepacks](https://modrinth.com/plugin/velocityresourcepacks) 决定。
+
+本插件**不会**做端口映射、域名解析或 HTTPS。它只提供内网可连的 HTTP 服务。外网玩家要下载，需要你自己把监听端口放到防火墙、路由器、云安全组或反代里，达到外网可访问，再把那个地址写进 `public-url`。
+
+### bind / port / public-url
+
+| 配置 | 作用 | 典型值 |
+|---|---|---|
+| `bind` | HTTP **监听**网卡。`0.0.0.0` 表示本机所有网卡都接请求 | `0.0.0.0` |
+| `port` | 监听端口。要外网能下，需自行放行这个端口 | `8765` |
+| `public-url` | 写进客户端下载链接的来源（协议 + 主机 + 端口） | 内网留空；外网填玩家能打开的地址 |
+
+下载 URL 形态：`{public-url}/packs/{文件名}`。会出现在启动日志、`/vtoolbox packs`，以及 `plugins/VelocityToolbox/velocityresourcepacks-snippet.yml`。
+
+- **内网**：`public-url` 留空，插件用探测到的第一块局域网 IPv4，拼成 `http://192.168.x.x:8765`。
+- **外网**：先放行 `port`（或反代到该端口），再填 `http://公网IP:8765` 或 `https://pack.example.com`，然后 `/vtoolbox reload`。
+- 不要填 `127.0.0.1` / `localhost`（除非玩家和代理同一台机器），也不要填 `0.0.0.0`（客户端打不开）。
+
+### 步骤
+
+1. 把 `.zip` 放到 `pack-host.packs-directory`，默认是 `plugins/VelocityToolbox/packs/`。
+2. 按上面设置 `bind` / `port` / `public-url`。
+3. 启动日志或 `/vtoolbox packs` 会列出每个包的 URL 和 SHA-1。
+4. 把 `plugins/VelocityToolbox/velocityresourcepacks-snippet.yml` 合并进 VelocityResourcepacks 的 `config.yml`。
+5. 更换 zip、目录或 `public-url` 后执行 `/vtoolbox reload`（或 `/velocity reload`）。
+
+文件名可以含中文和空格，不能包含 `/`、`\` 或 `..`。
+
+```yaml
+pack-host:
+  enabled: true
+  bind: 0.0.0.0
+  port: 8765
+  public-url: ""          # 内网留空；外网填玩家能打开的地址
+  packs-directory: packs  # 相对本插件数据目录，或绝对路径
 ```
 
-## 安装
+| `packs-directory` | 实际位置 |
+|---|---|
+| `packs` | `plugins/VelocityToolbox/packs` |
+| `../OtherPlugin/packs` | 旁边另一个插件的目录 |
+| `D:/resourcepacks` | Windows 绝对路径 |
+| `/var/www/resourcepacks` | Linux 绝对路径 |
 
-1. 构建项目。
-2. 将输出 JAR 复制到 Velocity 的 `plugins` 目录。
-3. 启动代理一次。
-4. 将模块 JAR 放入 `plugins/VelocityToolbox/modules`。
-5. 使用模块命令管理模块。
+## 插件热加载
+
+对 `plugins/` 目录里已有的 Velocity 插件 JAR 做运行时加载、卸载和重载。`/vtoolbox reload` 只重载资源包托管，不会重载其它插件。
+
+```text
+/vtoolbox plugin list
+/vtoolbox plugin load SomePlugin-1.0.jar
+/vtoolbox plugin unload someplugin
+/vtoolbox plugin reload someplugin
+```
+
+- `load` 只接受 `plugins/` 下的文件名。
+- 不能加载或卸载 `velocity` 和 `velocitytoolbox`。
+- 若其它已加载插件对目标声明了非 optional 依赖，会拒绝卸载。
+- `reload` 先卸载再从同一个 JAR 加载；重新加载失败时插件保持卸载。
+
+Velocity 4.1 没有公开的插件 load / unload API，因此实现依赖代理内部加载器，不是所有插件都能安全热卸载。细节见 [架构说明](docs/ARCHITECTURE.md)。该功能需要 `velocitytoolbox.admin`，不要发给普通玩家。
 
 ## 命令
 
-所有命令都需要权限：
+权限：`velocitytoolbox.admin`。别名：`/vtb`。
 
-```text
-velocitytoolbox.admin
-```
+| 命令 | 说明 |
+|---|---|
+| `/vtoolbox help` | 帮助 |
+| `/vtoolbox version` | 版本、插件数量、托管开关 |
+| `/vtoolbox status` | 代理版本、Java、托管来源、已加载插件 |
+| `/vtoolbox packs` | 列出每个 zip 的 URL 和 SHA-1 |
+| `/vtoolbox reload` | 重载资源包托管 |
+| `/vtoolbox plugin list` | 列出已加载插件 |
+| `/vtoolbox plugin load <file.jar>` | 从 `plugins/` 加载 |
+| `/vtoolbox plugin unload <plugin-id>` | 卸载 |
+| `/vtoolbox plugin reload <plugin-id>` | 卸载后再加载 |
 
-可用命令：
+## 文档
 
-```text
-/vtoolbox help
-/vtoolbox version
-/vtoolbox status
-/vtoolbox reload
-/vtoolbox module list
-/vtoolbox module load <file.jar>
-/vtoolbox module unload <module-id>
-/vtoolbox module reload <module-id>
-```
-
-`/vtoolbox reload` 目前只确认代理配置重载请求；代码重载需要显式使用 `/vtoolbox module reload <module-id>`。
-
-## 模块 JAR 约定
-
-模块 JAR 必须：
-
-1. 实现 `io.github.velocitytoolbox.api.ToolboxModule`。
-2. 包含 ServiceLoader 注册文件：
-
-   ```text
-   META-INF/services/io.github.velocitytoolbox.api.ToolboxModule
-   ```
-
-3. 每个 JAR 只提供一个模块实现。
-4. 返回稳定的小写 ID，并符合：
-
-   ```text
-   [a-z][a-z0-9-_]{0,63}
-   ```
-
-5. 通过 `ToolboxContext.registrations()` 注册运行时资源。
-
-示例模块：
-
-```java
-public final class HelloModule implements ToolboxModule {
-    @Override
-    public String id() {
-        return "hello";
-    }
-
-    @Override
-    public void enable(ToolboxContext context) {
-        context.registrations().registerListener(new HelloListener(context.logger()));
-    }
-
-    @Override
-    public void disable() {
-        // 在这里关闭模块自行创建的外部资源。
-    }
-}
-```
-
-## 重载规则
-
-模块必须在 `disable()` 中释放自己拥有的资源，包括：
-
-- 数据库连接；
-- Executor、线程和线程池；
-- 定时任务；
-- 监听器；
-- 命令；
-- 插件消息频道；
-- 对代理对象或其他模块的引用。
-
-通过 `RegistrationScope` 注册的资源由 VelocityToolbox 自动清理，但模块直接创建的任意资源无法被宿主自动识别。若模块泄漏线程、Future、静态引用或第三方库的全局注册点，旧类加载器仍可能无法回收。
-
-首版重载功能定位于自己维护的小型模块以及测试/开发流程，不等同于完整 Velocity 插件的安全热卸载。
-
-## 安全提示
-
-不要给普通玩家授予 `velocitytoolbox.admin`。加载模块 JAR 等同于在代理进程中执行任意代码。
-
-只加载自己构建或已经审查过源码的模块 JAR。
-
-## 后续计划
-
-- 拆分独立发布的 `velocitytoolbox-api` 工件；
-- 模块元数据与依赖声明；
-- 更完善的命令补全；
-- 模块健康状态和重载事务报告；
-- 可选的模块文件监听器；
-- 资源包模块；
-- 跨服事件与路由模块；
-- 在公共 API 仍不提供完整能力的前提下，评估 Velocity 内部插件加载的实验性适配器。
-
-## 许可证
-
-目前尚未选择许可证。正式公开发布前，请补充 MIT、Apache-2.0、GPL-3.0 等明确许可证。
+- [架构说明](docs/ARCHITECTURE.md)
+- [English README](docs/README.en.md)

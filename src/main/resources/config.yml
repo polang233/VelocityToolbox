@@ -1,0 +1,24 @@
+# VelocityToolbox
+#
+# /vtoolbox plugin load|unload|reload 管理 plugins/ 目录里的其它 Velocity 插件。
+
+pack-host:
+  # 是否开启资源包 HTTP 托管。关闭后不再监听端口。
+  enabled: true
+  # HTTP 监听网卡。0.0.0.0 表示本机所有网卡都接请求。
+  # 这只是服务绑在哪，不是玩家客户端去打开的地址。
+  bind: 0.0.0.0
+  # HTTP 监听端口。本插件只在本机提供这个服务，不会自动映射到公网。
+  # 外网要下载资源包，需自行在防火墙 / 路由器 / 云安全组 / 反代里放行该端口。
+  port: 8765
+  # 写进下载 URL 的来源（协议 + 主机 + 端口）。玩家客户端必须打得开这个地址。
+  # 留空：自动用检测到的第一块局域网 IPv4，适合内网。
+  # 外网：先把上面的 port 放到外网可访问，再填例如 http://公网IP:8765 或 https://pack.example.com
+  # 不要填 127.0.0.1 / localhost（除非玩家和代理同一台电脑），也不要填 0.0.0.0。
+  public-url: ""
+  # 资源包 zip 目录。可以是：
+  #   packs                         — 相对本插件数据目录，实际为 plugins/VelocityToolbox/packs
+  #   ../OtherPlugin/packs          — 相对本插件数据目录，指到旁边另一个插件
+  #   D:/resourcepacks              — Windows 绝对路径
+  #   /var/www/resourcepacks        — Linux 绝对路径
+  packs-directory: packs

@@ -1,52 +1,38 @@
 # VelocityToolbox 架构说明
 
-~~~text
-Velocity
-└── VelocityToolboxPlugin
-    ├── ToolboxCommand
-    ├── ModuleManager
-    │   ├── URLClassLoader per module
-    │   ├── ServiceLoader discovery
-    │   └── lifecycle and error isolation
-    └── RegistrationScope
-        ├── EventManager listeners
-        ├── CommandManager commands
-        ├── Scheduler tasks
-        └── ChannelRegistrar channels
-~~~
+功能和配置见 [README](../README.md)。这里只记源码结构和热加载实现要点。
 
-## 设计选择
+```text
+io.github.velocitytoolbox
+├── VelocityToolboxPlugin            主类
+├── BuildConstants                   Gradle 从 build.gradle 生成，供 @Plugin 使用
+├── command/VelocityToolboxCommand   /vtoolbox
+├── pack/                            资源包 HTTP 托管
+│   ├── PackService                  读配置、扫描、启动 HTTP、写片段
+│   ├── PackConfig                   config.yml 的 pack-host 段
+│   ├── PackScanner                  扫描 zip、SHA-1、安全文件名
+│   ├── PackHttpServer               JDK HttpServer
+│   ├── PackSnippetWriter            VelocityResourcepacks 片段
+│   ├── LanIpv4Addresses             public-url 留空时的内网探测
+│   └── HostedPack                   单个 zip
+└── hotload/                         运行时加载其它插件
+    ├── PluginLoadService            load / unload / reload
+    ├── PluginCleanup                监听器、任务、命令、线程池、类加载器
+    └── VelocityInternalAccess       反射 4.1 内部加载器
+```
 
-项目使用 velocity-api:4.1.0-SNAPSHOT，通过以下公共 API 管理模块资源：
+## 资源包托管边界
 
-- EventManager
-- CommandManager
-- Scheduler
-- ChannelRegistrar
-- Proxy lifecycle events
+`PackHttpServer` 只绑定 `bind:port`，在本机提供 HTTP。`public-url` 只用来写出客户端下载链接，插件不会做端口映射、域名或 HTTPS。外网访问要自己放行端口后再填 `public-url`。
 
-Velocity 4.1 的 PluginManager 可以查询插件并向插件 classpath 注入 JAR，但没有公开的外部插件加载/卸载接口。因此，VelocityToolbox 不依赖 Velocity 内部实现。
+## 热加载
 
-## 为什么不直接模拟 PlugMan
+命令操作的是 Velocity `plugins/` 里的真实 JAR。`/vtoolbox reload` 只重载资源包托管。
 
-直接加载一个完整 Velocity 插件需要处理：
+Velocity 4.1 的 `PluginManager` 没有公开 load / unload，因此按代理启动路径反射：`loadCandidate` → 创建容器 → Guice → `registerPlugin` → `registerInternally` → 只对该插件触发 `ProxyInitializeEvent`。卸载时对该插件触发 `ProxyShutdownEvent`，再拆监听器、任务、带 `.plugin(...)` 的命令、线程池和类加载器。
 
-- 插件元数据和依赖排序
-- Velocity 插件容器
-- 插件初始化生命周期
-- 插件主类监听器
-- 命令、任务和频道清理
-- 类加载器和旧代码引用
-- 与其他插件的依赖关系
-
-模块系统只承担自己能够控制的部分，边界更小，失败时更容易诊断。
-
-## 首版安全边界
-
-- 只加载 plugins/VelocityToolbox/modules 下的 JAR。
-- 每个 JAR 只接受一个 ToolboxModule 实现。
-- 只允许安全的模块 ID。
-- 文件名会被规范化并限制在模块目录内。
-- 任何模块 JAR 都应被视为可执行代码。
-- 不支持在线下载模块。
-- 不提供给普通玩家使用的加载权限。
+- 不能加载或卸载 `velocity`、`velocitytoolbox`。
+- 有其它已加载插件对其声明非 optional 依赖时，不能卸载。
+- `load` 只接受 `plugins/` 下的文件名。
+- 重载若卸载成功、加载失败，插件保持卸载。
+- 不是官方 API，代理升级可能破坏反射；任意插件都不保证能安全热卸载。

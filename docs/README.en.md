@@ -1,147 +1,103 @@
+<p align="center">
+  <img src="../assets/logo.png" alt="VelocityToolbox" width="168">
+</p>
+
 # VelocityToolbox
 
-A public-API-first toolbox and reloadable module host for Velocity.
+A [Velocity](https://papermc.io/software/velocity) 4.1+ plugin that hosts resource packs over HTTP and can load, unload, or reload other Velocity plugins at runtime.
 
-## Current status
+[中文 README](../README.md) · [架构说明](ARCHITECTURE.md)
 
-Version: `0.1.0-SNAPSHOT`
+## Features
 
-The first version provides:
-
-- A Velocity plugin built against `velocity-api:4.1.0-SNAPSHOT`.
-- A reloadable module directory at `plugins/VelocityToolbox/modules`.
-- Module lifecycle methods: `enable` and `disable`.
-- Automatic cleanup of module-owned listeners, commands, scheduled tasks, and plugin channels.
-- Commands for status, module loading, unloading, and reloading.
-- A public module API for small self-owned proxy features.
-
-The public Velocity 4.1 API exposes plugin discovery and classpath injection, but not a supported external plugin load/unload operation. VelocityToolbox therefore treats reloadable modules as the stable extension boundary and does not depend on Velocity internals.
+- **Resource-pack HTTP hosting**: scan a directory of `.zip` files, compute SHA-1, and serve download URLs from this machine.
+- **Plugin hot-load**: load / unload / reload other Velocity plugins from `plugins/`.
 
 ## Requirements
 
-- Java 25 or newer for the current `4.1.0-SNAPSHOT` build. This snapshot is currently published with JVM 25 bytecode.
-- Velocity 4.1.0-SNAPSHOT or a compatible later API/runtime.
-- A test proxy before production use.
+- Java 25+
+- Velocity 4.1.0-SNAPSHOT or a compatible later runtime
 
-## Build
+## Install
 
-The project includes a Gradle Wrapper:
+1. Put `VelocityToolbox-*.jar` in Velocity's `plugins` directory.
+2. Start the proxy once to generate `plugins/VelocityToolbox/config.yml`.
+3. Configure pack hosting and/or use the plugin commands below.
 
 ```powershell
 .\gradlew.bat build
 ```
 
-The output JAR is:
+Output: `build/libs/VelocityToolbox-0.1.0-SNAPSHOT.jar`
 
-```text
-build/libs/VelocityToolbox-0.1.0-SNAPSHOT.jar
+## Resource-pack hosting
+
+Minecraft clients download packs from an HTTP URL. This plugin only starts an HTTP server **on the proxy host** and turns local zip files into that URL. Which player gets which pack is still decided by plugins such as [VelocityResourcepacks](https://modrinth.com/plugin/velocityresourcepacks).
+
+This plugin does **not** map ports, register DNS, or terminate HTTPS. It only provides a LAN-reachable HTTP service. For public players, you must expose `port` yourself (firewall, router, cloud security group, or reverse proxy), then put that reachable address in `public-url`.
+
+| Key | Role | Typical value |
+|---|---|---|
+| `bind` | Listen address. `0.0.0.0` accepts on every NIC | `0.0.0.0` |
+| `port` | Listen port. Open it yourself if the internet must reach it | `8765` |
+| `public-url` | Origin written into client download URLs | empty on LAN; a public URL on the internet |
+
+Download URLs look like `{public-url}/packs/{file}`. Leave `public-url` empty to use the first detected LAN IPv4. Do not use `127.0.0.1` unless players and the proxy share one machine, and do not use `0.0.0.0`.
+
+1. Put `.zip` files in `pack-host.packs-directory` (default: `plugins/VelocityToolbox/packs/`).
+2. Set `bind` / `port` / `public-url` as above.
+3. The startup log or `/vtoolbox packs` lists each pack's URL and SHA-1.
+4. Merge `plugins/VelocityToolbox/velocityresourcepacks-snippet.yml` into VelocityResourcepacks' `config.yml`.
+5. After changing zips, the path, or `public-url`, run `/vtoolbox reload`.
+
+File names may include Unicode and spaces, but not `/`, `\`, or `..`.
+
+```yaml
+pack-host:
+  enabled: true
+  bind: 0.0.0.0
+  port: 8765
+  public-url: ""          # empty on LAN; a player-reachable URL on the internet
+  packs-directory: packs  # relative to this plugin's data folder, or absolute
 ```
 
-## Installation
+Examples for `packs-directory`: `packs`, `../OtherPlugin/packs`, `D:/resourcepacks`, `/var/www/resourcepacks`.
 
-1. Build the project.
-2. Copy the output JAR into Velocity's `plugins` directory.
-3. Start the proxy once.
-4. Put module JARs into `plugins/VelocityToolbox/modules`.
-5. Use the module commands.
+## Plugin hot-load
+
+Operate on Velocity plugin JARs already in `plugins/`. `/vtoolbox reload` reloads pack hosting only.
+
+```text
+/vtoolbox plugin list
+/vtoolbox plugin load SomePlugin-1.0.jar
+/vtoolbox plugin unload someplugin
+/vtoolbox plugin reload someplugin
+```
+
+- `load` accepts a file name inside `plugins/` only.
+- `velocity` and `velocitytoolbox` cannot be loaded or unloaded.
+- Unload fails when another loaded plugin has a required dependency on the target.
+- If reload fails after unload, the plugin stays unloaded.
+
+Velocity 4.1 has no public load / unload API, so this uses the proxy's own plugin loader. Not every plugin hot-unloads cleanly. See [架构说明](ARCHITECTURE.md). The commands require `velocitytoolbox.admin`; do not grant it to ordinary players.
 
 ## Commands
 
-All commands require:
+Permission: `velocitytoolbox.admin`. Alias: `/vtb`.
 
-```text
-velocitytoolbox.admin
-```
+| Command | Description |
+|---|---|
+| `/vtoolbox help` | Help |
+| `/vtoolbox version` | Version, plugin count, pack-host switch |
+| `/vtoolbox status` | Proxy / Java / pack origin / loaded plugins |
+| `/vtoolbox packs` | URL and SHA-1 for each zip |
+| `/vtoolbox reload` | Reload pack hosting |
+| `/vtoolbox plugin list` | List loaded plugins |
+| `/vtoolbox plugin load <file.jar>` | Load from `plugins/` |
+| `/vtoolbox plugin unload <plugin-id>` | Unload |
+| `/vtoolbox plugin reload <plugin-id>` | Unload then load |
 
-Available commands:
+## Docs
 
-```text
-/vtoolbox help
-/vtoolbox version
-/vtoolbox status
-/vtoolbox reload
-/vtoolbox module list
-/vtoolbox module load <file.jar>
-/vtoolbox module unload <module-id>
-/vtoolbox module reload <module-id>
-```
-
-`/vtoolbox reload` currently acknowledges a proxy configuration reload request. Code reload is explicit through `/vtoolbox module reload <module-id>`.
-
-## Module JAR contract
-
-A module JAR must:
-
-1. Implement `io.github.velocitytoolbox.api.ToolboxModule`.
-2. Contain the following ServiceLoader registration file:
-
-   ```text
-   META-INF/services/io.github.velocitytoolbox.api.ToolboxModule
-   ```
-
-3. Expose one module implementation per JAR.
-4. Return a stable lowercase ID matching:
-
-   ```text
-   [a-z][a-z0-9-_]{0,63}
-   ```
-
-5. Register runtime resources through `ToolboxContext.registrations()`.
-
-Example module:
-
-```java
-public final class HelloModule implements ToolboxModule {
-    @Override
-    public String id() {
-        return "hello";
-    }
-
-    @Override
-    public void enable(ToolboxContext context) {
-        context.registrations().registerListener(new HelloListener(context.logger()));
-    }
-
-    @Override
-    public void disable() {
-        // Close module-owned external resources here.
-    }
-}
-```
-
-## Reload rules
-
-A module must release everything it owns in `disable()`, including:
-
-- Database connections.
-- Executors, threads, and thread pools.
-- Scheduled tasks.
-- Event listeners.
-- Commands.
-- Plugin messaging channels.
-- References to proxy objects or other modules.
-
-VelocityToolbox automatically cleans resources registered through `RegistrationScope`, but it cannot clean arbitrary resources created directly by a module. If a module leaks threads, futures, static references, or third-party global registrations, the old classloader may remain reachable.
-
-The first version targets self-owned, small modules and test/development workflows. It is not a complete safe hot-unloader for arbitrary Velocity plugins.
-
-## Security
-
-Do not give `velocitytoolbox.admin` to ordinary players. Loading a module JAR executes arbitrary code inside the proxy process.
-
-Only load JARs produced by your own build pipeline or reviewed source.
-
-## Roadmap
-
-- Separate published `velocitytoolbox-api` artifact.
-- Module metadata and dependency declarations.
-- Better command suggestions.
-- Module health state and reload transaction reporting.
-- Optional module file watcher.
-- Resource-pack module.
-- Cross-server event and routing modules.
-- An experimental adapter for Velocity internal plugin loading, only if a stable public API remains unavailable.
-
-## License
-
-No license has been selected yet. Choose and add a clear license before publishing publicly.
+- [架构说明](ARCHITECTURE.md)
+- [Chinese README](../README.md)
