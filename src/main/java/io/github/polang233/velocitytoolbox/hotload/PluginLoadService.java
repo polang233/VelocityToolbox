@@ -1,4 +1,4 @@
-package io.github.velocitytoolbox.hotload;
+package io.github.polang233.velocitytoolbox.hotload;
 
 import com.google.inject.AbstractModule;
 import com.google.inject.Module;
@@ -27,7 +27,7 @@ import java.util.stream.Stream;
 /**
  * 对 {@code plugins/*.jar} 里的真实 Velocity 插件做 load / unload / reload。
  *
- * <p>加载顺序与 4.1 代理启动时一致：{@code loadCandidate} → {@code createPluginFromCandidate}
+ * <p>加载顺序与 4.0 以上代理启动时一致：{@code loadCandidate} → {@code createPluginFromCandidate}
  * → Guice {@code createPlugin} → {@code registerPlugin} → {@code registerInternally}
  * → 只对该插件触发 {@code ProxyInitializeEvent}。</p>
  */

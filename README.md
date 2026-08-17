@@ -4,7 +4,7 @@
 
 # VelocityToolbox
 
-[Velocity](https://papermc.io/software/velocity) 4.1+ 的代理端工具插件，用来托管资源包，以及在运行时加载、卸载、重载其它 Velocity 插件。
+[Velocity](https://papermc.io/software/velocity) 4.0 以上的代理端工具插件，用来托管资源包，以及在运行时加载、卸载、重载其它 Velocity 插件。
 
 [English](docs/README.en.md) · [架构说明](docs/ARCHITECTURE.md)
 
@@ -16,7 +16,7 @@
 ## 环境
 
 - Java 25+
-- Velocity 4.1.0-SNAPSHOT 或兼容的更高版本
+- Velocity 4.0 以上
 
 ## 安装
 
@@ -28,7 +28,7 @@
 .\gradlew.bat build
 ```
 
-产物：`build/libs/VelocityToolbox-0.1.0-SNAPSHOT.jar`
+产物：`build/libs/VelocityToolbox-1.0.0.jar`
 
 ## 资源包托管
 
@@ -92,7 +92,7 @@ pack-host:
 - 若其它已加载插件对目标声明了非 optional 依赖，会拒绝卸载。
 - `reload` 先卸载再从同一个 JAR 加载；重新加载失败时插件保持卸载。
 
-Velocity 4.1 没有公开的插件 load / unload API，因此实现依赖代理内部加载器，不是所有插件都能安全热卸载。细节见 [架构说明](docs/ARCHITECTURE.md)。该功能需要 `velocitytoolbox.admin`，不要发给普通玩家。
+Velocity 4.0 以上没有公开的插件 load / unload API，因此实现依赖代理内部加载器，不是所有插件都能安全热卸载。细节见 [架构说明](docs/ARCHITECTURE.md)。该功能需要 `velocitytoolbox.admin`，不要发给普通玩家。
 
 ## 命令
 
@@ -110,7 +110,17 @@ Velocity 4.1 没有公开的插件 load / unload API，因此实现依赖代理�
 | `/vtoolbox plugin unload <plugin-id>` | 卸载 |
 | `/vtoolbox plugin reload <plugin-id>` | 卸载后再加载 |
 
+## 统计
+
+本插件使用 [bStats](https://bstats.org/plugin/velocity/VelocityToolbox/33451) 收集匿名使用数据。可在 `plugins/bStats/config.txt` 把 `enabled` 设为 `false` 关闭。
+
+[![bStats](https://bstats.org/signatures/velocity/VelocityToolbox.svg)](https://bstats.org/plugin/velocity/VelocityToolbox/33451)
+
 ## 文档
 
 - [架构说明](docs/ARCHITECTURE.md)
 - [English README](docs/README.en.md)
+
+---
+
+*觉得好用的话点个 [Star⭐](https://github.com/polang233/VelocityToolbox) 支持一下！*

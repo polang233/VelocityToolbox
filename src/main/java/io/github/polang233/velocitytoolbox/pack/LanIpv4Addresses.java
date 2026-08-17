@@ -1,4 +1,4 @@
-package io.github.velocitytoolbox.pack;
+package io.github.polang233.velocitytoolbox.pack;
 
 import java.io.IOException;
 import java.net.Inet4Address;

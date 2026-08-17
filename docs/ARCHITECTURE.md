@@ -3,7 +3,7 @@
 功能和配置见 [README](../README.md)。这里只记源码结构和热加载实现要点。
 
 ```text
-io.github.velocitytoolbox
+io.github.polang233.velocitytoolbox
 ├── VelocityToolboxPlugin            主类
 ├── BuildConstants                   Gradle 从 build.gradle 生成，供 @Plugin 使用
 ├── command/VelocityToolboxCommand   /vtoolbox
@@ -18,7 +18,7 @@ io.github.velocitytoolbox
 └── hotload/                         运行时加载其它插件
     ├── PluginLoadService            load / unload / reload
     ├── PluginCleanup                监听器、任务、命令、线程池、类加载器
-    └── VelocityInternalAccess       反射 4.1 内部加载器
+    └── VelocityInternalAccess       反射 4.0 以上内部加载器
 ```
 
 ## 资源包托管边界
@@ -29,7 +29,7 @@ io.github.velocitytoolbox
 
 命令操作的是 Velocity `plugins/` 里的真实 JAR。`/vtoolbox reload` 只重载资源包托管。
 
-Velocity 4.1 的 `PluginManager` 没有公开 load / unload，因此按代理启动路径反射：`loadCandidate` → 创建容器 → Guice → `registerPlugin` → `registerInternally` → 只对该插件触发 `ProxyInitializeEvent`。卸载时对该插件触发 `ProxyShutdownEvent`，再拆监听器、任务、带 `.plugin(...)` 的命令、线程池和类加载器。
+Velocity 4.0 以上的 `PluginManager` 没有公开 load / unload，因此按代理启动路径反射：`loadCandidate` → 创建容器 → Guice → `registerPlugin` → `registerInternally` → 只对该插件触发 `ProxyInitializeEvent`。卸载时对该插件触发 `ProxyShutdownEvent`，再拆监听器、任务、带 `.plugin(...)` 的命令、线程池和类加载器。
 
 - 不能加载或卸载 `velocity`、`velocitytoolbox`。
 - 有其它已加载插件对其声明非 optional 依赖时，不能卸载。

@@ -1,4 +1,4 @@
-package io.github.velocitytoolbox;
+package io.github.polang233.velocitytoolbox;
 
 import com.google.inject.Inject;
 import com.velocitypowered.api.command.BrigadierCommand;
@@ -11,9 +11,10 @@ import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.plugin.PluginContainer;
 import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.ProxyServer;
-import io.github.velocitytoolbox.command.VelocityToolboxCommand;
-import io.github.velocitytoolbox.hotload.PluginLoadService;
-import io.github.velocitytoolbox.pack.PackService;
+import io.github.polang233.velocitytoolbox.command.VelocityToolboxCommand;
+import io.github.polang233.velocitytoolbox.hotload.PluginLoadService;
+import io.github.polang233.velocitytoolbox.pack.PackService;
+import org.bstats.velocity.Metrics;
 import org.slf4j.Logger;
 
 import java.nio.file.Path;
@@ -34,26 +35,32 @@ import java.nio.file.Path;
 )
 public final class VelocityToolboxPlugin {
 
+    private static final int BSTATS_ID = 33451;
+
     private final ProxyServer proxy;
     private final Logger logger;
     private final Path dataDirectory;
     private final PluginContainer container;
+    private final Metrics.Factory metricsFactory;
 
     private PackService packService;
     private PluginLoadService pluginLoadService;
     private CommandMeta commandMeta;
+    private Metrics metrics;
 
     @Inject
     public VelocityToolboxPlugin(
             ProxyServer proxy,
             Logger logger,
             @DataDirectory Path dataDirectory,
-            PluginContainer container
+            PluginContainer container,
+            Metrics.Factory metricsFactory
     ) {
         this.proxy = proxy;
         this.logger = logger;
         this.dataDirectory = dataDirectory;
         this.container = container;
+        this.metricsFactory = metricsFactory;
     }
 
     public String version() {
@@ -62,6 +69,12 @@ public final class VelocityToolboxPlugin {
 
     @Subscribe
     public void onProxyInitialization(ProxyInitializeEvent event) {
+        try {
+            metrics = metricsFactory.make(this, BSTATS_ID);
+        } catch (RuntimeException exception) {
+            logger.warn("无法启动 bStats。", exception);
+        }
+
         packService = new PackService(logger, dataDirectory);
         try {
             packService.start();
@@ -112,6 +125,10 @@ public final class VelocityToolboxPlugin {
         if (commandMeta != null) {
             proxy.getCommandManager().unregister(commandMeta);
             commandMeta = null;
+        }
+        if (metrics != null) {
+            metrics.shutdown();
+            metrics = null;
         }
         if (packService != null) {
             packService.close();

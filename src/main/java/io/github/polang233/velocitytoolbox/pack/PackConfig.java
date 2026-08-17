@@ -1,4 +1,4 @@
-package io.github.velocitytoolbox.pack;
+package io.github.polang233.velocitytoolbox.pack;
 
 import org.spongepowered.configurate.CommentedConfigurationNode;
 import org.spongepowered.configurate.yaml.NodeStyle;

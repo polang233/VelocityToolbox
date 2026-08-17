@@ -1,4 +1,4 @@
-package io.github.velocitytoolbox.pack;
+package io.github.polang233.velocitytoolbox.pack;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;

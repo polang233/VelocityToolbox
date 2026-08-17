@@ -1,4 +1,4 @@
-package io.github.velocitytoolbox.hotload;
+package io.github.polang233.velocitytoolbox.hotload;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
@@ -15,7 +15,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * 反射调用 Velocity 4.1 内部加载器。
+ * 反射调用 Velocity 4.0 以上内部加载器。
  *
  * <p>优先找同名方法（代理以后如果补了 {@code unregisterPlugin} 会自动走方法），
  * 找不到再退回扫字段。公共 {@code PluginManager} 目前仍然没有 load / unload。</p>

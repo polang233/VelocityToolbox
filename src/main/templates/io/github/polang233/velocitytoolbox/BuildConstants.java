@@ -1,4 +1,4 @@
-package io.github.velocitytoolbox;
+package io.github.polang233.velocitytoolbox;
 
 /**
  * 由 Gradle {@code generateTemplates} 从 {@code build.gradle} 生成，供 {@code @Plugin} 使用。

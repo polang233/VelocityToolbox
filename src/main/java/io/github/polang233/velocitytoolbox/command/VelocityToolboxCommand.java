@@ -1,4 +1,4 @@
-package io.github.velocitytoolbox.command;
+package io.github.polang233.velocitytoolbox.command;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -9,10 +9,10 @@ import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.ProxyServer;
-import io.github.velocitytoolbox.VelocityToolboxPlugin;
-import io.github.velocitytoolbox.hotload.PluginLoadService;
-import io.github.velocitytoolbox.pack.HostedPack;
-import io.github.velocitytoolbox.pack.PackService;
+import io.github.polang233.velocitytoolbox.VelocityToolboxPlugin;
+import io.github.polang233.velocitytoolbox.hotload.PluginLoadService;
+import io.github.polang233.velocitytoolbox.pack.HostedPack;
+import io.github.polang233.velocitytoolbox.pack.PackService;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 
@@ -23,7 +23,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * {@code /vtoolbox}（别名 {@code /vtb}）。权限：{@code velocitytoolbox.admin}。
  *
- * <p>使用 Velocity 4.1 推荐的 {@link BrigadierCommand}，并通过 {@code CommandMeta.plugin(this)} 登记归属，
+ * <p>使用 Velocity 4.0 以上推荐的 {@link BrigadierCommand}，并通过 {@code CommandMeta.plugin(this)} 登记归属，
  * 这样本插件卸载时命令可以被拆掉。</p>
  */
 public final class VelocityToolboxCommand {

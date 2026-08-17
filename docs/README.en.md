@@ -4,7 +4,7 @@
 
 # VelocityToolbox
 
-A [Velocity](https://papermc.io/software/velocity) 4.1+ plugin that hosts resource packs over HTTP and can load, unload, or reload other Velocity plugins at runtime.
+A [Velocity](https://papermc.io/software/velocity) 4.0+ plugin that hosts resource packs over HTTP and can load, unload, or reload other Velocity plugins at runtime.
 
 [中文 README](../README.md) · [架构说明](ARCHITECTURE.md)
 
@@ -16,7 +16,7 @@ A [Velocity](https://papermc.io/software/velocity) 4.1+ plugin that hosts resour
 ## Requirements
 
 - Java 25+
-- Velocity 4.1.0-SNAPSHOT or a compatible later runtime
+- Velocity 4.0 or later
 
 ## Install
 
@@ -28,7 +28,7 @@ A [Velocity](https://papermc.io/software/velocity) 4.1+ plugin that hosts resour
 .\gradlew.bat build
 ```
 
-Output: `build/libs/VelocityToolbox-0.1.0-SNAPSHOT.jar`
+Output: `build/libs/VelocityToolbox-1.0.0.jar`
 
 ## Resource-pack hosting
 
@@ -79,7 +79,7 @@ Operate on Velocity plugin JARs already in `plugins/`. `/vtoolbox reload` reload
 - Unload fails when another loaded plugin has a required dependency on the target.
 - If reload fails after unload, the plugin stays unloaded.
 
-Velocity 4.1 has no public load / unload API, so this uses the proxy's own plugin loader. Not every plugin hot-unloads cleanly. See [架构说明](ARCHITECTURE.md). The commands require `velocitytoolbox.admin`; do not grant it to ordinary players.
+Velocity 4.0+ has no public load / unload API, so this uses the proxy's own plugin loader. Not every plugin hot-unloads cleanly. See [架构说明](ARCHITECTURE.md). The commands require `velocitytoolbox.admin`; do not grant it to ordinary players.
 
 ## Commands
 
@@ -97,7 +97,17 @@ Permission: `velocitytoolbox.admin`. Alias: `/vtb`.
 | `/vtoolbox plugin unload <plugin-id>` | Unload |
 | `/vtoolbox plugin reload <plugin-id>` | Unload then load |
 
+## Statistics
+
+This plugin uses [bStats](https://bstats.org/plugin/velocity/VelocityToolbox/33451) to collect anonymous usage data. Set `enabled` to `false` in `plugins/bStats/config.txt` to opt out.
+
+[![bStats](https://bstats.org/signatures/velocity/VelocityToolbox.svg)](https://bstats.org/plugin/velocity/VelocityToolbox/33451)
+
 ## Docs
 
 - [架构说明](ARCHITECTURE.md)
 - [Chinese README](../README.md)
+
+---
+
+*If this plugin is useful, please give it a [Star⭐](https://github.com/polang233/VelocityToolbox).*

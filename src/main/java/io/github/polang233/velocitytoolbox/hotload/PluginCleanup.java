@@ -1,4 +1,4 @@
-package io.github.velocitytoolbox.hotload;
+package io.github.polang233.velocitytoolbox.hotload;
 
 import com.velocitypowered.api.command.CommandManager;
 import com.velocitypowered.api.command.CommandMeta;
@@ -102,7 +102,7 @@ final class PluginCleanup {
     }
 
     /**
-     * 4.1 公共 {@link PluginContainer} 只有 {@code getExecutorService()}，调用它会懒创建线程池。
+     * 4.0 以上公共 {@link PluginContainer} 只有 {@code getExecutorService()}，调用它会懒创建线程池。
      * 实现类上的 {@code hasExecutorService()} 不在 API 里，所以先反射再看内部字段。
      */
     private void shutdownExecutor(PluginContainer container) {
