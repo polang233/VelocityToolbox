@@ -1,4 +1,4 @@
-package io.github.polang233.velocitytoolbox.hotload;
+package io.github.polang233.velocitytoolbox.plugins;
 
 import com.google.inject.AbstractModule;
 import com.google.inject.Module;
@@ -12,14 +12,17 @@ import com.velocitypowered.api.plugin.PluginDescription;
 import com.velocitypowered.api.plugin.PluginManager;
 import com.velocitypowered.api.plugin.meta.PluginDependency;
 import com.velocitypowered.api.proxy.ProxyServer;
+import io.github.polang233.velocitytoolbox.lang.Lang;
 import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -37,14 +40,16 @@ public final class PluginLoadService {
 
     private final ProxyServer proxy;
     private final Logger logger;
+    private final Lang lang;
     private final Path pluginsDirectory;
     private final PluginCleanup cleanup;
 
-    public PluginLoadService(ProxyServer proxy, Logger logger, Path dataDirectory) {
+    public PluginLoadService(ProxyServer proxy, Logger logger, Lang lang, Path dataDirectory) {
         this.proxy = proxy;
         this.logger = logger;
+        this.lang = lang;
         this.pluginsDirectory = dataDirectory.toAbsolutePath().normalize().getParent();
-        this.cleanup = new PluginCleanup(proxy, logger);
+        this.cleanup = new PluginCleanup(proxy, logger, lang);
     }
 
     public Path pluginsDirectory() {
@@ -64,19 +69,20 @@ public final class PluginLoadService {
                 .toList();
     }
 
-    public List<String> statusLines() {
-        List<String> lines = new ArrayList<>();
+    public List<PluginInfo> pluginInfos() {
+        List<PluginInfo> infos = new ArrayList<>();
         for (PluginContainer container : proxy.getPluginManager().getPlugins()) {
             PluginDescription description = container.getDescription();
             String jar = description.getSource()
                     .map(path -> path.getFileName().toString())
                     .orElse("?");
-            lines.add(description.getId()
-                    + " " + description.getVersion().orElse("?")
-                    + " -> " + jar);
+            infos.add(new PluginInfo(
+                    description.getId(),
+                    description.getVersion().orElse("?"),
+                    jar));
         }
-        lines.sort(String.CASE_INSENSITIVE_ORDER);
-        return lines;
+        infos.sort((left, right) -> String.CASE_INSENSITIVE_ORDER.compare(left.id(), right.id()));
+        return infos;
     }
 
     public List<String> jarFileNames() {
@@ -91,7 +97,7 @@ public final class PluginLoadService {
                     .sorted(String.CASE_INSENSITIVE_ORDER)
                     .toList();
         } catch (IOException exception) {
-            logger.warn("无法列出 {} 里的插件 JAR。", pluginsDirectory, exception);
+            logger.warn(lang.plain("log.list-jars", Lang.ph("dir", pluginsDirectory)), exception);
             return List.of();
         }
     }
@@ -99,7 +105,7 @@ public final class PluginLoadService {
     public synchronized OperationResult loadByFileName(String fileName) {
         Path jar = resolvePluginJar(fileName);
         if (jar == null) {
-            return OperationResult.fail("需要 " + pluginsDirectory + " 下的 .jar 文件名");
+            return OperationResult.fail("plugins.load.need-jar", Map.of("dir", pluginsDirectory.toString()));
         }
         return load(jar);
     }
@@ -107,7 +113,7 @@ public final class PluginLoadService {
     public synchronized OperationResult load(Path jar) {
         Path absoluteJar = jar.toAbsolutePath().normalize();
         if (!Files.isRegularFile(absoluteJar)) {
-            return OperationResult.fail("插件 JAR 不存在: " + absoluteJar.getFileName());
+            return OperationResult.fail("plugins.load.missing-file", Map.of("file", absoluteJar.getFileName().toString()));
         }
 
         PluginDescription realPlugin = null;
@@ -118,19 +124,21 @@ public final class PluginLoadService {
             PluginDescription candidate = (PluginDescription) VelocityInternalAccess.loadCandidate(loader, absoluteJar);
             String id = candidate.getId();
             if (isProtected(id)) {
-                return OperationResult.fail("拒绝加载受保护插件 '" + id + "'。");
+                return OperationResult.fail("plugins.load.protected", Map.of("plugin", id));
             }
             if (proxy.getPluginManager().isLoaded(id)) {
-                return OperationResult.fail("插件 '" + id + "' 已经加载。");
+                return OperationResult.fail("plugins.load.already", Map.of("plugin", id));
             }
             for (String providedId : candidate.getProvidedIds()) {
                 if (proxy.getPluginManager().isLoaded(providedId)) {
-                    return OperationResult.fail("插件 ID '" + providedId + "' 已被占用。");
+                    return OperationResult.fail("plugins.load.id-taken", Map.of("plugin", providedId));
                 }
             }
             for (PluginDependency dependency : candidate.getDependencies()) {
                 if (!dependency.isOptional() && !proxy.getPluginManager().isLoaded(dependency.getId())) {
-                    return OperationResult.fail("插件 " + id + " 缺少依赖 '" + dependency.getId() + "'");
+                    return OperationResult.fail("plugins.load.missing-dep", Map.of(
+                            "plugin", id,
+                            "dependency", dependency.getId()));
                 }
             }
 
@@ -149,71 +157,95 @@ public final class PluginLoadService {
                         proxy.getEventManager(), new ProxyInitializeEvent(), container, instance);
             }
 
-            logger.info("已加载插件 {} {}，来自 {}。",
-                    realPlugin.getId(),
-                    realPlugin.getVersion().orElse(""),
-                    absoluteJar.getFileName());
-            return OperationResult.ok("已加载插件 " + realPlugin.getId() + "。");
+            logger.info(lang.plain("log.loaded",
+                    Lang.ph("plugin", realPlugin.getId()),
+                    Lang.ph("version", realPlugin.getVersion().orElse("")),
+                    Lang.ph("file", absoluteJar.getFileName())));
+            return OperationResult.ok("plugins.load.ok", Map.of("plugin", realPlugin.getId()));
         } catch (Exception exception) {
-            logger.error("无法加载插件 {}。", absoluteJar.getFileName(), exception);
+            logger.error(lang.plain("log.load-fail", Lang.ph("file", absoluteJar.getFileName())), exception);
+            CleanupReport rollback = null;
             if (registered && container != null) {
                 try {
-                    rollbackFailedLoad(container);
-                } catch (Exception rollback) {
-                    logger.error("回滚失败的加载 {} 时出错。", absoluteJar.getFileName(), rollback);
+                    rollback = rollbackFailedLoad(container);
+                } catch (Exception rollbackError) {
+                    logger.error(lang.plain("log.rollback-fail", Lang.ph("file", absoluteJar.getFileName())), rollbackError);
                 }
             } else {
                 cleanup.closeDescriptionClassLoader(realPlugin);
             }
             cleanup.closeClassLoadersForJar(absoluteJar);
-            return OperationResult.fail("加载失败: " + rootMessage(exception));
+            return OperationResult.fail("plugins.load.fail", Map.of("file", absoluteJar.getFileName().toString()),
+                    rollback, exception);
         }
     }
 
     public synchronized OperationResult unload(String id) {
         if (isProtected(id)) {
-            return OperationResult.fail("拒绝卸载受保护插件 '" + id + "'。");
+            return OperationResult.fail("plugins.unload.protected", Map.of("plugin", id));
         }
         Optional<PluginContainer> optional = proxy.getPluginManager().getPlugin(id);
         if (optional.isEmpty()) {
-            return OperationResult.fail("插件 '" + id + "' 未加载。");
+            return OperationResult.fail("plugins.unload.not-loaded", Map.of("plugin", id));
         }
         PluginContainer container = optional.get();
-        List<String> dependents = dependentsOf(id);
+        String pluginId = container.getDescription().getId();
+        List<String> dependents = dependentsOf(container);
         if (!dependents.isEmpty()) {
-            return OperationResult.fail("插件 '" + id + "' 仍被依赖: " + String.join(", ", dependents));
+            return OperationResult.fail("plugins.unload.depended", Map.of(
+                    "plugin", pluginId,
+                    "dependents", String.join(", ", dependents)));
         }
 
         Object instance = container.getInstance().orElse(null);
         Path source = container.getDescription().getSource().orElse(null);
+        Throwable shutdownError = null;
         try {
             if (instance != null) {
-                VelocityInternalAccess.fireForPlugin(
-                        proxy.getEventManager(), new ProxyShutdownEvent(), container, instance);
+                try {
+                    VelocityInternalAccess.fireForPlugin(
+                            proxy.getEventManager(), new ProxyShutdownEvent(), container, instance);
+                } catch (Exception exception) {
+                    shutdownError = exception;
+                    logger.error(lang.plain("log.unload-fail", Lang.ph("plugin", pluginId)), exception);
+                }
             }
-            cleanup.detach(container, instance);
+
+            CleanupReport report = cleanup.detach(container, instance);
+            if (shutdownError != null) {
+                report.markShutdownEventFailed();
+            }
             VelocityInternalAccess.unregisterPlugin(proxy.getPluginManager(), container);
+            cleanup.verify(container, instance, report);
+            boolean stillLoaded = proxy.getPluginManager().isLoaded(pluginId);
             cleanup.closePluginClassLoader(instance);
             if (instance == null) {
                 cleanup.closeDescriptionClassLoader(container.getDescription());
             }
             cleanup.closeClassLoadersForJar(source);
-            logger.info("已卸载插件 {}。", id);
-            return OperationResult.ok("已卸载插件 " + id + "。");
+
+            if (stillLoaded) {
+                logger.error(lang.plain("log.unload-fail", Lang.ph("plugin", pluginId)));
+                return OperationResult.fail("plugins.unload.fail", Map.of("plugin", pluginId), report,
+                        shutdownError != null ? shutdownError : new IllegalStateException(pluginId));
+            }
+
+            logger.info(lang.plain("log.unloaded", Lang.ph("plugin", pluginId)));
+            return new OperationResult(true, "plugins.unload.ok", Map.of("plugin", pluginId), report, shutdownError);
         } catch (Exception exception) {
-            logger.error("无法卸载插件 {}。", id, exception);
-            return OperationResult.fail("卸载失败: " + rootMessage(exception));
+            logger.error(lang.plain("log.unload-fail", Lang.ph("plugin", pluginId)), exception);
+            return OperationResult.fail("plugins.unload.fail", Map.of("plugin", pluginId), exception);
         }
     }
 
     public synchronized OperationResult reload(String id) {
         Optional<PluginContainer> optional = proxy.getPluginManager().getPlugin(id);
         if (optional.isEmpty()) {
-            return OperationResult.fail("插件 '" + id + "' 未加载。");
+            return OperationResult.fail("plugins.unload.not-loaded", Map.of("plugin", id));
         }
         Path jar = optional.get().getDescription().getSource().orElse(null);
         if (jar == null) {
-            return OperationResult.fail("插件 '" + id + "' 没有 JAR 路径，无法重载。");
+            return OperationResult.fail("plugins.reload.no-jar", Map.of("plugin", id));
         }
         OperationResult unloaded = unload(id);
         if (!unloaded.success()) {
@@ -221,19 +253,25 @@ public final class PluginLoadService {
         }
         OperationResult loaded = load(jar);
         if (!loaded.success()) {
-            return OperationResult.fail("已卸载 '" + id + "'，但重新加载失败: " + loaded.message());
+            return new OperationResult(
+                    false,
+                    "plugins.reload.load-failed",
+                    Map.of("plugin", id),
+                    loaded.cleanup(),
+                    loaded.error());
         }
-        return OperationResult.ok("已重载插件 " + id + "。");
+        return OperationResult.ok("plugins.reload.ok", Map.of("plugin", id), unloaded.cleanup());
     }
 
-    private void rollbackFailedLoad(PluginContainer container) {
+    private CleanupReport rollbackFailedLoad(PluginContainer container) {
         Object instance = container.getInstance().orElse(null);
-        cleanup.detach(container, instance);
+        CleanupReport report = cleanup.detach(container, instance);
         VelocityInternalAccess.unregisterPlugin(proxy.getPluginManager(), container);
         cleanup.closePluginClassLoader(instance);
         if (instance == null) {
             cleanup.closeDescriptionClassLoader(container.getDescription());
         }
+        return report;
     }
 
     /**
@@ -264,16 +302,27 @@ public final class PluginLoadService {
         };
     }
 
-    private List<String> dependentsOf(String id) {
+    private List<String> dependentsOf(PluginContainer target) {
+        Set<String> claimed = claimedIds(target.getDescription());
         List<String> dependents = new ArrayList<>();
         for (PluginContainer container : proxy.getPluginManager().getPlugins()) {
+            if (container == target) {
+                continue;
+            }
             for (PluginDependency dependency : container.getDescription().getDependencies()) {
-                if (!dependency.isOptional() && id.equalsIgnoreCase(dependency.getId())) {
+                if (!dependency.isOptional() && claimed.contains(dependency.getId())) {
                     dependents.add(container.getDescription().getId());
                 }
             }
         }
         return dependents;
+    }
+
+    private static Set<String> claimedIds(PluginDescription description) {
+        Set<String> ids = new LinkedHashSet<>();
+        ids.add(description.getId());
+        ids.addAll(description.getProvidedIds());
+        return ids;
     }
 
     private Path resolvePluginJar(String fileName) {
@@ -303,7 +352,7 @@ public final class PluginLoadService {
         return PROTECTED_IDS.contains(id.toLowerCase(Locale.ROOT));
     }
 
-    private static String rootMessage(Throwable exception) {
+    public static String rootMessage(Throwable exception) {
         Throwable current = exception;
         while (current.getCause() != null && current.getCause() != current) {
             current = current.getCause();
@@ -315,13 +364,39 @@ public final class PluginLoadService {
         return message;
     }
 
-    public record OperationResult(boolean success, String message) {
-        public static OperationResult ok(String message) {
-            return new OperationResult(true, message);
+    public record PluginInfo(String id, String version, String jar) {
+    }
+
+    public record OperationResult(
+            boolean success,
+            String messageKey,
+            Map<String, String> placeholders,
+            CleanupReport cleanup,
+            Throwable error
+    ) {
+        public static OperationResult ok(String messageKey, Map<String, String> placeholders) {
+            return new OperationResult(true, messageKey, Map.copyOf(placeholders), null, null);
         }
 
-        public static OperationResult fail(String message) {
-            return new OperationResult(false, message);
+        public static OperationResult ok(String messageKey, Map<String, String> placeholders, CleanupReport cleanup) {
+            return new OperationResult(true, messageKey, Map.copyOf(placeholders), cleanup, null);
+        }
+
+        public static OperationResult fail(String messageKey, Map<String, String> placeholders) {
+            return new OperationResult(false, messageKey, Map.copyOf(placeholders), null, null);
+        }
+
+        public static OperationResult fail(String messageKey, Map<String, String> placeholders, Throwable error) {
+            return new OperationResult(false, messageKey, Map.copyOf(placeholders), null, error);
+        }
+
+        public static OperationResult fail(
+                String messageKey,
+                Map<String, String> placeholders,
+                CleanupReport cleanup,
+                Throwable error
+        ) {
+            return new OperationResult(false, messageKey, Map.copyOf(placeholders), cleanup, error);
         }
     }
 }

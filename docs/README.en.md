@@ -11,7 +11,7 @@ A [Velocity](https://papermc.io/software/velocity) 4.0+ plugin that hosts resour
 ## Features
 
 - **Resource-pack HTTP hosting**: scan a directory of `.zip` files, compute SHA-1, and serve download URLs from this machine.
-- **Plugin hot-load**: load / unload / reload other Velocity plugins from `plugins/`.
+- **Plugin management**: load / unload / reload other Velocity plugins from `plugins/`.
 
 ## Requirements
 
@@ -53,6 +53,8 @@ Download URLs look like `{public-url}/packs/{file}`. Leave `public-url` empty to
 File names may include Unicode and spaces, but not `/`, `\`, or `..`.
 
 ```yaml
+language: en          # zh / en, or a custom file under lang/
+
 pack-host:
   enabled: true
   bind: 0.0.0.0
@@ -63,9 +65,15 @@ pack-host:
 
 Examples for `packs-directory`: `packs`, `../OtherPlugin/packs`, `D:/resourcepacks`, `/var/www/resourcepacks`.
 
-## Plugin hot-load
+## Language
 
-Operate on Velocity plugin JARs already in `plugins/`. `/vtoolbox reload` reloads pack hosting only.
+`language` in `config.yml` defaults to `zh`. Set `en` for English, or any file name under `lang/` without `.yml`. The first start copies `lang/zh.yml` and `lang/en.yml` into the data folder; edit those to change wording and colors. `/vtoolbox reload` reloads language, config, and pack hosting.
+
+Player-facing messages use Adventure MiniMessage. Defaults are accent `#FF6600` and body `#CCFFFF`. RGB works on 1.16+ clients; the console depends on the terminal.
+
+## Plugin management
+
+Operate on Velocity plugin JARs already in `plugins/`. `/vtoolbox reload` reloads this plugin's language, config, and pack hosting only.
 
 ```text
 /vtoolbox plugin list
@@ -76,10 +84,13 @@ Operate on Velocity plugin JARs already in `plugins/`. `/vtoolbox reload` reload
 
 - `load` accepts a file name inside `plugins/` only.
 - `velocity` and `velocitytoolbox` cannot be loaded or unloaded.
-- Unload fails when another loaded plugin has a required dependency on the target.
+- Unload fails when another loaded plugin has a required dependency on the target (including IDs it `provides`).
 - If reload fails after unload, the plugin stays unloaded.
+- Unload tries to strip listeners, tasks, commands, custom plugin-message channels, the plugin executor, and the class loader. On failure the chat shows the exception type and message, and points you to the proxy log.
 
-Velocity 4.0+ has no public load / unload API, so this uses the proxy's own plugin loader. Not every plugin hot-unloads cleanly. See [架构说明](ARCHITECTURE.md). The commands require `velocitytoolbox.admin`; do not grant it to ordinary players.
+**Being able to unload a plugin does not mean you should hot-unload it.** Small plugins with a few commands and listeners usually come off cleanly. Do not make a habit of hot-unloading large plugins (LuckPerms, protocol/packet hooks, permission providers, anything holding player connections or a big in-memory cache). Velocity does not track plugin-message channel ownership, other plugins may still hold old classes, and memory is not guaranteed to be reclaimed. Restart the proxy after replacing those JARs.
+
+Velocity 4.0+ has no public load / unload API, so this uses the proxy's own plugin loader. See [架构说明](ARCHITECTURE.md). The commands require `velocitytoolbox.admin`; do not grant it to ordinary players.
 
 ## Commands
 
@@ -91,7 +102,7 @@ Permission: `velocitytoolbox.admin`. Alias: `/vtb`.
 | `/vtoolbox version` | Version, plugin count, pack-host switch |
 | `/vtoolbox status` | Proxy / Java / pack origin / loaded plugins |
 | `/vtoolbox packs` | URL and SHA-1 for each zip |
-| `/vtoolbox reload` | Reload pack hosting |
+| `/vtoolbox reload` | Reload language, config, and pack hosting |
 | `/vtoolbox plugin list` | List loaded plugins |
 | `/vtoolbox plugin load <file.jar>` | Load from `plugins/` |
 | `/vtoolbox plugin unload <plugin-id>` | Unload |

@@ -30,8 +30,12 @@ public final class PackService implements AutoCloseable {
     }
 
     public synchronized void start() throws IOException {
+        start(PackConfig.load(dataDirectory));
+    }
+
+    public synchronized void start(PackConfig packConfig) throws IOException {
         try {
-            config = PackConfig.load(dataDirectory);
+            config = packConfig;
             packsDirectory = resolvePacksDirectory();
             if (Files.exists(packsDirectory) && !Files.isDirectory(packsDirectory)) {
                 throw new IOException("pack-host.packs-directory 不是目录: " + packsDirectory);
@@ -63,8 +67,12 @@ public final class PackService implements AutoCloseable {
     }
 
     public synchronized void reload() throws IOException {
+        reload(PackConfig.load(dataDirectory));
+    }
+
+    public synchronized void reload(PackConfig packConfig) throws IOException {
         close();
-        start();
+        start(packConfig);
     }
 
     public List<HostedPack> packs() {

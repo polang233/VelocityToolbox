@@ -1,6 +1,5 @@
 plugins {
     id 'java'
-    id 'com.gradleup.shadow' version '8.3.11'
 }
 
 group = 'io.github.polang233.velocitytoolbox'
@@ -27,7 +26,8 @@ dependencies {
     annotationProcessor 'com.velocitypowered:velocity-api:4.1.0-SNAPSHOT'
     compileOnly 'org.spongepowered:configurate-yaml:4.2.0'
     compileOnly 'com.google.inject:guice:7.0.0'
-    implementation 'org.bstats:bstats-velocity:3.2.1'
+    compileOnly 'net.kyori:adventure-text-minimessage:4.21.0'
+    compileOnly 'net.kyori:adventure-text-serializer-plain:4.21.0'
 }
 
 java {
@@ -43,14 +43,7 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 tasks.named('jar', Jar) {
-    enabled = false
-}
-
-tasks.named('shadowJar', com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
     archiveBaseName = pluginName
-    archiveClassifier = ''
-    mergeServiceFiles()
-    relocate 'org.bstats', "${project.group}.libs.bstats"
     manifest {
         attributes(
                 'Implementation-Title': pluginName,

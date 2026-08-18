@@ -11,7 +11,7 @@
 ## 功能
 
 - **资源包 HTTP 托管**：扫描指定目录里的 `.zip`，计算 SHA-1，在本机提供玩家客户端能下载的 URL。
-- **插件热加载**：对 `plugins/` 里的其它 Velocity 插件执行 load / unload / reload。
+- **插件管理**：对 `plugins/` 里的其它 Velocity 插件执行 load / unload / reload。
 
 ## 环境
 
@@ -61,6 +61,8 @@ Minecraft 客户端从 HTTP URL 下载资源包。本插件只在**代理本机*
 文件名可以含中文和空格，不能包含 `/`、`\` 或 `..`。
 
 ```yaml
+language: zh          # zh / en，或 lang/ 下自定义文件名
+
 pack-host:
   enabled: true
   bind: 0.0.0.0
@@ -76,9 +78,15 @@ pack-host:
 | `D:/resourcepacks` | Windows 绝对路径 |
 | `/var/www/resourcepacks` | Linux 绝对路径 |
 
-## 插件热加载
+## 语言
 
-对 `plugins/` 目录里已有的 Velocity 插件 JAR 做运行时加载、卸载和重载。`/vtoolbox reload` 只重载资源包托管，不会重载其它插件。
+`config.yml` 里 `language` 默认 `zh`。改成 `en` 即英文；也可以填 `lang/` 下自定义文件名（不要写 `.yml`）。首次启动会把 `lang/zh.yml`、`lang/en.yml` 拷到数据目录，改这些文件就能改文案和颜色。`/vtoolbox reload` 会重载语言、配置和资源包托管。
+
+玩家可见消息走 Adventure MiniMessage，默认强调色 `#FF6600`、正文 `#CCFFFF`。1.16 以上客户端能显示 RGB；控制台能否显示取决于终端。
+
+## 插件管理
+
+对 `plugins/` 目录里已有的 Velocity 插件 JAR 做运行时加载、卸载和重载。`/vtoolbox reload` 只重载本插件的语言、配置和资源包托管，不会重载其它插件。
 
 ```text
 /vtoolbox plugin list
@@ -89,10 +97,13 @@ pack-host:
 
 - `load` 只接受 `plugins/` 下的文件名。
 - 不能加载或卸载 `velocity` 和 `velocitytoolbox`。
-- 若其它已加载插件对目标声明了非 optional 依赖，会拒绝卸载。
+- 若其它已加载插件对目标（含它 `provides` 的 ID）声明了非 optional 依赖，会拒绝卸载。
 - `reload` 先卸载再从同一个 JAR 加载；重新加载失败时插件保持卸载。
+- 卸载后会尽量拆掉监听器、任务、命令、自定义消息通道、线程池和类加载器；失败时聊天里会给出异常类型、原因，并提示去看代理日志。
 
-Velocity 4.0 以上没有公开的插件 load / unload API，因此实现依赖代理内部加载器，不是所有插件都能安全热卸载。细节见 [架构说明](docs/ARCHITECTURE.md)。该功能需要 `velocitytoolbox.admin`，不要发给普通玩家。
+**能卸掉不等于建议热卸载。** 像 ShadiaoVelocity 这种命令/监听器结构简单的插件，热卸载通常比较干净。LuckPerms、协议/数据包、权限、长期占玩家连接或内部缓存很大的插件，即使这次看起来卸掉了，也不建议当常规操作：消息通道在 Velocity 里不记插件归属、别的插件可能仍握着旧类、内存也不保证能立刻收回。这类插件请改 JAR 后**完整重启代理**。
+
+Velocity 4.0 以上没有公开的插件 load / unload API，因此实现依赖代理内部加载器。细节见 [架构说明](docs/ARCHITECTURE.md)。该功能需要 `velocitytoolbox.admin`，不要发给普通玩家。
 
 ## 命令
 
@@ -104,7 +115,7 @@ Velocity 4.0 以上没有公开的插件 load / unload API，因此实现依赖�
 | `/vtoolbox version` | 版本、插件数量、托管开关 |
 | `/vtoolbox status` | 代理版本、Java、托管来源、已加载插件 |
 | `/vtoolbox packs` | 列出每个 zip 的 URL 和 SHA-1 |
-| `/vtoolbox reload` | 重载资源包托管 |
+| `/vtoolbox reload` | 重载语言、配置和资源包托管 |
 | `/vtoolbox plugin list` | 列出已加载插件 |
 | `/vtoolbox plugin load <file.jar>` | 从 `plugins/` 加载 |
 | `/vtoolbox plugin unload <plugin-id>` | 卸载 |

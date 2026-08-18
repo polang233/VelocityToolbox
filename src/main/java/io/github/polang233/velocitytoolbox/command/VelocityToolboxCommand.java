@@ -10,7 +10,9 @@ import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.ProxyServer;
 import io.github.polang233.velocitytoolbox.VelocityToolboxPlugin;
-import io.github.polang233.velocitytoolbox.hotload.PluginLoadService;
+import io.github.polang233.velocitytoolbox.plugins.CleanupReport;
+import io.github.polang233.velocitytoolbox.plugins.PluginLoadService;
+import io.github.polang233.velocitytoolbox.lang.Lang;
 import io.github.polang233.velocitytoolbox.pack.HostedPack;
 import io.github.polang233.velocitytoolbox.pack.PackService;
 import net.kyori.adventure.text.Component;
@@ -19,6 +21,8 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
+
+import static io.github.polang233.velocitytoolbox.lang.Lang.ph;
 
 /**
  * {@code /vtoolbox}（别名 {@code /vtb}）。权限：{@code velocitytoolbox.admin}。
@@ -34,17 +38,20 @@ public final class VelocityToolboxCommand {
     private final ProxyServer proxy;
     private final PluginLoadService plugins;
     private final PackService packService;
+    private final Lang lang;
 
     public VelocityToolboxCommand(
             VelocityToolboxPlugin plugin,
             ProxyServer proxy,
             PluginLoadService plugins,
-            PackService packService
+            PackService packService,
+            Lang lang
     ) {
         this.plugin = plugin;
         this.proxy = proxy;
         this.plugins = plugins;
         this.packService = packService;
+        this.lang = lang;
     }
 
     public BrigadierCommand build() {
@@ -56,29 +63,28 @@ public final class VelocityToolboxCommand {
         root.then(BrigadierCommand.literalArgumentBuilder("version").executes(this::version));
         root.then(BrigadierCommand.literalArgumentBuilder("status").executes(this::status));
         root.then(BrigadierCommand.literalArgumentBuilder("packs").executes(this::packs));
-        root.then(BrigadierCommand.literalArgumentBuilder("reload").executes(this::reloadPacks));
-        root.then(pluginNode("plugin"));
-        root.then(pluginNode("plugins"));
+        root.then(BrigadierCommand.literalArgumentBuilder("reload").executes(this::reloadAll));
+        root.then(pluginNode());
 
         return new BrigadierCommand(root);
     }
 
-    private LiteralArgumentBuilder<CommandSource> pluginNode(String name) {
-        return BrigadierCommand.literalArgumentBuilder(name)
-                .executes(this::pluginList)
+    private LiteralArgumentBuilder<CommandSource> pluginNode() {
+        return BrigadierCommand.literalArgumentBuilder("plugin")
+                .executes(this::pluginHelp)
                 .then(BrigadierCommand.literalArgumentBuilder("list").executes(this::pluginList))
                 .then(BrigadierCommand.literalArgumentBuilder("load")
-                        .executes(ctx -> usage(ctx, "用法: /vtoolbox plugin load <file.jar>"))
+                        .executes(ctx -> usage(ctx, "/vtoolbox plugin load <file.jar>"))
                         .then(BrigadierCommand.requiredArgumentBuilder("file", StringArgumentType.greedyString())
                                 .suggests(this::suggestJars)
                                 .executes(this::pluginLoad)))
                 .then(BrigadierCommand.literalArgumentBuilder("unload")
-                        .executes(ctx -> usage(ctx, "用法: /vtoolbox plugin unload <plugin-id>"))
+                        .executes(ctx -> usage(ctx, "/vtoolbox plugin unload <plugin-id>"))
                         .then(BrigadierCommand.requiredArgumentBuilder("id", StringArgumentType.word())
                                 .suggests(this::suggestPluginIds)
                                 .executes(this::pluginUnload)))
                 .then(BrigadierCommand.literalArgumentBuilder("reload")
-                        .executes(ctx -> usage(ctx, "用法: /vtoolbox plugin reload <plugin-id>"))
+                        .executes(ctx -> usage(ctx, "/vtoolbox plugin reload <plugin-id>"))
                         .then(BrigadierCommand.requiredArgumentBuilder("id", StringArgumentType.word())
                                 .suggests(this::suggestPluginIds)
                                 .executes(this::pluginReload)));
@@ -86,34 +92,44 @@ public final class VelocityToolboxCommand {
 
     private int help(CommandContext<CommandSource> ctx) {
         CommandSource source = ctx.getSource();
-        info(source, "VelocityToolbox 命令:");
-        info(source, "  /vtoolbox version");
-        info(source, "  /vtoolbox status");
-        info(source, "  /vtoolbox packs");
-        info(source, "  /vtoolbox reload");
-        info(source, "  /vtoolbox plugin list");
-        info(source, "  /vtoolbox plugin load <file.jar>");
-        info(source, "  /vtoolbox plugin unload <plugin-id>");
-        info(source, "  /vtoolbox plugin reload <plugin-id>");
+        lang.send(source, "command.help.title");
+        helpLine(source, "/vtoolbox version", "command.help.version");
+        helpLine(source, "/vtoolbox status", "command.help.status");
+        helpLine(source, "/vtoolbox packs", "command.help.packs");
+        helpLine(source, "/vtoolbox reload", "command.help.reload");
+        helpLine(source, "/vtoolbox plugin", "command.help.plugin");
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private int pluginHelp(CommandContext<CommandSource> ctx) {
+        CommandSource source = ctx.getSource();
+        lang.send(source, "command.plugin.title");
+        helpLine(source, "/vtoolbox plugin list", "command.plugin.list");
+        helpLine(source, "/vtoolbox plugin load <file.jar>", "command.plugin.load");
+        helpLine(source, "/vtoolbox plugin unload <plugin-id>", "command.plugin.unload");
+        helpLine(source, "/vtoolbox plugin reload <plugin-id>", "command.plugin.reload");
+        lang.send(source, "command.plugin.limit");
         return Command.SINGLE_SUCCESS;
     }
 
     private int version(CommandContext<CommandSource> ctx) {
-        info(ctx.getSource(), "VelocityToolbox " + plugin.version()
-                + " | 插件数=" + plugins.loadedIds().size()
-                + " | 资源包托管=" + (packService.enabled() ? "开" : "关"));
+        lang.send(ctx.getSource(), "command.version",
+                ph("version", plugin.version()),
+                ph("plugins", plugins.loadedIds().size()));
+        lang.send(ctx.getSource(), packHostStatus());
         return Command.SINGLE_SUCCESS;
     }
 
     private int status(CommandContext<CommandSource> ctx) {
         CommandSource source = ctx.getSource();
-        info(source, "代理 " + proxy.getVersion().getVersion()
-                + " | Java " + System.getProperty("java.version")
-                + " | 插件数=" + plugins.loadedIds().size()
-                + " | 资源包托管=" + (packService.enabled() ? "开" : "关"));
+        lang.send(source, "command.status.proxy",
+                ph("version", proxy.getVersion().getVersion()),
+                ph("java", System.getProperty("java.version")),
+                ph("plugins", plugins.loadedIds().size()));
+        lang.send(source, packHostStatus());
         if (packService.enabled()) {
-            info(source, "下载来源 " + packService.publicOrigin());
-            info(source, "资源包目录 " + packService.packsDirectory());
+            lang.send(source, "command.status.origin", ph("origin", packService.publicOrigin()));
+            lang.send(source, "command.status.packs-dir", ph("path", packService.packsDirectory()));
         }
         return pluginList(ctx);
     }
@@ -121,37 +137,38 @@ public final class VelocityToolboxCommand {
     private int packs(CommandContext<CommandSource> ctx) {
         CommandSource source = ctx.getSource();
         if (!packService.enabled()) {
-            warn(source, "资源包托管未启用。");
+            lang.send(source, "command.packs.disabled");
             return 0;
         }
         List<HostedPack> hosted = packService.packs();
         if (hosted.isEmpty()) {
-            warn(source, "目录里没有 zip: " + packService.packsDirectory());
+            lang.send(source, "command.packs.empty", ph("path", packService.packsDirectory()));
             return Command.SINGLE_SUCCESS;
         }
+        lang.send(source, "command.packs.title", ph("count", hosted.size()));
         for (HostedPack pack : hosted) {
-            info(source, pack.fileName());
-            info(source, "  " + pack.url());
-            info(source, "  sha1 " + pack.sha1());
+            lang.send(source, Component.text(pack.fileName(), Lang.ACCENT));
+            lang.send(source, Component.text(pack.url(), Lang.BODY));
+            lang.send(source, Component.text()
+                    .append(Component.text("sha1 ", NamedTextColor.DARK_GRAY))
+                    .append(Component.text(pack.sha1(), Lang.BODY))
+                    .build());
         }
         return Command.SINGLE_SUCCESS;
     }
 
-    private int reloadPacks(CommandContext<CommandSource> ctx) {
-        boolean ok = plugin.reloadPacks();
-        if (ok) {
-            ok(ctx.getSource(), "已重载资源包托管。");
-            return Command.SINGLE_SUCCESS;
-        }
-        error(ctx.getSource(), "资源包托管重载失败，请看代理日志。");
-        return 0;
+    private int reloadAll(CommandContext<CommandSource> ctx) {
+        boolean ok = plugin.reloadAll();
+        lang.send(ctx.getSource(), ok ? "command.reload.ok" : "command.reload.fail");
+        return ok ? Command.SINGLE_SUCCESS : 0;
     }
 
     private int pluginList(CommandContext<CommandSource> ctx) {
         CommandSource source = ctx.getSource();
-        info(source, "已加载插件:");
-        for (String line : plugins.statusLines()) {
-            info(source, " - " + line);
+        List<PluginLoadService.PluginInfo> infos = plugins.pluginInfos();
+        lang.send(source, "command.plugin.list-title", ph("count", infos.size()));
+        for (PluginLoadService.PluginInfo info : infos) {
+            lang.send(source, pluginLine(info));
         }
         return Command.SINGLE_SUCCESS;
     }
@@ -169,16 +186,33 @@ public final class VelocityToolboxCommand {
     }
 
     private int report(CommandContext<CommandSource> ctx, PluginLoadService.OperationResult result) {
-        if (result.success()) {
-            ok(ctx.getSource(), result.message());
-            return Command.SINGLE_SUCCESS;
+        CommandSource source = ctx.getSource();
+        lang.send(source, result.messageKey(), Lang.placeholders(result.placeholders()));
+        CleanupReport cleanup = result.cleanup();
+        if (cleanup != null) {
+            if (cleanup.shutdownEventFailed()) {
+                lang.send(source, "plugins.shutdown-error");
+            }
+            lang.send(source, "plugins.cleanup.summary",
+                    ph("commands", cleanup.commands()),
+                    ph("tasks", cleanup.tasks()),
+                    ph("listeners", cleanup.extraListeners()),
+                    ph("channels", cleanup.channels()));
+            for (CleanupReport.Leftover leftover : cleanup.leftovers()) {
+                lang.send(source, leftover.key(), Lang.placeholders(leftover.placeholders()));
+            }
         }
-        error(ctx.getSource(), result.message());
-        return 0;
+        if (result.error() != null) {
+            lang.send(source, "plugins.error.detail",
+                    ph("type", result.error().getClass().getSimpleName()),
+                    ph("message", PluginLoadService.rootMessage(result.error())));
+            lang.send(source, "plugins.error.see-log");
+        }
+        return result.success() ? Command.SINGLE_SUCCESS : 0;
     }
 
-    private int usage(CommandContext<CommandSource> ctx, String message) {
-        error(ctx.getSource(), message);
+    private int usage(CommandContext<CommandSource> ctx, String command) {
+        lang.send(ctx.getSource(), "command.usage", ph("usage", command));
         return 0;
     }
 
@@ -200,19 +234,29 @@ public final class VelocityToolboxCommand {
         return builder.buildFuture();
     }
 
-    private static void info(CommandSource source, String message) {
-        source.sendMessage(Component.text(message, NamedTextColor.GRAY));
+    private Component packHostStatus() {
+        return Component.text()
+                .append(Component.text("pack-host=", NamedTextColor.DARK_GRAY))
+                .append(packService.enabled()
+                        ? lang.get("command.pack-host.on")
+                        : lang.get("command.pack-host.off"))
+                .build();
     }
 
-    private static void ok(CommandSource source, String message) {
-        source.sendMessage(Component.text(message, NamedTextColor.GREEN));
+    private static Component pluginLine(PluginLoadService.PluginInfo info) {
+        return Component.text()
+                .append(Component.text(info.id(), Lang.ACCENT))
+                .append(Component.text(" " + info.version(), Lang.BODY))
+                .append(Component.text(" -> ", NamedTextColor.DARK_GRAY))
+                .append(Component.text(info.jar(), Lang.BODY))
+                .build();
     }
 
-    private static void warn(CommandSource source, String message) {
-        source.sendMessage(Component.text(message, NamedTextColor.YELLOW));
-    }
-
-    private static void error(CommandSource source, String message) {
-        source.sendMessage(Component.text(message, NamedTextColor.RED));
+    private void helpLine(CommandSource source, String command, String descriptionKey) {
+        lang.send(source, Component.text()
+                .append(Component.text(command, Lang.ACCENT))
+                .append(Component.text("  "))
+                .append(lang.get(descriptionKey))
+                .build());
     }
 }

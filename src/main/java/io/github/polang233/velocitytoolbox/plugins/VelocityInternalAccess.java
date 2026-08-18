@@ -1,4 +1,6 @@
-package io.github.polang233.velocitytoolbox.hotload;
+package io.github.polang233.velocitytoolbox.plugins;
+
+import com.mojang.brigadier.tree.CommandNode;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
@@ -9,9 +11,12 @@ import java.net.URLClassLoader;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -230,12 +235,249 @@ final class VelocityInternalAccess {
         }
     }
 
+    /**
+     * 按类加载器扫掉 {@code unregisterListeners} 没覆盖到的监听器
+     * （例如登记时没绑对插件实例）。
+     */
+    static int removeHandlersLoadedBy(Object eventManager, ClassLoader loader) {
+        if (eventManager == null || loader == null) {
+            return 0;
+        }
+        Object writeLock = writeLock(eventManager);
+        lock(writeLock);
+        List<Object> removed = new ArrayList<>();
+        try {
+            Object handlersByType = get(field(eventManager.getClass(), "handlersByType"), eventManager);
+            Object values = invoke(findMethod(handlersByType.getClass(), "values"), handlersByType);
+            if (!(values instanceof Iterable<?> iterable)) {
+                return 0;
+            }
+            Iterator<?> iterator = iterable.iterator();
+            while (iterator.hasNext()) {
+                Object registration = iterator.next();
+                if (registrationLoadedBy(registration, loader)) {
+                    iterator.remove();
+                    removed.add(registration);
+                }
+            }
+        } catch (RuntimeException ignored) {
+            return 0;
+        } finally {
+            unlock(writeLock);
+        }
+        if (!removed.isEmpty()) {
+            invalidateHandlerCache(eventManager);
+        }
+        return removed.size();
+    }
+
+    static int leftoverHandlerCount(Object eventManager, ClassLoader loader) {
+        if (eventManager == null || loader == null) {
+            return 0;
+        }
+        try {
+            Object handlersByType = get(field(eventManager.getClass(), "handlersByType"), eventManager);
+            Object values = invoke(findMethod(handlersByType.getClass(), "values"), handlersByType);
+            int count = 0;
+            if (values instanceof Iterable<?> iterable) {
+                for (Object registration : iterable) {
+                    if (registrationLoadedBy(registration, loader)) {
+                        count++;
+                    }
+                }
+            }
+            return count;
+        } catch (RuntimeException ignored) {
+            return 0;
+        }
+    }
+
+    /**
+     * Velocity 的通道登记不记插件归属。只能卸掉自定义 {@code ChannelIdentifier} 实现类来自该插件类加载器的通道。
+     * LuckPerms 这类用 API 自带 identifier 的通道卸不掉，这是代理限制。
+     */
+    static int unregisterChannelsLoadedBy(Object channelRegistrar, ClassLoader loader) {
+        if (channelRegistrar == null || loader == null) {
+            return 0;
+        }
+        try {
+            Object raw = get(field(channelRegistrar.getClass(), "identifierMap"), channelRegistrar);
+            if (!(raw instanceof Map<?, ?> map)) {
+                return 0;
+            }
+            Set<Object> owned = new HashSet<>();
+            for (Object identifier : map.values()) {
+                if (identifier != null && sameLoader(identifier.getClass().getClassLoader(), loader)) {
+                    owned.add(identifier);
+                }
+            }
+            if (owned.isEmpty()) {
+                return 0;
+            }
+            Object array = Array.newInstance(
+                    classForName("com.velocitypowered.api.proxy.messages.ChannelIdentifier"),
+                    owned.size());
+            int index = 0;
+            for (Object identifier : owned) {
+                Array.set(array, index++, identifier);
+            }
+            invoke(findMethod(channelRegistrar.getClass(), "unregister", array.getClass()),
+                    channelRegistrar, array);
+            return owned.size();
+        } catch (RuntimeException ignored) {
+            return 0;
+        }
+    }
+
+    static List<String> leftoverCommandAliases(Object commandManager, ClassLoader loader) {
+        List<String> leftovers = new ArrayList<>();
+        if (commandManager == null || loader == null) {
+            return leftovers;
+        }
+        try {
+            Object aliases = invoke(findMethod(commandManager.getClass(), "getAliases"), commandManager);
+            if (!(aliases instanceof Collection<?> collection)) {
+                return leftovers;
+            }
+            for (Object alias : collection) {
+                if (alias instanceof String name && commandAliasLoadedBy(commandManager, name, loader)) {
+                    leftovers.add(name);
+                }
+            }
+        } catch (RuntimeException ignored) {
+            return leftovers;
+        }
+        return leftovers;
+    }
+
+    private static boolean registrationLoadedBy(Object registration, ClassLoader loader) {
+        return classLoadedBy(optionalField(registration, "instance"), loader)
+                || classLoadedBy(optionalField(registration, "handler"), loader);
+    }
+
+    private static boolean classLoadedBy(Object value, ClassLoader loader) {
+        return value != null && sameLoader(value.getClass().getClassLoader(), loader);
+    }
+
+    private static void invalidateHandlerCache(Object eventManager) {
+        try {
+            Object cache = get(field(eventManager.getClass(), "handlersCache"), eventManager);
+            invoke(findMethod(cache.getClass(), "invalidateAll"), cache);
+        } catch (RuntimeException ignored) {
+            // 缓存清不掉时，下一轮事件仍可能打到已卸插件；调用方会记残留。
+        }
+    }
+
+    private static Object writeLock(Object eventManager) {
+        try {
+            Object lock = get(field(eventManager.getClass(), "lock"), eventManager);
+            return invoke(findMethod(lock.getClass(), "writeLock"), lock);
+        } catch (RuntimeException ignored) {
+            return null;
+        }
+    }
+
+    private static void lock(Object writeLock) {
+        if (writeLock != null) {
+            invoke(findMethod(writeLock.getClass(), "lock"), writeLock);
+        }
+    }
+
+    private static void unlock(Object writeLock) {
+        if (writeLock != null) {
+            invoke(findMethod(writeLock.getClass(), "unlock"), writeLock);
+        }
+    }
+
+    /**
+     * 命令没设置 {@code CommandMeta.plugin} 时，用命令图里捕获的对象类加载器判断归属。
+     * {@code ShadiaoVelocity} 这类 {@code metaBuilder(...).build()} 不带 {@code .plugin(this)} 的注册会走这里。
+     */
+    static boolean commandAliasLoadedBy(Object commandManager, String alias, ClassLoader loader) {
+        if (commandManager == null || alias == null || loader == null) {
+            return false;
+        }
+        try {
+            Object node = invoke(findMethod(commandManager.getClass(), "getCommand", String.class),
+                    commandManager, alias);
+            return nodeLoadedBy(node, loader);
+        } catch (RuntimeException ignored) {
+            return false;
+        }
+    }
+
+    private static boolean nodeLoadedBy(Object node, ClassLoader loader) {
+        if (!(node instanceof CommandNode<?> commandNode)) {
+            return false;
+        }
+        if (valueLoadedBy(commandNode.getCommand(), loader)
+                || valueLoadedBy(commandNode.getRequirement(), loader)) {
+            return true;
+        }
+        for (CommandNode<?> child : commandNode.getChildren()) {
+            if (nodeLoadedBy(child, loader)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean valueLoadedBy(Object value, ClassLoader loader) {
+        if (value == null) {
+            return false;
+        }
+        if (sameLoader(value.getClass().getClassLoader(), loader)) {
+            return true;
+        }
+        Object registrant = optionalField(value, "registrant");
+        if (registrant != null && sameLoader(registrant.getClass().getClassLoader(), loader)) {
+            return true;
+        }
+        Object delegate = optionalField(value, "delegate");
+        if (delegate != null && valueLoadedBy(delegate, loader)) {
+            return true;
+        }
+        for (Field field : value.getClass().getDeclaredFields()) {
+            if (field.getType().isPrimitive()) {
+                continue;
+            }
+            Object captured = optionalGet(field, value);
+            if (captured != null && sameLoader(captured.getClass().getClassLoader(), loader)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static Object optionalField(Object target, String name) {
+        try {
+            return get(field(target.getClass(), name), target);
+        } catch (RuntimeException ignored) {
+            return null;
+        }
+    }
+
+    private static Object optionalGet(Field field, Object target) {
+        try {
+            if (!field.trySetAccessible()) {
+                return null;
+            }
+            return field.get(target);
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
+            return null;
+        }
+    }
+
+    private static boolean sameLoader(ClassLoader left, ClassLoader right) {
+        return left != null && left == right;
+    }
+
     static Class<?> classForName(String name) {
         try {
             return Class.forName(name);
         } catch (ClassNotFoundException exception) {
             throw new IllegalStateException("缺少 Velocity 类 " + name
-                    + "。插件热加载需要完整代理运行时，不能只靠 velocity-api。", exception);
+                    + "。插件管理需要完整代理运行时，不能只靠 velocity-api。", exception);
         }
     }
 

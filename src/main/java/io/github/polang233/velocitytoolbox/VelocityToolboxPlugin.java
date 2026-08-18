@@ -12,9 +12,11 @@ import com.velocitypowered.api.plugin.PluginContainer;
 import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.ProxyServer;
 import io.github.polang233.velocitytoolbox.command.VelocityToolboxCommand;
-import io.github.polang233.velocitytoolbox.hotload.PluginLoadService;
+import io.github.polang233.velocitytoolbox.config.PluginConfig;
+import io.github.polang233.velocitytoolbox.plugins.PluginLoadService;
+import io.github.polang233.velocitytoolbox.lang.Lang;
+import io.github.polang233.velocitytoolbox.metrics.Metrics;
 import io.github.polang233.velocitytoolbox.pack.PackService;
-import org.bstats.velocity.Metrics;
 import org.slf4j.Logger;
 
 import java.nio.file.Path;
@@ -42,6 +44,7 @@ public final class VelocityToolboxPlugin {
     private final Path dataDirectory;
     private final PluginContainer container;
     private final Metrics.Factory metricsFactory;
+    private final Lang lang;
 
     private PackService packService;
     private PluginLoadService pluginLoadService;
@@ -61,6 +64,7 @@ public final class VelocityToolboxPlugin {
         this.dataDirectory = dataDirectory;
         this.container = container;
         this.metricsFactory = metricsFactory;
+        this.lang = new Lang(dataDirectory);
     }
 
     public String version() {
@@ -69,22 +73,29 @@ public final class VelocityToolboxPlugin {
 
     @Subscribe
     public void onProxyInitialization(ProxyInitializeEvent event) {
+        PluginConfig config = loadConfigAndLang();
+
         try {
             metrics = metricsFactory.make(this, BSTATS_ID);
         } catch (RuntimeException exception) {
-            logger.warn("无法启动 bStats。", exception);
+            logger.warn(lang.plain("log.bstats-fail"), exception);
         }
 
         packService = new PackService(logger, dataDirectory);
         try {
-            packService.start();
+            if (config != null) {
+                packService.start(config.packHost());
+            } else {
+                packService.start();
+            }
         } catch (Exception exception) {
-            logger.error("资源包托管启动失败。插件热加载命令仍可使用。", exception);
+            logger.error(lang.plain("log.pack-fail"), exception);
         }
 
-        pluginLoadService = new PluginLoadService(proxy, logger, dataDirectory);
+        pluginLoadService = new PluginLoadService(proxy, logger, lang, dataDirectory);
 
-        VelocityToolboxCommand toolboxCommand = new VelocityToolboxCommand(this, proxy, pluginLoadService, packService);
+        VelocityToolboxCommand toolboxCommand = new VelocityToolboxCommand(
+                this, proxy, pluginLoadService, packService, lang);
         BrigadierCommand command = toolboxCommand.build();
         commandMeta = proxy.getCommandManager()
                 .metaBuilder(command)
@@ -93,29 +104,31 @@ public final class VelocityToolboxPlugin {
                 .build();
         proxy.getCommandManager().register(commandMeta, command);
 
-        logger.info("VelocityToolbox {} 已启动。资源包托管 {}，插件目录 {}。",
-                version(),
-                packService.enabled() ? "开" : "关",
-                pluginLoadService.pluginsDirectory());
+        logger.info(lang.plain("log.started",
+                Lang.ph("version", version()),
+                Lang.ph("packhost", packService.enabled()
+                        ? lang.plain("command.pack-host.on")
+                        : lang.plain("command.pack-host.off")),
+                Lang.ph("dir", pluginLoadService.pluginsDirectory())));
     }
 
     @Subscribe
     public void onProxyReload(ProxyReloadEvent event) {
-        reloadPacks();
+        reloadAll();
     }
 
     /**
-     * {@code /vtoolbox reload} 与代理 {@code /velocity reload} 都会走到这里，只重载资源包托管。
+     * {@code /vtoolbox reload} 与代理 {@code /velocity reload} 都会走到这里：
+     * 重载语言、配置和资源包托管，不重载其它插件。
      */
-    public boolean reloadPacks() {
-        if (packService == null) {
-            return false;
-        }
+    public boolean reloadAll() {
         try {
-            packService.reload();
+            PluginConfig config = PluginConfig.load(dataDirectory);
+            lang.load(config.language());
+            packService.reload(config.packHost());
             return true;
         } catch (Exception exception) {
-            logger.error("无法重载资源包托管。", exception);
+            logger.error(lang.plain("log.reload-fail"), exception);
             return false;
         }
     }
@@ -132,6 +145,22 @@ public final class VelocityToolboxPlugin {
         }
         if (packService != null) {
             packService.close();
+        }
+    }
+
+    private PluginConfig loadConfigAndLang() {
+        try {
+            PluginConfig config = PluginConfig.load(dataDirectory);
+            lang.load(config.language());
+            return config;
+        } catch (Exception exception) {
+            logger.error("无法加载配置或语言文件。", exception);
+            try {
+                lang.load("zh");
+            } catch (Exception ignored) {
+                // 随包 zh.yml 损坏时命令仍会回退显示 key。
+            }
+            return null;
         }
     }
 }

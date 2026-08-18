@@ -1,5 +1,8 @@
-# VelocityToolbox
-#
+# 界面语言。zh / en，或 lang/ 下自定义文件名（不要写 .yml）。
+# 玩家可见消息用 MiniMessage，默认强调色 #FF6600、正文 #CCFFFF（1.16+ 客户端可显示 RGB）。
+# 改完后执行 /vtoolbox reload。
+language: zh
+
 # /vtoolbox plugin load|unload|reload 管理 plugins/ 目录里的其它 Velocity 插件。
 
 pack-host:
