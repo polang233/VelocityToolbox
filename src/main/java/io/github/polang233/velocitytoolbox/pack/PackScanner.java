@@ -75,7 +75,8 @@ final class PackScanner {
 
     static String packName(String fileName) {
         String name = fileName.replaceFirst("(?i)\\.zip$", "");
-        return name.toLowerCase(Locale.ROOT).replace('.', '-');
+        String normalized = name.toLowerCase(Locale.ROOT).replace('.', '-').trim();
+        return normalized.isEmpty() ? "pack" : normalized;
     }
 
     private static String sha1(Path file) throws IOException {

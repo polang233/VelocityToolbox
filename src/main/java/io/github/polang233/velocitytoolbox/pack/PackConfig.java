@@ -40,7 +40,7 @@ public final class PackConfig {
 
     public static PackConfig from(CommentedConfigurationNode node) {
         return new PackConfig(
-                node.node("enabled").getBoolean(true),
+                node.node("enabled").getBoolean(false),
                 node.node("bind").getString("0.0.0.0"),
                 node.node("port").getInt(8765),
                 blankToEmpty(node.node("public-url").getString("")),
