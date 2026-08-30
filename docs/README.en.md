@@ -18,15 +18,6 @@
 - **Host multiple packs locally:** serve any number of `.zip` files, calculate SHA-1 hashes, and generate a multi-pack VelocityResourcepacks snippet.
 - **Conservative defaults:** the HTTP pack host is disabled by default; layered permissions, concise critical-operation console messages, and bilingual output are built in.
 
-## Preview
-
-<!--
-Add screenshots under assets/ and replace this block with:
-![Runtime plugin management](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/plugin-management.png)
-![Virtual-host player groups](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/vhosts.png)
-![Resource-pack hosting status](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/pack-host.png)
--->
-
 ## Requirements and installation
 
 - Velocity 4.0+
@@ -92,7 +83,7 @@ Small utility plugins are the best candidates after testing. Fully restart the p
 
 ## Language, metrics, and support
 
-`language` defaults to `zh_cn`. Set it to `en_us` or a custom file under `lang/`. Standard files are `lang/zh_cn.yml` and `lang/en_us.yml`; legacy `zh` / `en` values and old files migrate automatically. Player-facing messages use MiniMessage; startup, pack, and critical plugin-operation console messages use color-coded Adventure components when supported. Help commands use a lighter orange than the prefix. `/vtoolbox reload` reloads the language.
+`language` left empty follows the server's system language and falls back to Chinese when no matching language file exists. Set it to `zh_cn`, `en_us`, or a custom file under `lang/`. Standard files are `lang/zh_cn.yml` and `lang/en_us.yml`. Player-facing messages use MiniMessage; startup, pack, and critical plugin-operation console messages use color-coded Adventure components when supported. Help commands use a lighter orange than the prefix. `/vtoolbox reload` reloads the language.
 
 Anonymous usage statistics are provided by [bStats](https://bstats.org/plugin/velocity/VelocityToolbox/33451) and can be disabled in `plugins/bStats/config.txt`.
 
@@ -104,6 +95,6 @@ Bug reports and feature ideas are welcome on [GitHub Issues](https://github.com/
 
 Copyright (C) 2026 Polang.
 
-VelocityToolbox is licensed under the [GNU General Public License v3.0 only](../LICENSE). Bundled third-party components remain under their respective licenses; see [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
+VelocityToolbox is licensed under the [GNU General Public License v3.0 only](../LICENSE).
 
 If VelocityToolbox saves you a proxy restart, consider leaving a [Star ⭐](https://github.com/polang233/VelocityToolbox).

@@ -31,14 +31,6 @@ VelocityToolbox puts several day-to-day proxy operations behind one command. Loa
 
 The resource-pack HTTP server is **disabled by default** and listens only after you explicitly enable it.
 
-## Preview
-
-<!-- Replace these comments after screenshots are uploaded:
-![VelocityToolbox runtime plugin management](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/plugin-management.png)
-![VelocityToolbox virtual-host diagnostics](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/vhosts.png)
-![VelocityToolbox resource-pack hosting](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/pack-host.png)
--->
-
 ## Requirements
 
 - **Proxy:** Velocity 4.0 or newer
@@ -114,6 +106,6 @@ Bug reports and feature suggestions are welcome on the [GitHub issue tracker](ht
 
 Copyright (C) 2026 Polang.
 
-VelocityToolbox is licensed under the [GNU General Public License v3.0 only](https://github.com/polang233/VelocityToolbox/blob/main/LICENSE). Bundled third-party components remain under their [respective licenses](https://github.com/polang233/VelocityToolbox/blob/main/THIRD_PARTY_NOTICES.md).
+VelocityToolbox is licensed under the [GNU General Public License v3.0 only](https://github.com/polang233/VelocityToolbox/blob/main/LICENSE).
 
 If VelocityToolbox saves you a proxy restart, consider giving the project a [Star on GitHub](https://github.com/polang233/VelocityToolbox).

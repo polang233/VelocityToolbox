@@ -18,15 +18,6 @@
 - **资源包就地托管**：一次托管任意数量的 `.zip`，自动计算 SHA-1，并生成支持多包叠加的 VelocityResourcepacks 配置片段。
 - **默认保持克制**：资源包 HTTP 服务默认关闭；分层权限、关键操作后台提示和中英文消息均已内置。
 
-## 效果预览
-
-<!--
-截图放入 assets/ 后可替换为：
-![插件管理命令效果](assets/plugin-management.png)
-![入口域名玩家列表](assets/vhosts.png)
-![资源包托管状态](assets/pack-host.png)
--->
-
 ## 环境与安装
 
 - Velocity 4.0+
@@ -110,7 +101,7 @@ Velocity 4.0+ 没有公开的插件加载/卸载 API。VelocityToolbox 会阻止
 
 ## 语言、统计与反馈
 
-`language` 默认 `zh_cn`，可改为 `en_us` 或 `lang/` 下的自定义文件名。标准语言文件是 `lang/zh_cn.yml` 和 `lang/en_us.yml`；旧配置值 `zh` / `en` 及旧文件会自动兼容迁移。玩家消息支持 MiniMessage；后台启动、资源包和关键插件操作使用 Adventure 组件分色。命令帮助中的命令文本使用浅橙色，与前缀区分。`/vtoolbox reload` 会重载语言。
+`language` 留空时自动跟随服务器系统语言，没有对应语言文件时回退中文；也可固定为 `zh_cn`、`en_us` 或 `lang/` 下的自定义文件名。标准语言文件是 `lang/zh_cn.yml` 和 `lang/en_us.yml`。玩家消息支持 MiniMessage；后台启动、资源包和关键插件操作使用 Adventure 组件分色。命令帮助中的命令文本使用浅橙色，与前缀区分。`/vtoolbox reload` 会重载语言。
 
 本插件通过 [bStats](https://bstats.org/plugin/velocity/VelocityToolbox/33451) 收集匿名使用数据，可在 `plugins/bStats/config.txt` 中关闭。
 
@@ -122,6 +113,6 @@ Velocity 4.0+ 没有公开的插件加载/卸载 API。VelocityToolbox 会阻止
 
 Copyright (C) 2026 Polang。
 
-VelocityToolbox 使用 [GNU General Public License v3.0 only](LICENSE) 开源；内置第三方组件仍遵循各自协议，详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+VelocityToolbox 使用 [GNU General Public License v3.0 only](LICENSE) 开源。
 
 如果它帮你少重启了一次代理，欢迎给项目一个 [Star ⭐](https://github.com/polang233/VelocityToolbox)。
