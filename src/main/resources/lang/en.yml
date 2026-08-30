@@ -6,6 +6,7 @@ command:
     version: "<#CCFFFF>version, plugin count, pack-host switch"
     status: "<#CCFFFF>proxy, Java, pack origin, loaded plugins"
     packs: "<#CCFFFF>URL and SHA-1 for each zip"
+    vhosts: "<#CCFFFF>list online players by the host they joined through"
     reload: "<#CCFFFF>reload language, config, and pack hosting"
     plugin: "<#CCFFFF>plugin management (list / load / unload / reload)"
   plugin:
@@ -26,6 +27,10 @@ command:
     disabled: "<#FF6600>Pack hosting is disabled."
     empty: "<#FF6600>No zip files in <#CCFFFF><path>"
     title: "<#FF6600>Packs: <#CCFFFF><count>"
+  vhosts:
+    title: "<#FF6600>Player entry hosts: <#CCFFFF><count> online"
+    empty: "<#FF6600>No players online."
+    unknown: "<#CCFFFF>unknown"
   pack-host:
     on: "<#CCFFFF>on"
     off: "<#FF5555>off"

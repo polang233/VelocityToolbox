@@ -6,6 +6,7 @@ command:
     version: "<#CCFFFF>版本、插件数量、托管开关"
     status: "<#CCFFFF>代理、Java、托管来源、已加载插件"
     packs: "<#CCFFFF>列出每个 zip 的 URL 和 SHA-1"
+    vhosts: "<#CCFFFF>按入口域名列出在线玩家"
     reload: "<#CCFFFF>重载语言、配置和资源包托管"
     plugin: "<#CCFFFF>插件管理（list / load / unload / reload）"
   plugin:
@@ -26,6 +27,10 @@ command:
     disabled: "<#FF6600>资源包托管未启用。"
     empty: "<#FF6600>目录里没有 zip：<#CCFFFF><path>"
     title: "<#FF6600>资源包 <#CCFFFF><count> 个"
+  vhosts:
+    title: "<#FF6600>玩家入口 <#CCFFFF><count> 人"
+    empty: "<#FF6600>当前没有在线玩家。"
+    unknown: "<#CCFFFF>未知"
   pack-host:
     on: "<#CCFFFF>开"
     off: "<#FF5555>关"

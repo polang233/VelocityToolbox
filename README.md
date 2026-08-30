@@ -115,6 +115,7 @@ Velocity 4.0 以上没有公开的插件 load / unload API，因此实现依赖�
 | `/vtoolbox version` | 版本、插件数量、托管开关 |
 | `/vtoolbox status` | 代理版本、Java、托管来源、已加载插件 |
 | `/vtoolbox packs` | 列出每个 zip 的 URL 和 SHA-1 |
+| `/vtoolbox vhosts` | 按入口域名列出在线玩家（玩家客户端里填的地址，即 MiniMOTD 区分 MOTD 的依据），并附玩家来源 IP |
 | `/vtoolbox reload` | 重载语言、配置和资源包托管 |
 | `/vtoolbox plugin list` | 列出已加载插件 |
 | `/vtoolbox plugin load <file.jar>` | 从 `plugins/` 加载 |

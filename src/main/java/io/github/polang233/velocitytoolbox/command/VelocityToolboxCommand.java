@@ -8,6 +8,7 @@ import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
+import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import io.github.polang233.velocitytoolbox.VelocityToolboxPlugin;
 import io.github.polang233.velocitytoolbox.plugins.CleanupReport;
@@ -18,6 +19,9 @@ import io.github.polang233.velocitytoolbox.pack.PackService;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 
+import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
@@ -63,6 +67,7 @@ public final class VelocityToolboxCommand {
         root.then(BrigadierCommand.literalArgumentBuilder("version").executes(this::version));
         root.then(BrigadierCommand.literalArgumentBuilder("status").executes(this::status));
         root.then(BrigadierCommand.literalArgumentBuilder("packs").executes(this::packs));
+        root.then(BrigadierCommand.literalArgumentBuilder("vhosts").executes(this::vhosts));
         root.then(BrigadierCommand.literalArgumentBuilder("reload").executes(this::reloadAll));
         root.then(pluginNode());
 
@@ -96,6 +101,7 @@ public final class VelocityToolboxCommand {
         helpLine(source, "/vtoolbox version", "command.help.version");
         helpLine(source, "/vtoolbox status", "command.help.status");
         helpLine(source, "/vtoolbox packs", "command.help.packs");
+        helpLine(source, "/vtoolbox vhosts", "command.help.vhosts");
         helpLine(source, "/vtoolbox reload", "command.help.reload");
         helpLine(source, "/vtoolbox plugin", "command.help.plugin");
         return Command.SINGLE_SUCCESS;
@@ -152,6 +158,34 @@ public final class VelocityToolboxCommand {
             lang.send(source, Component.text()
                     .append(Component.text("sha1 ", NamedTextColor.DARK_GRAY))
                     .append(Component.text(pack.sha1(), Lang.BODY))
+                    .build());
+        }
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private int vhosts(CommandContext<CommandSource> ctx) {
+        CommandSource source = ctx.getSource();
+        List<Player> players = new ArrayList<>(proxy.getAllPlayers());
+        if (players.isEmpty()) {
+            lang.send(source, "command.vhosts.empty");
+            return Command.SINGLE_SUCCESS;
+        }
+        players.sort(Comparator
+                .comparing((Player player) -> player.getVirtualHost().map(InetSocketAddress::getHostString).orElse(""))
+                .thenComparing(Player::getUsername));
+        lang.send(source, "command.vhosts.title", ph("count", players.size()));
+        for (Player player : players) {
+            String host = player.getVirtualHost()
+                    .map(InetSocketAddress::getHostString)
+                    .orElseGet(() -> lang.plain("command.vhosts.unknown"));
+            InetSocketAddress remote = player.getRemoteAddress();
+            String remoteIp = remote.getAddress() != null
+                    ? remote.getAddress().getHostAddress()
+                    : remote.getHostString();
+            lang.send(source, Component.text()
+                    .append(Component.text(player.getUsername(), Lang.ACCENT))
+                    .append(Component.text("  " + host, Lang.BODY))
+                    .append(Component.text("  (" + remoteIp + ")", NamedTextColor.DARK_GRAY))
                     .build());
         }
         return Command.SINGLE_SUCCESS;

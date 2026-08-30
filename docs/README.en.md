@@ -102,6 +102,7 @@ Permission: `velocitytoolbox.admin`. Alias: `/vtb`.
 | `/vtoolbox version` | Version, plugin count, pack-host switch |
 | `/vtoolbox status` | Proxy / Java / pack origin / loaded plugins |
 | `/vtoolbox packs` | URL and SHA-1 for each zip |
+| `/vtoolbox vhosts` | List online players by the virtual host they joined through (the address typed in the client, which is what MiniMOTD uses to pick a MOTD), plus their source IP |
 | `/vtoolbox reload` | Reload language, config, and pack hosting |
 | `/vtoolbox plugin list` | List loaded plugins |
 | `/vtoolbox plugin load <file.jar>` | Load from `plugins/` |
