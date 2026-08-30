@@ -3,8 +3,8 @@ plugins {
 }
 
 group = 'io.github.polang233.velocitytoolbox'
-version = '1.0.0'
-description = 'Resource-pack HTTP hosting and runtime plugin load/unload/reload for Velocity 4.0+'
+version = '1.1.0'
+description = 'Runtime plugin inspection and management, virtual-host diagnostics, and optional multi-pack hosting for Velocity 4.0+'
 
 ext {
     pluginId = 'velocitytoolbox'
@@ -30,6 +30,10 @@ dependencies {
     compileOnly 'net.kyori:adventure-text-serializer-plain:4.21.0'
 }
 
+configurations {
+    testCompileOnly.extendsFrom compileOnly
+}
+
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(25)
@@ -44,12 +48,43 @@ tasks.withType(JavaCompile).configureEach {
 
 tasks.named('jar', Jar) {
     archiveBaseName = pluginName
+    from(rootProject.file('LICENSE')) {
+        into 'META-INF'
+    }
+    from(rootProject.file('THIRD_PARTY_NOTICES.md')) {
+        into 'META-INF'
+    }
     manifest {
         attributes(
                 'Implementation-Title': pluginName,
                 'Implementation-Version': version
         )
     }
+}
+
+def packSnippetSmokeTest = tasks.register('packSnippetSmokeTest', JavaExec) {
+    group = 'verification'
+    description = 'Verifies generated multi-pack VelocityResourcepacks snippets.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'io.github.polang233.velocitytoolbox.pack.PackSnippetWriterSmokeTest'
+}
+
+def languageResourceSmokeTest = tasks.register('languageResourceSmokeTest', JavaExec) {
+    group = 'verification'
+    description = 'Verifies bundled language keys and old user-file fallback behavior.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + configurations.compileClasspath
+    mainClass = 'io.github.polang233.velocitytoolbox.lang.LanguageResourceSmokeTest'
+}
+
+tasks.named('check') {
+    dependsOn packSnippetSmokeTest
+    dependsOn languageResourceSmokeTest
+}
+
+tasks.named('test', Test) {
+    failOnNoDiscoveredTests = false
 }
 
 def generateTemplates = tasks.register('generateTemplates', Copy) {

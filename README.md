@@ -4,135 +4,124 @@
 
 # VelocityToolbox
 
-[Velocity](https://papermc.io/software/velocity) 4.0 以上的代理端工具插件，用来托管资源包，以及在运行时加载、卸载、重载其它 Velocity 插件。
+**把常用的 Velocity 运维能力收进一个轻量工具箱：运行时插件管理、入口域名排查，以及可选的资源包 HTTP 托管。**
 
-[English](docs/README.en.md) · [架构说明](docs/ARCHITECTURE.md)
+[English](docs/README.en.md) · [Modrinth 文案](docs/MODRINTH.md) · [架构说明](docs/ARCHITECTURE.md) · [问题与建议](https://github.com/polang233/VelocityToolbox/issues)
 
-## 功能
+![Velocity](https://img.shields.io/badge/Velocity-4.0%2B-654FF0)
+![Java](https://img.shields.io/badge/Java-25%2B-E76F00)
 
-- **资源包 HTTP 托管**：扫描指定目录里的 `.zip`，计算 SHA-1，在本机提供玩家客户端能下载的 URL。
-- **插件管理**：对 `plugins/` 里的其它 Velocity 插件执行 load / unload / reload。
+## 为什么用它
 
-## 环境
+- **少重启一次代理**：加载、卸载或重载 `plugins/` 中的 Velocity 插件；操作前可只读检查风险，操作后报告清理结果。
+- **排查多入口网络**：`/vtoolbox vhosts` 按玩家加入时使用的域名分组，快速核对 MiniMOTD 等按域名分流的配置。
+- **资源包就地托管**：一次托管任意数量的 `.zip`，自动计算 SHA-1，并生成支持多包叠加的 VelocityResourcepacks 配置片段。
+- **默认保持克制**：资源包 HTTP 服务默认关闭；分层权限、关键操作后台提示和中英文消息均已内置。
 
+## 效果预览
+
+<!--
+截图放入 assets/ 后可替换为：
+![插件管理命令效果](assets/plugin-management.png)
+![入口域名玩家列表](assets/vhosts.png)
+![资源包托管状态](assets/pack-host.png)
+-->
+
+## 环境与安装
+
+- Velocity 4.0+
 - Java 25+
-- Velocity 4.0 以上
 
-## 安装
+1. 从 [Releases](https://github.com/polang233/VelocityToolbox/releases) 下载 JAR，放入 Velocity 的 `plugins/`。
+2. 完整启动代理一次，生成 `plugins/VelocityToolbox/config.yml`。
+3. 给管理员授予 `velocitytoolbox.admin`，或按下方权限表细分授权；使用 `/vtoolbox help` 查看命令。
 
-1. 把构建出的 `VelocityToolbox-*.jar` 放到 Velocity 的 `plugins` 目录。
-2. 启动一次代理，生成 `plugins/VelocityToolbox/config.yml`。
-3. 按下面两节配置资源包目录，或使用插件管理命令。
+自行构建：
 
 ```powershell
 .\gradlew.bat build
 ```
 
-产物：`build/libs/VelocityToolbox-1.0.0.jar`
-
-## 资源包托管
-
-Minecraft 客户端从 HTTP URL 下载资源包。本插件只在**代理本机**起一个 HTTP 服务，把目录里的 zip 变成下载地址；发给哪个玩家、用哪个包，仍由 [VelocityResourcepacks](https://modrinth.com/plugin/velocityresourcepacks) 决定。
-
-本插件**不会**做端口映射、域名解析或 HTTPS。它只提供内网可连的 HTTP 服务。外网玩家要下载，需要你自己把监听端口放到防火墙、路由器、云安全组或反代里，达到外网可访问，再把那个地址写进 `public-url`。
-
-### bind / port / public-url
-
-| 配置 | 作用 | 典型值 |
-|---|---|---|
-| `bind` | HTTP **监听**网卡。`0.0.0.0` 表示本机所有网卡都接请求 | `0.0.0.0` |
-| `port` | 监听端口。要外网能下，需自行放行这个端口 | `8765` |
-| `public-url` | 写进客户端下载链接的来源（协议 + 主机 + 端口） | 内网留空；外网填玩家能打开的地址 |
-
-下载 URL 形态：`{public-url}/packs/{文件名}`。会出现在启动日志、`/vtoolbox packs`，以及 `plugins/VelocityToolbox/velocityresourcepacks-snippet.yml`。
-
-- **内网**：`public-url` 留空，插件用探测到的第一块局域网 IPv4，拼成 `http://192.168.x.x:8765`。
-- **外网**：先放行 `port`（或反代到该端口），再填 `http://公网IP:8765` 或 `https://pack.example.com`，然后 `/vtoolbox reload`。
-- 不要填 `127.0.0.1` / `localhost`（除非玩家和代理同一台机器），也不要填 `0.0.0.0`（客户端打不开）。
-
-### 步骤
-
-1. 把 `.zip` 放到 `pack-host.packs-directory`，默认是 `plugins/VelocityToolbox/packs/`。
-2. 按上面设置 `bind` / `port` / `public-url`。
-3. 启动日志或 `/vtoolbox packs` 会列出每个包的 URL 和 SHA-1。
-4. 把 `plugins/VelocityToolbox/velocityresourcepacks-snippet.yml` 合并进 VelocityResourcepacks 的 `config.yml`。
-5. 更换 zip、目录或 `public-url` 后执行 `/vtoolbox reload`（或 `/velocity reload`）。
-
-文件名可以含中文和空格，不能包含 `/`、`\` 或 `..`。
-
-```yaml
-language: zh          # zh / en，或 lang/ 下自定义文件名
-
-pack-host:
-  enabled: true
-  bind: 0.0.0.0
-  port: 8765
-  public-url: ""          # 内网留空；外网填玩家能打开的地址
-  packs-directory: packs  # 相对本插件数据目录，或绝对路径
-```
-
-| `packs-directory` | 实际位置 |
-|---|---|
-| `packs` | `plugins/VelocityToolbox/packs` |
-| `../OtherPlugin/packs` | 旁边另一个插件的目录 |
-| `D:/resourcepacks` | Windows 绝对路径 |
-| `/var/www/resourcepacks` | Linux 绝对路径 |
-
-## 语言
-
-`config.yml` 里 `language` 默认 `zh`。改成 `en` 即英文；也可以填 `lang/` 下自定义文件名（不要写 `.yml`）。首次启动会把 `lang/zh.yml`、`lang/en.yml` 拷到数据目录，改这些文件就能改文案和颜色。`/vtoolbox reload` 会重载语言、配置和资源包托管。
-
-玩家可见消息走 Adventure MiniMessage，默认强调色 `#FF6600`、正文 `#CCFFFF`。1.16 以上客户端能显示 RGB；控制台能否显示取决于终端。
-
-## 插件管理
-
-对 `plugins/` 目录里已有的 Velocity 插件 JAR 做运行时加载、卸载和重载。`/vtoolbox reload` 只重载本插件的语言、配置和资源包托管，不会重载其它插件。
+## 常用命令
 
 ```text
+/vtoolbox info
+/vtoolbox vhosts
 /vtoolbox plugin list
+/vtoolbox plugin inspect someplugin
 /vtoolbox plugin load SomePlugin-1.0.jar
 /vtoolbox plugin unload someplugin
 /vtoolbox plugin reload someplugin
 ```
 
-- `load` 只接受 `plugins/` 下的文件名。
-- 不能加载或卸载 `velocity` 和 `velocitytoolbox`。
-- 若其它已加载插件对目标（含它 `provides` 的 ID）声明了非 optional 依赖，会拒绝卸载。
-- `reload` 先卸载再从同一个 JAR 加载；重新加载失败时插件保持卸载。
-- 卸载后会尽量拆掉监听器、任务、命令、自定义消息通道、线程池和类加载器；失败时聊天里会给出异常类型、原因，并提示去看代理日志。
+主命令别名为 `/vtb`。`velocitytoolbox.admin` 保留为全部命令的兼容权限。普通查询不会刷后台；插件加载、卸载、重载和配置重载等关键操作只输出简短状态。
 
-**能卸掉不等于建议热卸载。** 像 ShadiaoVelocity 这种命令/监听器结构简单的插件，热卸载通常比较干净。LuckPerms、协议/数据包、权限、长期占玩家连接或内部缓存很大的插件，即使这次看起来卸掉了，也不建议当常规操作：消息通道在 Velocity 里不记插件归属、别的插件可能仍握着旧类、内存也不保证能立刻收回。这类插件请改 JAR 后**完整重启代理**。
-
-Velocity 4.0 以上没有公开的插件 load / unload API，因此实现依赖代理内部加载器。细节见 [架构说明](docs/ARCHITECTURE.md)。该功能需要 `velocitytoolbox.admin`，不要发给普通玩家。
-
-## 命令
-
-权限：`velocitytoolbox.admin`。别名：`/vtb`。
-
-| 命令 | 说明 |
+| 命令 | 作用 |
 |---|---|
-| `/vtoolbox help` | 帮助 |
-| `/vtoolbox version` | 版本、插件数量、托管开关 |
-| `/vtoolbox status` | 代理版本、Java、托管来源、已加载插件 |
-| `/vtoolbox packs` | 列出每个 zip 的 URL 和 SHA-1 |
-| `/vtoolbox vhosts` | 按入口域名列出在线玩家（玩家客户端里填的地址，即 MiniMOTD 区分 MOTD 的依据），并附玩家来源 IP |
-| `/vtoolbox reload` | 重载语言、配置和资源包托管 |
-| `/vtoolbox plugin list` | 列出已加载插件 |
-| `/vtoolbox plugin load <file.jar>` | 从 `plugins/` 加载 |
-| `/vtoolbox plugin unload <plugin-id>` | 卸载 |
-| `/vtoolbox plugin reload <plugin-id>` | 卸载后再加载 |
+| `/vtoolbox help` | 显示帮助 |
+| `/vtoolbox info` | 显示插件、代理、Java、插件数量和资源包托管概要 |
+| `/vtoolbox packs` | 列出资源包 URL 和 SHA-1 |
+| `/vtoolbox vhosts` | 按入口分组显示域名、解析 IP、端口、人数和玩家基本信息 |
+| `/vtoolbox reload` | 重载语言、配置与资源包托管 |
+| `/vtoolbox plugin list` | 显示插件名称、版本和作者；悬停查看完整元数据 |
+| `/vtoolbox plugin inspect <plugin-id>` | 按基本信息、依赖、运行时资源和风险四段检查插件 |
+| `/vtoolbox plugin load <file.jar>` | 从 `plugins/` 加载插件 |
+| `/vtoolbox plugin unload <plugin-id>` | 卸载插件 |
+| `/vtoolbox plugin reload <plugin-id>` | 卸载后重新加载插件 |
 
-## 统计
+### 细分权限
 
-本插件使用 [bStats](https://bstats.org/plugin/velocity/VelocityToolbox/33451) 收集匿名使用数据。可在 `plugins/bStats/config.txt` 把 `enabled` 设为 `false` 关闭。
+不使用 `velocitytoolbox.admin` 时，必须先有基础权限 `velocitytoolbox.command`，再授予对应子命令权限：
+
+- 普通子命令：`velocitytoolbox.command.info`、`velocitytoolbox.command.packs`、`velocitytoolbox.command.vhosts`、`velocitytoolbox.command.reload`
+- 插件管理父权限：`velocitytoolbox.command.plugin`
+- 插件管理动作：`velocitytoolbox.command.plugin.list`、`velocitytoolbox.command.plugin.inspect`、`velocitytoolbox.command.plugin.load`、`velocitytoolbox.command.plugin.unload`、`velocitytoolbox.command.plugin.reload`
+
+例如只允许查看插件风险，需要同时授予 `velocitytoolbox.command`、`velocitytoolbox.command.plugin` 和 `velocitytoolbox.command.plugin.inspect`。帮助只显示执行者有权使用的子命令。
+
+## 可选资源包托管
+
+资源包托管默认关闭。启用后，VelocityToolbox 会在代理机器上启动 HTTP 服务，扫描目录内任意数量的资源包并生成 `velocityresourcepacks-snippet.yml`；每个 ZIP 都有独立 URL、SHA-1 和 `local-path`。由 [VelocityResourcepacks](https://modrinth.com/plugin/velocityresourcepacks) 决定向哪些玩家发送哪些资源包，本插件本身不直接发包。
+
+```yaml
+pack-host:
+  enabled: false
+  bind: 0.0.0.0
+  port: 8765
+  public-url: ""          # 外网使用时填写玩家可以访问的地址
+  packs-directory: packs  # 默认 plugins/VelocityToolbox/packs
+```
+
+启用步骤：
+
+1. 将 `.zip` 放入 `packs-directory`。
+2. 把 `enabled` 改为 `true`；外网使用时配置防火墙/反向代理和 `public-url`。
+3. 执行 `/vtoolbox reload`，再将生成的配置片段合并进 VelocityResourcepacks。
+
+生成片段的 `global.packs` 会按文件名顺序列出全部 ZIP：Minecraft 1.20.3+ 客户端可依次叠加多个资源包，旧客户端只使用列表第一项。该字段需要 VelocityResourcepacks 1.9.0+。不需要全局发送全部包时，删除不需要的条目；不同玩家需要不同组合时，可给包设置 `restricted` / `permission`，按服务器或版本分配也应在 VelocityResourcepacks 中配置。
+
+本插件不会自动配置端口映射、域名或 HTTPS。`public-url` 留空时会尝试使用第一块局域网 IPv4；请勿把 `0.0.0.0` 当作玩家下载地址。
+
+## 关于插件热管理
+
+Velocity 4.0+ 没有公开的插件加载/卸载 API。VelocityToolbox 会阻止卸载仍被其它插件硬依赖的目标，并尽量清理监听器、任务、命令、消息通道、线程池与类加载器，但无法保证任意第三方插件都能安全热卸载。
+
+简单工具插件适合在测试后使用热重载；权限、协议/数据包、连接管理或大型缓存插件更新后仍建议完整重启代理。实现边界见 [架构说明](docs/ARCHITECTURE.md)。
+
+## 语言、统计与反馈
+
+`language` 默认 `zh_cn`，可改为 `en_us` 或 `lang/` 下的自定义文件名。标准语言文件是 `lang/zh_cn.yml` 和 `lang/en_us.yml`；旧配置值 `zh` / `en` 及旧文件会自动兼容迁移。玩家消息支持 MiniMessage；后台启动、资源包和关键插件操作使用 Adventure 组件分色。命令帮助中的命令文本使用浅橙色，与前缀区分。`/vtoolbox reload` 会重载语言。
+
+本插件通过 [bStats](https://bstats.org/plugin/velocity/VelocityToolbox/33451) 收集匿名使用数据，可在 `plugins/bStats/config.txt` 中关闭。
 
 [![bStats](https://bstats.org/signatures/velocity/VelocityToolbox.svg)](https://bstats.org/plugin/velocity/VelocityToolbox/33451)
 
-## 文档
+欢迎在 [GitHub Issues](https://github.com/polang233/VelocityToolbox/issues) 提交问题和功能建议。尤其欢迎对失败自动回退、多代理统一运维、入口域名诊断和资源包可用性检测的想法。
 
-- [架构说明](docs/ARCHITECTURE.md)
-- [English README](docs/README.en.md)
+## 开源协议
 
----
+Copyright (C) 2026 Polang。
 
-*觉得好用的话点个 [Star⭐](https://github.com/polang233/VelocityToolbox) 支持一下！*
+VelocityToolbox 使用 [GNU General Public License v3.0 only](LICENSE) 开源；内置第三方组件仍遵循各自协议，详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+
+如果它帮你少重启了一次代理，欢迎给项目一个 [Star ⭐](https://github.com/polang233/VelocityToolbox)。

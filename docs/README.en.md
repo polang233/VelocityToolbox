@@ -4,122 +4,106 @@
 
 # VelocityToolbox
 
-A [Velocity](https://papermc.io/software/velocity) 4.0+ plugin that hosts resource packs over HTTP and can load, unload, or reload other Velocity plugins at runtime.
+**A compact Velocity operations toolbox for runtime plugin management, virtual-host diagnostics, and optional resource-pack hosting.**
 
-[中文 README](../README.md) · [架构说明](ARCHITECTURE.md)
+[中文 README](../README.md) · [Modrinth description](MODRINTH.md) · [Architecture](ARCHITECTURE.md) · [Issues and ideas](https://github.com/polang233/VelocityToolbox/issues)
 
-## Features
+![Velocity](https://img.shields.io/badge/Velocity-4.0%2B-654FF0)
+![Java](https://img.shields.io/badge/Java-25%2B-E76F00)
 
-- **Resource-pack HTTP hosting**: scan a directory of `.zip` files, compute SHA-1, and serve download URLs from this machine.
-- **Plugin management**: load / unload / reload other Velocity plugins from `plugins/`.
+## Highlights
 
-## Requirements
+- **Restart the proxy less often:** load, unload, or reload Velocity plugins from `plugins/`; inspect risk before the operation and receive a cleanup report afterward.
+- **Debug multi-domain networks:** `/vtoolbox vhosts` groups online players by the address they used to join, useful for checking MiniMOTD-style routing.
+- **Host multiple packs locally:** serve any number of `.zip` files, calculate SHA-1 hashes, and generate a multi-pack VelocityResourcepacks snippet.
+- **Conservative defaults:** the HTTP pack host is disabled by default; layered permissions, concise critical-operation console messages, and bilingual output are built in.
 
+## Preview
+
+<!--
+Add screenshots under assets/ and replace this block with:
+![Runtime plugin management](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/plugin-management.png)
+![Virtual-host player groups](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/vhosts.png)
+![Resource-pack hosting status](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/pack-host.png)
+-->
+
+## Requirements and installation
+
+- Velocity 4.0+
 - Java 25+
-- Velocity 4.0 or later
 
-## Install
+1. Download the JAR from [Releases](https://github.com/polang233/VelocityToolbox/releases) and place it in Velocity's `plugins/` directory.
+2. Fully start the proxy once to generate `plugins/VelocityToolbox/config.yml`.
+3. Grant administrators `velocitytoolbox.admin`, or use the fine-grained permissions below, then run `/vtoolbox help`.
 
-1. Put `VelocityToolbox-*.jar` in Velocity's `plugins` directory.
-2. Start the proxy once to generate `plugins/VelocityToolbox/config.yml`.
-3. Configure pack hosting and/or use the plugin commands below.
-
-```powershell
-.\gradlew.bat build
-```
-
-Output: `build/libs/VelocityToolbox-1.0.0.jar`
-
-## Resource-pack hosting
-
-Minecraft clients download packs from an HTTP URL. This plugin only starts an HTTP server **on the proxy host** and turns local zip files into that URL. Which player gets which pack is still decided by plugins such as [VelocityResourcepacks](https://modrinth.com/plugin/velocityresourcepacks).
-
-This plugin does **not** map ports, register DNS, or terminate HTTPS. It only provides a LAN-reachable HTTP service. For public players, you must expose `port` yourself (firewall, router, cloud security group, or reverse proxy), then put that reachable address in `public-url`.
-
-| Key | Role | Typical value |
-|---|---|---|
-| `bind` | Listen address. `0.0.0.0` accepts on every NIC | `0.0.0.0` |
-| `port` | Listen port. Open it yourself if the internet must reach it | `8765` |
-| `public-url` | Origin written into client download URLs | empty on LAN; a public URL on the internet |
-
-Download URLs look like `{public-url}/packs/{file}`. Leave `public-url` empty to use the first detected LAN IPv4. Do not use `127.0.0.1` unless players and the proxy share one machine, and do not use `0.0.0.0`.
-
-1. Put `.zip` files in `pack-host.packs-directory` (default: `plugins/VelocityToolbox/packs/`).
-2. Set `bind` / `port` / `public-url` as above.
-3. The startup log or `/vtoolbox packs` lists each pack's URL and SHA-1.
-4. Merge `plugins/VelocityToolbox/velocityresourcepacks-snippet.yml` into VelocityResourcepacks' `config.yml`.
-5. After changing zips, the path, or `public-url`, run `/vtoolbox reload`.
-
-File names may include Unicode and spaces, but not `/`, `\`, or `..`.
-
-```yaml
-language: en          # zh / en, or a custom file under lang/
-
-pack-host:
-  enabled: true
-  bind: 0.0.0.0
-  port: 8765
-  public-url: ""          # empty on LAN; a player-reachable URL on the internet
-  packs-directory: packs  # relative to this plugin's data folder, or absolute
-```
-
-Examples for `packs-directory`: `packs`, `../OtherPlugin/packs`, `D:/resourcepacks`, `/var/www/resourcepacks`.
-
-## Language
-
-`language` in `config.yml` defaults to `zh`. Set `en` for English, or any file name under `lang/` without `.yml`. The first start copies `lang/zh.yml` and `lang/en.yml` into the data folder; edit those to change wording and colors. `/vtoolbox reload` reloads language, config, and pack hosting.
-
-Player-facing messages use Adventure MiniMessage. Defaults are accent `#FF6600` and body `#CCFFFF`. RGB works on 1.16+ clients; the console depends on the terminal.
-
-## Plugin management
-
-Operate on Velocity plugin JARs already in `plugins/`. `/vtoolbox reload` reloads this plugin's language, config, and pack hosting only.
-
-```text
-/vtoolbox plugin list
-/vtoolbox plugin load SomePlugin-1.0.jar
-/vtoolbox plugin unload someplugin
-/vtoolbox plugin reload someplugin
-```
-
-- `load` accepts a file name inside `plugins/` only.
-- `velocity` and `velocitytoolbox` cannot be loaded or unloaded.
-- Unload fails when another loaded plugin has a required dependency on the target (including IDs it `provides`).
-- If reload fails after unload, the plugin stays unloaded.
-- Unload tries to strip listeners, tasks, commands, custom plugin-message channels, the plugin executor, and the class loader. On failure the chat shows the exception type and message, and points you to the proxy log.
-
-**Being able to unload a plugin does not mean you should hot-unload it.** Small plugins with a few commands and listeners usually come off cleanly. Do not make a habit of hot-unloading large plugins (LuckPerms, protocol/packet hooks, permission providers, anything holding player connections or a big in-memory cache). Velocity does not track plugin-message channel ownership, other plugins may still hold old classes, and memory is not guaranteed to be reclaimed. Restart the proxy after replacing those JARs.
-
-Velocity 4.0+ has no public load / unload API, so this uses the proxy's own plugin loader. See [架构说明](ARCHITECTURE.md). The commands require `velocitytoolbox.admin`; do not grant it to ordinary players.
+Build from source with `./gradlew build` or `.\gradlew.bat build` on Windows.
 
 ## Commands
 
-Permission: `velocitytoolbox.admin`. Alias: `/vtb`.
+The main command has the `/vtb` alias. `velocitytoolbox.admin` remains a backward-compatible all-access permission. Read-only commands stay quiet in the console; plugin load/unload/reload and configuration reload emit concise status messages.
 
-| Command | Description |
+| Command | Purpose |
 |---|---|
-| `/vtoolbox help` | Help |
-| `/vtoolbox version` | Version, plugin count, pack-host switch |
-| `/vtoolbox status` | Proxy / Java / pack origin / loaded plugins |
-| `/vtoolbox packs` | URL and SHA-1 for each zip |
-| `/vtoolbox vhosts` | List online players by the virtual host they joined through (the address typed in the client, which is what MiniMOTD uses to pick a MOTD), plus their source IP |
-| `/vtoolbox reload` | Reload language, config, and pack hosting |
-| `/vtoolbox plugin list` | List loaded plugins |
-| `/vtoolbox plugin load <file.jar>` | Load from `plugins/` |
-| `/vtoolbox plugin unload <plugin-id>` | Unload |
-| `/vtoolbox plugin reload <plugin-id>` | Unload then load |
+| `/vtoolbox help` | Show help |
+| `/vtoolbox info` | Show plugin, proxy, Java, plugin-count, and pack-host summary |
+| `/vtoolbox packs` | List resource-pack URLs and SHA-1 hashes |
+| `/vtoolbox vhosts` | Group players by entry domain/IP/port and show player details |
+| `/vtoolbox reload` | Reload language, configuration, and pack hosting |
+| `/vtoolbox plugin list` | Show names, versions, and authors; hover for full metadata |
+| `/vtoolbox plugin inspect <plugin-id>` | Four-section metadata, dependency, runtime, and risk report |
+| `/vtoolbox plugin load <file.jar>` | Load a plugin from `plugins/` |
+| `/vtoolbox plugin unload <plugin-id>` | Unload a plugin |
+| `/vtoolbox plugin reload <plugin-id>` | Unload and load a plugin again |
 
-## Statistics
+### Fine-grained permissions
 
-This plugin uses [bStats](https://bstats.org/plugin/velocity/VelocityToolbox/33451) to collect anonymous usage data. Set `enabled` to `false` in `plugins/bStats/config.txt` to opt out.
+Without `velocitytoolbox.admin`, grant the base permission `velocitytoolbox.command` plus the matching subcommand permission:
+
+- General commands: `velocitytoolbox.command.info`, `velocitytoolbox.command.packs`, `velocitytoolbox.command.vhosts`, `velocitytoolbox.command.reload`
+- Plugin-management parent: `velocitytoolbox.command.plugin`
+- Plugin actions: `velocitytoolbox.command.plugin.list`, `velocitytoolbox.command.plugin.inspect`, `velocitytoolbox.command.plugin.load`, `velocitytoolbox.command.plugin.unload`, `velocitytoolbox.command.plugin.reload`
+
+For example, inspection-only access requires `velocitytoolbox.command`, `velocitytoolbox.command.plugin`, and `velocitytoolbox.command.plugin.inspect`. Help output only lists commands the source can use.
+
+## Optional resource-pack hosting
+
+Pack hosting is disabled by default. Once enabled, VelocityToolbox runs an HTTP server on the proxy machine, scans any number of ZIP files, and writes `velocityresourcepacks-snippet.yml`. Every ZIP receives its own URL, SHA-1, and `local-path`. [VelocityResourcepacks](https://modrinth.com/plugin/velocityresourcepacks) decides which packs are sent to each player; VelocityToolbox does not send packs itself.
+
+```yaml
+pack-host:
+  enabled: false
+  bind: 0.0.0.0
+  port: 8765
+  public-url: ""          # set a player-reachable URL for internet use
+  packs-directory: packs  # defaults to plugins/VelocityToolbox/packs
+```
+
+Place `.zip` files in the pack directory, set `enabled: true`, configure firewall/reverse-proxy access and `public-url` when needed, then run `/vtoolbox reload`. Merge the generated snippet into VelocityResourcepacks.
+
+The generated `global.packs` list contains every ZIP in file-name order. Minecraft 1.20.3+ clients can stack all listed packs; older clients use only the first entry. This field requires VelocityResourcepacks 1.9.0+. Remove entries that should not be global; use `restricted` / `permission` for player-specific combinations, or configure per-server and per-version assignments in VelocityResourcepacks.
+
+VelocityToolbox does not configure port forwarding, DNS, or HTTPS. When `public-url` is empty, it attempts to use the first detected LAN IPv4 address. Never use `0.0.0.0` as a player-facing download address.
+
+## Runtime plugin safety
+
+Velocity 4.0+ has no public plugin load/unload API. VelocityToolbox refuses to unload targets that are still required by another loaded plugin and attempts to remove listeners, tasks, commands, plugin-message channels, executors, and class loaders. It still cannot guarantee that every third-party plugin is safe to hot-unload.
+
+Small utility plugins are the best candidates after testing. Fully restart the proxy after updating permission, protocol/packet, connection-management, or large-cache plugins. See the [architecture notes](ARCHITECTURE.md) for the implementation boundary.
+
+## Language, metrics, and support
+
+`language` defaults to `zh_cn`. Set it to `en_us` or a custom file under `lang/`. Standard files are `lang/zh_cn.yml` and `lang/en_us.yml`; legacy `zh` / `en` values and old files migrate automatically. Player-facing messages use MiniMessage; startup, pack, and critical plugin-operation console messages use color-coded Adventure components when supported. Help commands use a lighter orange than the prefix. `/vtoolbox reload` reloads the language.
+
+Anonymous usage statistics are provided by [bStats](https://bstats.org/plugin/velocity/VelocityToolbox/33451) and can be disabled in `plugins/bStats/config.txt`.
 
 [![bStats](https://bstats.org/signatures/velocity/VelocityToolbox.svg)](https://bstats.org/plugin/velocity/VelocityToolbox/33451)
 
-## Docs
+Bug reports and feature ideas are welcome on [GitHub Issues](https://github.com/polang233/VelocityToolbox/issues), especially ideas around automatic rollback, multi-proxy operations, virtual-host diagnostics, and pack availability checks.
 
-- [架构说明](ARCHITECTURE.md)
-- [Chinese README](../README.md)
+## License
 
----
+Copyright (C) 2026 Polang.
 
-*If this plugin is useful, please give it a [Star⭐](https://github.com/polang233/VelocityToolbox).*
+VelocityToolbox is licensed under the [GNU General Public License v3.0 only](../LICENSE). Bundled third-party components remain under their respective licenses; see [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
+
+If VelocityToolbox saves you a proxy restart, consider leaving a [Star ⭐](https://github.com/polang233/VelocityToolbox).
