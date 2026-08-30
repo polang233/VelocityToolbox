@@ -23,7 +23,7 @@ public final class PluginConfig {
         ResourceFiles.ensureDefaults(dataDirectory);
         CommentedConfigurationNode root = ResourceFiles.loadYaml(dataDirectory.resolve("config.yml"));
         String language = ResourceFiles.canonicalLanguage(
-                root.node("language").getString("zh_cn"));
+                root.node("language").getString(""));
         return new PluginConfig(language, PackConfig.from(root.node("pack-host")));
     }
 

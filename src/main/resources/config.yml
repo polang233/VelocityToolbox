@@ -1,7 +1,8 @@
-# 界面语言。zh_cn / en_us，或 lang/ 下自定义文件名（不要写 .yml）。旧值 zh / en 会自动兼容。
+# 界面语言。留空 = 自动跟随服务器系统语言，没有对应语言文件时回退中文。
+# 也可填 zh_cn / en_us，或 lang/ 下自定义文件名（不要写 .yml）。
 # 玩家可见消息用 MiniMessage，默认强调色 #FF6600、正文 #CCFFFF（1.16+ 客户端可显示 RGB）。
 # 改完后执行 /vtoolbox reload。
-language: zh_cn
+language: ""
 
 # /vtoolbox plugin load|unload|reload 管理 plugins/ 目录里的其它 Velocity 插件。
 

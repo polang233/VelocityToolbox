@@ -26,8 +26,6 @@ public final class ResourceFiles {
         copyIfMissing("config.yml", dataDirectory.resolve("config.yml"));
         Path langDirectory = dataDirectory.resolve("lang");
         Files.createDirectories(langDirectory);
-        migrateLegacyLanguage(langDirectory.resolve("zh.yml"), langDirectory.resolve("zh_cn.yml"));
-        migrateLegacyLanguage(langDirectory.resolve("en.yml"), langDirectory.resolve("en_us.yml"));
         copyIfMissing("lang/zh_cn.yml", langDirectory.resolve("zh_cn.yml"));
         copyIfMissing("lang/en_us.yml", langDirectory.resolve("en_us.yml"));
     }
@@ -69,9 +67,13 @@ public final class ResourceFiles {
         }
     }
 
+    /**
+     * 规范化语言值：留空时自动跟随服务器系统语言；系统语言没有内置语言文件时，
+     * 上层按缺失语言回退到中文。
+     */
     public static String canonicalLanguage(String language) {
         if (language == null || language.isBlank()) {
-            return "zh_cn";
+            return systemLanguage();
         }
         String trimmed = language.trim();
         return switch (trimmed.toLowerCase(java.util.Locale.ROOT).replace('-', '_')) {
@@ -81,9 +83,13 @@ public final class ResourceFiles {
         };
     }
 
-    private static void migrateLegacyLanguage(Path legacy, Path canonical) throws IOException {
-        if (!Files.exists(canonical) && Files.isRegularFile(legacy)) {
-            Files.copy(legacy, canonical);
-        }
+    private static String systemLanguage() {
+        String tag = java.util.Locale.getDefault().toLanguageTag()
+                .toLowerCase(java.util.Locale.ROOT).replace('-', '_');
+        return switch (tag.split("_", 2)[0]) {
+            case "zh" -> "zh_cn";
+            case "en" -> "en_us";
+            default -> tag;
+        };
     }
 }

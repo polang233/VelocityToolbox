@@ -17,7 +17,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * 玩家/控制台可见文案。默认中文，可在 {@code config.yml} 的 {@code language} 改成 {@code en_us}
+ * 玩家/控制台可见文案。默认跟随服务器系统语言，没有对应语言文件时回退中文；
+ * 也可在 {@code config.yml} 的 {@code language} 固定为 {@code en_us}
  * 或 {@code lang/} 下自定义文件名。
  *
  * <p>主题色：强调 {@code #FF6600}，正文 {@code #CCFFFF}。1.16+ 客户端能显示 RGB。</p>
@@ -44,7 +45,7 @@ public final class Lang {
         language = ResourceFiles.canonicalLanguage(language);
         ResourceFiles.ensureDefaults(dataDirectory);
         Map<String, String> bundledZh = loadBundled("zh_cn");
-        Map<String, String> bundled = "zh_cn".equalsIgnoreCase(language)
+        Map<String, String> bundled = "zh_cn".equals(language)
                 ? bundledZh
                 : loadBundled(language);
         Map<String, String> user = loadUser(language);
