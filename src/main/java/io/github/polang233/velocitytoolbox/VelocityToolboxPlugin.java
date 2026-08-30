@@ -81,7 +81,7 @@ public final class VelocityToolboxPlugin {
             logger.warn(lang.plain("log.bstats-fail"), exception);
         }
 
-        packService = new PackService(logger, dataDirectory);
+        packService = new PackService(dataDirectory, proxy.getConsoleCommandSource(), lang);
         try {
             if (config != null) {
                 packService.start(config.packHost());
@@ -104,12 +104,13 @@ public final class VelocityToolboxPlugin {
                 .build();
         proxy.getCommandManager().register(commandMeta, command);
 
-        logger.info(lang.plain("log.started",
-                Lang.ph("version", version()),
-                Lang.ph("packhost", packService.enabled()
-                        ? lang.plain("command.pack-host.on")
-                        : lang.plain("command.pack-host.off")),
-                Lang.ph("dir", pluginLoadService.pluginsDirectory())));
+        lang.send(proxy.getConsoleCommandSource(), "log.console.started",
+                Lang.ph("version", version()));
+        lang.send(proxy.getConsoleCommandSource(), packService.enabled()
+                ? "log.console.pack-host-enabled"
+                : "log.console.pack-host-disabled");
+        lang.send(proxy.getConsoleCommandSource(), "log.console.plugins-dir",
+                Lang.ph("dir", pluginLoadService.pluginsDirectory()));
     }
 
     @Subscribe
@@ -156,9 +157,9 @@ public final class VelocityToolboxPlugin {
         } catch (Exception exception) {
             logger.error("无法加载配置或语言文件。", exception);
             try {
-                lang.load("zh");
+                lang.load("zh_cn");
             } catch (Exception ignored) {
-                // 随包 zh.yml 损坏时命令仍会回退显示 key。
+                // 随包 zh_cn.yml 损坏时命令仍会回退显示 key。
             }
             return null;
         }

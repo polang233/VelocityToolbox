@@ -51,9 +51,9 @@ final class PluginCleanup {
         unregisterEvents(container, instance);
         report.addExtraListeners(VelocityInternalAccess.removeHandlersLoadedBy(proxy.getEventManager(), loader));
         if (report.extraListeners() > 0) {
-            logger.info(lang.plain("log.cleanup-warn.leftover-handlers",
+            lang.send(proxy.getConsoleCommandSource(), "log.console.leftover-handlers",
                     Lang.ph("plugin", container.getDescription().getId()),
-                    Lang.ph("count", report.extraListeners())));
+                    Lang.ph("count", report.extraListeners()));
         }
         if (instance != null) {
             report.addTasks(cancelTasks(instance));
@@ -62,14 +62,31 @@ final class PluginCleanup {
         int channels = VelocityInternalAccess.unregisterChannelsLoadedBy(proxy.getChannelRegistrar(), loader);
         report.addChannels(channels);
         if (channels > 0) {
-            logger.info(lang.plain("log.cleanup-warn.leftover-channels",
+            lang.send(proxy.getConsoleCommandSource(), "log.console.leftover-channels",
                     Lang.ph("plugin", container.getDescription().getId()),
-                    Lang.ph("count", channels)));
+                    Lang.ph("count", channels));
         }
         if (shutdownExecutor(container)) {
             report.markExecutorShutdown();
         }
         return report;
+    }
+
+    RuntimeInventory inspect(PluginContainer container, Object instance) {
+        ClassLoader loader = classLoaderOf(instance, container);
+        int tasks = 0;
+        if (instance != null) {
+            try {
+                tasks = proxy.getScheduler().tasksByPlugin(instance).size();
+            } catch (NoSuchMethodError | RuntimeException ignored) {
+                // 只读预检失败不应影响后续真实卸载；实际卸载仍会单独尝试并记录异常。
+            }
+        }
+        OwnedCommands commands = ownedCommands(instance, container, loader);
+        int listeners = VelocityInternalAccess.leftoverHandlerCount(proxy.getEventManager(), loader);
+        int channels = VelocityInternalAccess.channelCountLoadedBy(proxy.getChannelRegistrar(), loader);
+        return new RuntimeInventory(
+                commands.count(), tasks, listeners, channels, executorAlreadyCreated(container));
     }
 
     void verify(PluginContainer container, Object instance, CleanupReport report) {
@@ -138,6 +155,24 @@ final class PluginCleanup {
 
     private int unregisterCommands(Object pluginInstance, PluginContainer container, ClassLoader loader) {
         CommandManager commands = proxy.getCommandManager();
+        OwnedCommands owned = ownedCommands(pluginInstance, container, loader);
+        for (CommandMeta meta : owned.meta()) {
+            commands.unregister(meta);
+        }
+        for (String alias : owned.aliases()) {
+            commands.unregister(alias);
+        }
+        int removed = owned.count();
+        if (removed > 0) {
+            lang.send(proxy.getConsoleCommandSource(), "log.console.commands-unregistered",
+                    Lang.ph("plugin", container.getDescription().getId()),
+                    Lang.ph("count", removed));
+        }
+        return removed;
+    }
+
+    private OwnedCommands ownedCommands(Object pluginInstance, PluginContainer container, ClassLoader loader) {
+        CommandManager commands = proxy.getCommandManager();
         Set<CommandMeta> ownedMeta = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
         Set<String> ownedAliases = new LinkedHashSet<>();
         for (String alias : List.copyOf(commands.getAliases())) {
@@ -151,19 +186,7 @@ final class PluginCleanup {
                 }
             }
         }
-        for (CommandMeta meta : ownedMeta) {
-            commands.unregister(meta);
-        }
-        for (String alias : ownedAliases) {
-            commands.unregister(alias);
-        }
-        int removed = ownedMeta.size() + ownedAliases.size();
-        if (removed > 0) {
-            logger.info(lang.plain("log.commands-unregistered",
-                    Lang.ph("plugin", container.getDescription().getId()),
-                    Lang.ph("count", removed)));
-        }
-        return removed;
+        return new OwnedCommands(ownedMeta, ownedAliases);
     }
 
     private static CommandMeta commandMeta(CommandManager commands, String alias) {
@@ -241,5 +264,20 @@ final class PluginCleanup {
             return instance.getClass().getClassLoader();
         }
         return VelocityInternalAccess.classLoaderOf(container.getDescription()).orElse(null);
+    }
+
+    record RuntimeInventory(
+            int commands,
+            int tasks,
+            int listeners,
+            int channels,
+            boolean executorActive
+    ) {
+    }
+
+    private record OwnedCommands(Set<CommandMeta> meta, Set<String> aliases) {
+        int count() {
+            return meta.size() + aliases.size();
+        }
     }
 }

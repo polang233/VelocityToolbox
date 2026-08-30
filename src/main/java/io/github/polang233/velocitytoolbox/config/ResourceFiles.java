@@ -26,8 +26,10 @@ public final class ResourceFiles {
         copyIfMissing("config.yml", dataDirectory.resolve("config.yml"));
         Path langDirectory = dataDirectory.resolve("lang");
         Files.createDirectories(langDirectory);
-        copyIfMissing("lang/zh.yml", langDirectory.resolve("zh.yml"));
-        copyIfMissing("lang/en.yml", langDirectory.resolve("en.yml"));
+        migrateLegacyLanguage(langDirectory.resolve("zh.yml"), langDirectory.resolve("zh_cn.yml"));
+        migrateLegacyLanguage(langDirectory.resolve("en.yml"), langDirectory.resolve("en_us.yml"));
+        copyIfMissing("lang/zh_cn.yml", langDirectory.resolve("zh_cn.yml"));
+        copyIfMissing("lang/en_us.yml", langDirectory.resolve("en_us.yml"));
     }
 
     public static CommentedConfigurationNode loadYaml(Path file) throws IOException {
@@ -64,6 +66,24 @@ public final class ResourceFiles {
                 throw new IOException("缺少随包资源 " + resourcePath);
             }
             Files.copy(in, destination);
+        }
+    }
+
+    public static String canonicalLanguage(String language) {
+        if (language == null || language.isBlank()) {
+            return "zh_cn";
+        }
+        String trimmed = language.trim();
+        return switch (trimmed.toLowerCase(java.util.Locale.ROOT).replace('-', '_')) {
+            case "zh", "zh_cn" -> "zh_cn";
+            case "en", "en_us" -> "en_us";
+            default -> trimmed;
+        };
+    }
+
+    private static void migrateLegacyLanguage(Path legacy, Path canonical) throws IOException {
+        if (!Files.exists(canonical) && Files.isRegularFile(legacy)) {
+            Files.copy(legacy, canonical);
         }
     }
 }

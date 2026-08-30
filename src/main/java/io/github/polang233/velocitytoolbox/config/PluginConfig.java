@@ -22,11 +22,9 @@ public final class PluginConfig {
     public static PluginConfig load(Path dataDirectory) throws IOException {
         ResourceFiles.ensureDefaults(dataDirectory);
         CommentedConfigurationNode root = ResourceFiles.loadYaml(dataDirectory.resolve("config.yml"));
-        String language = root.node("language").getString("zh");
-        if (language == null || language.isBlank()) {
-            language = "zh";
-        }
-        return new PluginConfig(language.trim(), PackConfig.from(root.node("pack-host")));
+        String language = ResourceFiles.canonicalLanguage(
+                root.node("language").getString("zh_cn"));
+        return new PluginConfig(language, PackConfig.from(root.node("pack-host")));
     }
 
     public String language() {

@@ -73,13 +73,20 @@ public final class PluginLoadService {
         List<PluginInfo> infos = new ArrayList<>();
         for (PluginContainer container : proxy.getPluginManager().getPlugins()) {
             PluginDescription description = container.getDescription();
-            String jar = description.getSource()
-                    .map(path -> path.getFileName().toString())
-                    .orElse("?");
+            List<String> required = dependencies(description, false);
+            List<String> optional = dependencies(description, true);
             infos.add(new PluginInfo(
                     description.getId(),
+                    description.getName().orElse(description.getId()),
                     description.getVersion().orElse("?"),
-                    jar));
+                    description.getAuthors(),
+                    description.getDescription().orElse(""),
+                    description.getUrl().orElse(""),
+                    required,
+                    optional,
+                    description.getProvidedIds().stream()
+                            .sorted(String.CASE_INSENSITIVE_ORDER)
+                            .toList()));
         }
         infos.sort((left, right) -> String.CASE_INSENSITIVE_ORDER.compare(left.id(), right.id()));
         return infos;
@@ -100,6 +107,95 @@ public final class PluginLoadService {
             logger.warn(lang.plain("log.list-jars", Lang.ph("dir", pluginsDirectory)), exception);
             return List.of();
         }
+    }
+
+    public synchronized PluginInspection inspect(String id) {
+        String requested = id == null ? "" : id.trim();
+        Optional<PluginContainer> optional = proxy.getPluginManager().getPlugin(requested);
+        if (optional.isEmpty()) {
+            return PluginInspection.notFound(requested);
+        }
+
+        PluginContainer container = optional.get();
+        PluginDescription description = container.getDescription();
+        Object instance = container.getInstance().orElse(null);
+        PluginCleanup.RuntimeInventory inventory = cleanup.inspect(container, instance);
+        List<String> dependents = dependentsOf(container);
+        List<String> requiredDependencies = dependencies(description, false);
+        List<String> optionalDependencies = dependencies(description, true);
+        List<String> providedIds = description.getProvidedIds().stream()
+                .sorted(String.CASE_INSENSITIVE_ORDER)
+                .toList();
+        Path source = description.getSource().orElse(null);
+        boolean sourceAvailable = source != null && Files.isRegularFile(source);
+
+        List<PluginInspection.Issue> issues = new ArrayList<>();
+        PluginInspection.Risk risk = PluginInspection.Risk.LOW;
+        if (isProtected(description.getId())) {
+            issues.add(PluginInspection.Issue.PROTECTED);
+            risk = PluginInspection.Risk.BLOCKED;
+        }
+        if (!dependents.isEmpty()) {
+            issues.add(PluginInspection.Issue.REQUIRED_BY_OTHERS);
+            risk = PluginInspection.Risk.BLOCKED;
+        }
+        if (!sourceAvailable) {
+            issues.add(PluginInspection.Issue.NO_SOURCE_JAR);
+            if (risk != PluginInspection.Risk.BLOCKED) {
+                risk = PluginInspection.Risk.HIGH;
+            }
+        }
+        if (instance == null) {
+            issues.add(PluginInspection.Issue.NO_INSTANCE);
+            if (risk != PluginInspection.Risk.BLOCKED) {
+                risk = PluginInspection.Risk.HIGH;
+            }
+        }
+        if (!providedIds.isEmpty()) {
+            issues.add(PluginInspection.Issue.PROVIDED_IDS);
+            if (risk == PluginInspection.Risk.LOW) {
+                risk = PluginInspection.Risk.MEDIUM;
+            }
+        }
+        if (inventory.channels() > 0) {
+            issues.add(PluginInspection.Issue.CUSTOM_CHANNELS);
+            if (risk == PluginInspection.Risk.LOW) {
+                risk = PluginInspection.Risk.MEDIUM;
+            }
+        }
+        if (inventory.executorActive()) {
+            issues.add(PluginInspection.Issue.EXECUTOR);
+            if (risk == PluginInspection.Risk.LOW) {
+                risk = PluginInspection.Risk.MEDIUM;
+            }
+        }
+        if (issues.isEmpty()) {
+            issues.add(PluginInspection.Issue.STANDARD_CLEANUP_ONLY);
+        }
+
+        return new PluginInspection(
+                true,
+                description.getId(),
+                description.getName().orElse(description.getId()),
+                description.getVersion().orElse("?"),
+                description.getAuthors(),
+                description.getDescription().orElse(""),
+                description.getUrl().orElse(""),
+                source == null || source.getFileName() == null ? "?" : source.getFileName().toString(),
+                instance == null ? "?" : instance.getClass().getName(),
+                sourceAvailable,
+                instance != null,
+                risk,
+                inventory.commands(),
+                inventory.tasks(),
+                inventory.listeners(),
+                inventory.channels(),
+                inventory.executorActive(),
+                dependents,
+                requiredDependencies,
+                optionalDependencies,
+                providedIds,
+                issues);
     }
 
     public synchronized OperationResult loadByFileName(String fileName) {
@@ -157,10 +253,11 @@ public final class PluginLoadService {
                         proxy.getEventManager(), new ProxyInitializeEvent(), container, instance);
             }
 
-            logger.info(lang.plain("log.loaded",
+            lang.send(proxy.getConsoleCommandSource(), "log.console.plugin-loaded",
                     Lang.ph("plugin", realPlugin.getId()),
-                    Lang.ph("version", realPlugin.getVersion().orElse("")),
-                    Lang.ph("file", absoluteJar.getFileName())));
+                    Lang.ph("version", realPlugin.getVersion().orElse("")));
+            lang.send(proxy.getConsoleCommandSource(), "log.console.plugin-loaded-file",
+                    Lang.ph("file", absoluteJar.getFileName()));
             return OperationResult.ok("plugins.load.ok", Map.of("plugin", realPlugin.getId()));
         } catch (Exception exception) {
             logger.error(lang.plain("log.load-fail", Lang.ph("file", absoluteJar.getFileName())), exception);
@@ -230,7 +327,8 @@ public final class PluginLoadService {
                         shutdownError != null ? shutdownError : new IllegalStateException(pluginId));
             }
 
-            logger.info(lang.plain("log.unloaded", Lang.ph("plugin", pluginId)));
+            lang.send(proxy.getConsoleCommandSource(), "log.console.plugin-unloaded",
+                    Lang.ph("plugin", pluginId));
             return new OperationResult(true, "plugins.unload.ok", Map.of("plugin", pluginId), report, shutdownError);
         } catch (Exception exception) {
             logger.error(lang.plain("log.unload-fail", Lang.ph("plugin", pluginId)), exception);
@@ -325,6 +423,17 @@ public final class PluginLoadService {
         return ids;
     }
 
+    private static List<String> dependencies(PluginDescription description, boolean optional) {
+        return description.getDependencies().stream()
+                .filter(dependency -> dependency.isOptional() == optional)
+                .map(dependency -> dependency.getVersion()
+                        .filter(version -> !version.isBlank())
+                        .map(version -> dependency.getId() + " " + version)
+                        .orElse(dependency.getId()))
+                .sorted(String.CASE_INSENSITIVE_ORDER)
+                .toList();
+    }
+
     private Path resolvePluginJar(String fileName) {
         if (fileName == null || fileName.isBlank()) {
             return null;
@@ -364,7 +473,23 @@ public final class PluginLoadService {
         return message;
     }
 
-    public record PluginInfo(String id, String version, String jar) {
+    public record PluginInfo(
+            String id,
+            String name,
+            String version,
+            List<String> authors,
+            String description,
+            String url,
+            List<String> requiredDependencies,
+            List<String> optionalDependencies,
+            List<String> providedIds
+    ) {
+        public PluginInfo {
+            authors = List.copyOf(authors);
+            requiredDependencies = List.copyOf(requiredDependencies);
+            optionalDependencies = List.copyOf(optionalDependencies);
+            providedIds = List.copyOf(providedIds);
+        }
     }
 
     public record OperationResult(

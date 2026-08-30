@@ -17,7 +17,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * 玩家/控制台可见文案。默认中文，可在 {@code config.yml} 的 {@code language} 改成 {@code en}
+ * 玩家/控制台可见文案。默认中文，可在 {@code config.yml} 的 {@code language} 改成 {@code en_us}
  * 或 {@code lang/} 下自定义文件名。
  *
  * <p>主题色：强调 {@code #FF6600}，正文 {@code #CCFFFF}。1.16+ 客户端能显示 RGB。</p>
@@ -25,6 +25,7 @@ import java.util.Map;
 public final class Lang {
 
     public static final TextColor ACCENT = TextColor.color(0xFF6600);
+    public static final TextColor COMMAND = TextColor.color(0xFFB366);
     public static final TextColor BODY = TextColor.color(0xCCFFFF);
     public static final TextColor ERROR = TextColor.color(0xFF5555);
 
@@ -40,9 +41,10 @@ public final class Lang {
     }
 
     public void load(String language) throws IOException {
+        language = ResourceFiles.canonicalLanguage(language);
         ResourceFiles.ensureDefaults(dataDirectory);
-        Map<String, String> bundledZh = loadBundled("zh");
-        Map<String, String> bundled = "zh".equalsIgnoreCase(language)
+        Map<String, String> bundledZh = loadBundled("zh_cn");
+        Map<String, String> bundled = "zh_cn".equalsIgnoreCase(language)
                 ? bundledZh
                 : loadBundled(language);
         Map<String, String> user = loadUser(language);

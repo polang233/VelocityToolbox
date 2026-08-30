@@ -1,6 +1,8 @@
 package io.github.polang233.velocitytoolbox.pack;
 
-import org.slf4j.Logger;
+import com.velocitypowered.api.command.CommandSource;
+import io.github.polang233.velocitytoolbox.lang.Lang;
+import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -15,8 +17,9 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class PackService implements AutoCloseable {
 
-    private final Logger logger;
     private final Path dataDirectory;
+    private final CommandSource console;
+    private final Lang lang;
 
     private PackConfig config;
     private Path packsDirectory;
@@ -24,9 +27,10 @@ public final class PackService implements AutoCloseable {
     private final Map<String, HostedPack> packs = new ConcurrentHashMap<>();
     private PackHttpServer httpServer;
 
-    public PackService(Logger logger, Path dataDirectory) {
-        this.logger = logger;
+    public PackService(Path dataDirectory, CommandSource console, Lang lang) {
         this.dataDirectory = dataDirectory;
+        this.console = console;
+        this.lang = lang;
     }
 
     public synchronized void start() throws IOException {
@@ -43,7 +47,6 @@ public final class PackService implements AutoCloseable {
             Files.createDirectories(packsDirectory);
 
             if (!config.enabled()) {
-                logger.info("资源包托管已关闭。");
                 return;
             }
             if (config.port() <= 0 || config.port() > 65535) {
@@ -120,10 +123,10 @@ public final class PackService implements AutoCloseable {
         if (!configured.isEmpty()) {
             String origin = trimSlash(configured);
             if (origin.contains("127.0.0.1") || origin.contains("localhost")) {
-                logger.warn("pack-host.public-url 使用了 localhost。只有本机客户端能下载资源包。");
+                console("log.pack.warn-localhost");
             }
             if (origin.contains("0.0.0.0")) {
-                logger.warn("pack-host.public-url 使用了 0.0.0.0。请改成玩家能访问的局域网 IP 或域名。");
+                console("log.pack.warn-wildcard");
             }
             return origin;
         }
@@ -131,27 +134,36 @@ public final class PackService implements AutoCloseable {
         List<String> candidates = LanIpv4Addresses.detect();
         if (candidates.isEmpty()) {
             String fallback = "http://127.0.0.1:" + config.port();
-            logger.warn("没有找到局域网 IPv4，暂用 {}。若玩家从其它机器加入，请设置 pack-host.public-url。", fallback);
+            console("log.pack.warn-fallback", Lang.ph("origin", fallback));
             return fallback;
         }
         if (candidates.size() > 1) {
-            logger.info("检测到多个局域网地址 {}，使用第一个。不对的话请设置 pack-host.public-url。", candidates);
+            console("log.pack.multiple-addresses",
+                    Lang.ph("addresses", String.join(", ", candidates)),
+                    Lang.ph("selected", candidates.getFirst()));
         }
         return "http://" + candidates.getFirst() + ":" + config.port();
     }
 
     private void logStatus() {
-        logger.info("资源包托管监听 {}:{}", config.bind(), config.port());
-        logger.info("客户端下载来源: {}", publicOrigin);
-        logger.info("资源包目录 {}", packsDirectory);
+        console("log.pack.listen", Lang.ph("bind", config.bind()), Lang.ph("port", config.port()));
+        console("log.pack.origin", Lang.ph("origin", publicOrigin));
+        console("log.pack.directory", Lang.ph("path", packsDirectory));
         if (packs.isEmpty()) {
-            logger.warn("没有找到资源包。把 .zip 放到 {}，或修改 pack-host.packs-directory。", packsDirectory);
+            console("log.pack.empty", Lang.ph("path", packsDirectory));
             return;
         }
         for (HostedPack pack : packs()) {
-            logger.info("资源包 {} sha1={} url={}", pack.fileName(), pack.sha1(), pack.url());
+            console("log.pack.item", Lang.ph("file", pack.fileName()));
+            console("log.pack.item-sha1", Lang.ph("sha1", pack.sha1()));
+            console("log.pack.item-url", Lang.ph("url", pack.url()));
         }
-        logger.info("VelocityResourcepacks 片段已写入 {}", dataDirectory.resolve("velocityresourcepacks-snippet.yml"));
+        console("log.pack.snippet",
+                Lang.ph("path", dataDirectory.resolve("velocityresourcepacks-snippet.yml")));
+    }
+
+    private void console(String key, TagResolver... resolvers) {
+        lang.send(console, key, resolvers);
     }
 
     private static String trimSlash(String origin) {

@@ -297,23 +297,11 @@ final class VelocityInternalAccess {
      * LuckPerms 这类用 API 自带 identifier 的通道卸不掉，这是代理限制。
      */
     static int unregisterChannelsLoadedBy(Object channelRegistrar, ClassLoader loader) {
-        if (channelRegistrar == null || loader == null) {
+        Set<Object> owned = channelsLoadedBy(channelRegistrar, loader);
+        if (owned.isEmpty()) {
             return 0;
         }
         try {
-            Object raw = get(field(channelRegistrar.getClass(), "identifierMap"), channelRegistrar);
-            if (!(raw instanceof Map<?, ?> map)) {
-                return 0;
-            }
-            Set<Object> owned = new HashSet<>();
-            for (Object identifier : map.values()) {
-                if (identifier != null && sameLoader(identifier.getClass().getClassLoader(), loader)) {
-                    owned.add(identifier);
-                }
-            }
-            if (owned.isEmpty()) {
-                return 0;
-            }
             Object array = Array.newInstance(
                     classForName("com.velocitypowered.api.proxy.messages.ChannelIdentifier"),
                     owned.size());
@@ -326,6 +314,31 @@ final class VelocityInternalAccess {
             return owned.size();
         } catch (RuntimeException ignored) {
             return 0;
+        }
+    }
+
+    static int channelCountLoadedBy(Object channelRegistrar, ClassLoader loader) {
+        return channelsLoadedBy(channelRegistrar, loader).size();
+    }
+
+    private static Set<Object> channelsLoadedBy(Object channelRegistrar, ClassLoader loader) {
+        if (channelRegistrar == null || loader == null) {
+            return Set.of();
+        }
+        try {
+            Object raw = get(field(channelRegistrar.getClass(), "identifierMap"), channelRegistrar);
+            if (!(raw instanceof Map<?, ?> map)) {
+                return Set.of();
+            }
+            Set<Object> owned = new HashSet<>();
+            for (Object identifier : map.values()) {
+                if (identifier != null && sameLoader(identifier.getClass().getClassLoader(), loader)) {
+                    owned.add(identifier);
+                }
+            }
+            return owned;
+        } catch (RuntimeException ignored) {
+            return Set.of();
         }
     }
 
