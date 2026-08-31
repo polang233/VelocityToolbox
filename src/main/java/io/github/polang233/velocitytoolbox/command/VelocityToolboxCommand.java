@@ -1,6 +1,7 @@
 package io.github.polang233.velocitytoolbox.command;
 
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
@@ -90,7 +91,9 @@ public final class VelocityToolboxCommand {
                 .executes(this::packs));
         root.then(BrigadierCommand.literalArgumentBuilder("vhosts")
                 .requires(source -> hasCommandPermission(source, VHOSTS_PERMISSION))
-                .executes(this::vhosts));
+                .executes(this::vhosts)
+                .then(BrigadierCommand.requiredArgumentBuilder("entry", IntegerArgumentType.integer(1))
+                        .executes(this::expandedVhost)));
         root.then(BrigadierCommand.literalArgumentBuilder("reload")
                 .requires(source -> hasCommandPermission(source, RELOAD_PERMISSION))
                 .executes(this::reloadAll));
@@ -206,6 +209,14 @@ public final class VelocityToolboxCommand {
     }
 
     private int vhosts(CommandContext<CommandSource> ctx) {
+        return vhosts(ctx, null);
+    }
+
+    private int expandedVhost(CommandContext<CommandSource> ctx) {
+        return vhosts(ctx, IntegerArgumentType.getInteger(ctx, "entry"));
+    }
+
+    private int vhosts(CommandContext<CommandSource> ctx, Integer selectedEntry) {
         CommandSource source = ctx.getSource();
         List<Player> players = new ArrayList<>(proxy.getAllPlayers());
         if (players.isEmpty()) {
@@ -228,29 +239,55 @@ public final class VelocityToolboxCommand {
         String unknown = lang.plain("command.common.unknown");
         for (Map.Entry<EntryPoint, List<Player>> group : groups.entrySet()) {
             EntryPoint entry = group.getKey();
-            lang.send(source, "command.vhosts.entry",
-                    ph("index", index++),
+            int currentIndex = index++;
+            Component entryLine = lang.get("command.vhosts.entry",
+                    ph("index", currentIndex),
                     ph("domain", entry.domain().isEmpty() ? unknown : entry.domain()),
-                    ph("ip", entry.ip().isEmpty() ? unknown : entry.ip()),
                     ph("port", entry.port() <= 0 ? unknown : entry.port()),
-                    ph("count", group.getValue().size()));
-            for (Player player : group.getValue()) {
-                String backend = player.getCurrentServer()
-                        .map(connection -> connection.getServerInfo().getName())
-                        .orElse(unknown);
-                String mode = lang.plain(player.isOnlineMode()
-                        ? "command.player.online-mode"
-                        : "command.player.offline-mode");
-                lang.send(source, "command.vhosts.player",
-                        ph("name", player.getUsername()),
-                        ph("uuid", player.getUniqueId()),
-                        ph("ip", remoteIp(player)),
-                        ph("ping", player.getPing() < 0 ? unknown : player.getPing() + "ms"),
-                        ph("server", backend),
-                        ph("mode", mode));
+                    ph("count", group.getValue().size()))
+                    .hoverEvent(HoverEvent.showText(lang.get(selectedEntry != null && selectedEntry == currentIndex
+                            ? "command.vhosts.collapse-hint"
+                            : "command.vhosts.expand-hint")))
+                    .clickEvent(ClickEvent.runCommand(selectedEntry != null && selectedEntry == currentIndex
+                            ? "/vtoolbox vhosts"
+                            : "/vtoolbox vhosts " + currentIndex));
+            lang.send(source, entryLine);
+            if (selectedEntry != null && selectedEntry == currentIndex) {
+                for (Player player : group.getValue()) {
+                    lang.send(source, playerLine(player, unknown));
+                }
             }
         }
+        if (selectedEntry != null && selectedEntry > groups.size()) {
+            lang.send(source, "command.vhosts.invalid-entry", ph("index", selectedEntry));
+        }
         return Command.SINGLE_SUCCESS;
+    }
+
+    private Component playerLine(Player player, String unknown) {
+        String ping = player.getPing() < 0 ? unknown : player.getPing() + "ms";
+        return lang.get("command.vhosts.player", ph("name", player.getUsername()), ph("ping", ping))
+                .hoverEvent(HoverEvent.showText(playerHover(player, unknown)));
+    }
+
+    private Component playerHover(Player player, String unknown) {
+        String backend = player.getCurrentServer()
+                .map(connection -> connection.getServerInfo().getName())
+                .orElse(unknown);
+        String mode = lang.plain(player.isOnlineMode()
+                ? "command.player.online-mode"
+                : "command.player.offline-mode");
+        return Component.text()
+                .append(lang.get("command.vhosts.player-hover-title", ph("name", player.getUsername())))
+                .append(Component.newline())
+                .append(hoverField("command.vhosts.player-uuid", String.valueOf(player.getUniqueId())))
+                .append(Component.newline())
+                .append(hoverField("command.vhosts.player-ip", remoteIp(player)))
+                .append(Component.newline())
+                .append(hoverField("command.vhosts.player-server", backend))
+                .append(Component.newline())
+                .append(hoverField("command.vhosts.player-mode", mode))
+                .build();
     }
 
     private int reloadAll(CommandContext<CommandSource> ctx) {
@@ -558,14 +595,13 @@ public final class VelocityToolboxCommand {
     private static EntryPoint entryPoint(Player player) {
         InetSocketAddress address = player.getVirtualHost().orElse(null);
         if (address == null) {
-            return new EntryPoint("", "", -1);
+            return new EntryPoint("", -1);
         }
         String domain = address.getHostString().toLowerCase(Locale.ROOT);
         if (domain.endsWith(".")) {
             domain = domain.substring(0, domain.length() - 1);
         }
-        String ip = address.getAddress() == null ? "" : address.getAddress().getHostAddress();
-        return new EntryPoint(domain, ip, address.getPort());
+        return new EntryPoint(domain, address.getPort());
     }
 
     private static String remoteIp(Player player) {
@@ -579,7 +615,7 @@ public final class VelocityToolboxCommand {
                 : lang.plain("command.common.console");
     }
 
-    private record EntryPoint(String domain, String ip, int port) {
+    private record EntryPoint(String domain, int port) {
         String sortKey() {
             return domain.toLowerCase(Locale.ROOT) + ':' + port;
         }

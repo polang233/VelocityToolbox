@@ -53,7 +53,7 @@ The resource-pack HTTP server is **disabled by default** and listens only after 
 | `/vtoolbox help` | Show help |
 | `/vtoolbox info` | Show plugin, proxy, Java, plugin-count, and pack-host summary |
 | `/vtoolbox packs` | List hosted pack URLs and SHA-1 hashes |
-| `/vtoolbox vhosts` | Group players by entry domain/IP/port and show player details |
+| `/vtoolbox vhosts` | Group players by entry domain/port and show player details |
 | `/vtoolbox reload` | Reload language, configuration, and pack hosting |
 | `/vtoolbox plugin list` | Show names, versions, and authors; hover for full metadata |
 | `/vtoolbox plugin inspect <plugin-id>` | Four-section metadata, dependency, runtime, and risk report |

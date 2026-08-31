@@ -14,7 +14,7 @@
 ## Highlights
 
 - **Restart the proxy less often:** load, unload, or reload Velocity plugins from `plugins/`; inspect risk before the operation and receive a cleanup report afterward.
-- **Debug multi-domain networks:** `/vtoolbox vhosts` groups online players by the address they used to join, useful for checking MiniMOTD-style routing.
+- **Debug multi-domain networks:** `/vtoolbox vhosts` groups online players by the address they used to join; click an entry to expand names and pings, then hover a player for full details.
 - **Host multiple packs locally:** serve any number of `.zip` files, calculate SHA-1 hashes, and generate a multi-pack VelocityResourcepacks snippet.
 - **Conservative defaults:** the HTTP pack host is disabled by default; layered permissions, concise critical-operation console messages, and bilingual output are built in.
 
@@ -38,7 +38,7 @@ The main command has the `/vtb` alias. `velocitytoolbox.admin` remains a backwar
 | `/vtoolbox help` | Show help |
 | `/vtoolbox info` | Show plugin, proxy, Java, plugin-count, and pack-host summary |
 | `/vtoolbox packs` | List resource-pack URLs and SHA-1 hashes |
-| `/vtoolbox vhosts` | Group players by entry domain/IP/port and show player details |
+| `/vtoolbox vhosts` | Group players by entry domain/port and player count; click an entry for names and pings, hover for details |
 | `/vtoolbox reload` | Reload language, configuration, and pack hosting |
 | `/vtoolbox plugin list` | Show names, versions, and authors; hover for full metadata |
 | `/vtoolbox plugin inspect <plugin-id>` | Four-section metadata, dependency, runtime, and risk report |

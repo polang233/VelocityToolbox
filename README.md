@@ -14,7 +14,7 @@
 ## 为什么用它
 
 - **少重启一次代理**：加载、卸载或重载 `plugins/` 中的 Velocity 插件；操作前可只读检查风险，操作后报告清理结果。
-- **排查多入口网络**：`/vtoolbox vhosts` 按玩家加入时使用的域名分组，快速核对 MiniMOTD 等按域名分流的配置。
+- **排查多入口网络**：`/vtoolbox vhosts` 按玩家加入时使用的域名分组，先显示入口概要；点击入口行展开玩家名和延迟，悬停玩家可查看完整信息。
 - **资源包就地托管**：一次托管任意数量的 `.zip`，自动计算 SHA-1，并生成支持多包叠加的 VelocityResourcepacks 配置片段。
 - **默认保持克制**：资源包 HTTP 服务默认关闭；分层权限、关键操作后台提示和中英文消息均已内置。
 
@@ -52,7 +52,7 @@
 | `/vtoolbox help` | 显示帮助 |
 | `/vtoolbox info` | 显示插件、代理、Java、插件数量和资源包托管概要 |
 | `/vtoolbox packs` | 列出资源包 URL 和 SHA-1 |
-| `/vtoolbox vhosts` | 按入口分组显示域名、解析 IP、端口、人数和玩家基本信息 |
+| `/vtoolbox vhosts` | 按入口分组显示域名、端口和人数；点击入口行展开玩家名与延迟，悬停查看详情 |
 | `/vtoolbox reload` | 重载语言、配置与资源包托管 |
 | `/vtoolbox plugin list` | 显示插件名称、版本和作者；悬停查看完整元数据 |
 | `/vtoolbox plugin inspect <plugin-id>` | 按基本信息、依赖、运行时资源和风险四段检查插件 |
