@@ -49,7 +49,6 @@ public final class VelocityToolboxPlugin {
     private PackService packService;
     private PluginLoadService pluginLoadService;
     private CommandMeta commandMeta;
-    private Metrics metrics;
 
     @Inject
     public VelocityToolboxPlugin(
@@ -74,12 +73,7 @@ public final class VelocityToolboxPlugin {
     @Subscribe
     public void onProxyInitialization(ProxyInitializeEvent event) {
         PluginConfig config = loadConfigAndLang();
-
-        try {
-            metrics = metricsFactory.make(this, BSTATS_ID);
-        } catch (RuntimeException exception) {
-            logger.warn(lang.plain("log.bstats-fail"), exception);
-        }
+        metricsFactory.make(this, BSTATS_ID);
 
         packService = new PackService(dataDirectory, proxy.getConsoleCommandSource(), lang);
         try {
@@ -139,10 +133,6 @@ public final class VelocityToolboxPlugin {
         if (commandMeta != null) {
             proxy.getCommandManager().unregister(commandMeta);
             commandMeta = null;
-        }
-        if (metrics != null) {
-            metrics.shutdown();
-            metrics = null;
         }
         if (packService != null) {
             packService.close();

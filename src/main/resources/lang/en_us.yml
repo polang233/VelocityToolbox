@@ -150,7 +150,6 @@ log:
     leftover-handlers: "<yellow>Removed <count> leftover listener(s) for plugin <plugin> by class loader."
     leftover-channels: "<yellow>Unregistered <count> plugin message channel(s) for plugin <plugin> by class loader."
     reloaded: "<green><source> reloaded configuration, language, and pack hosting."
-  bstats-fail: "Could not start bStats."
   pack-fail: "Pack hosting failed to start. Plugin management commands still work."
   reload-fail: "Could not reload language or pack hosting."
   list-jars: "Could not list plugin JARs in <dir>."

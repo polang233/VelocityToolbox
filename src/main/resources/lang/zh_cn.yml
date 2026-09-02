@@ -150,7 +150,6 @@ log:
     leftover-handlers: "<yellow>按类加载器扫出插件 <plugin> 的残留监听器 <count> 条。"
     leftover-channels: "<yellow>按类加载器注销插件 <plugin> 的 <count> 条消息通道。"
     reloaded: "<green><source> 已重载配置、语言和资源包托管。"
-  bstats-fail: "无法启动 bStats。"
   pack-fail: "资源包托管启动失败。插件管理命令仍可使用。"
   reload-fail: "无法重载语言或资源包托管。"
   list-jars: "无法列出 <dir> 里的插件 JAR。"
