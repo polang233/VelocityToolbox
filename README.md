@@ -6,17 +6,34 @@
 
 **把常用的 Velocity 运维能力收进一个轻量工具箱：运行时插件管理、入口域名排查，以及可选的资源包 HTTP 托管。**
 
-[English](docs/README.en.md) · [Modrinth 文案](docs/MODRINTH.md) · [架构说明](docs/ARCHITECTURE.md) · [问题与建议](https://github.com/polang233/VelocityToolbox/issues)
+[English](docs/README.en.md) · [论坛文案](docs/FORUM.zh.md) · [Modrinth 文案](docs/MODRINTH.md) · [架构说明](docs/ARCHITECTURE.md) · [问题与建议](https://github.com/polang233/VelocityToolbox/issues)
 
 ![Velocity](https://img.shields.io/badge/Velocity-4.0%2B-654FF0)
 ![Java](https://img.shields.io/badge/Java-25%2B-E76F00)
 
 ## 为什么用它
 
-- **少重启一次代理**：加载、卸载或重载 `plugins/` 中的 Velocity 插件；操作前可只读检查风险，操作后报告清理结果。
-- **排查多入口网络**：`/vtoolbox vhosts` 按玩家加入时使用的域名分组，先显示入口概要；点击入口行展开玩家名和延迟，悬停玩家可查看完整信息。
-- **资源包就地托管**：一次托管任意数量的 `.zip`，自动计算 SHA-1，并生成支持多包叠加的 VelocityResourcepacks 配置片段。
-- **默认保持克制**：资源包 HTTP 服务默认关闭；分层权限、关键操作后台提示和中英文消息均已内置。
+- **少重启一次代理**：加载、卸载或重载 `plugins/` 里的 Velocity 插件；操作前可只读检查风险，操作后报告清理结果。
+- **排查多入口网络**：`/vtb vhosts` 按玩家加入时用的域名分组，先显示入口概要；点击入口行展开玩家名和延迟，悬停可看完整信息。
+- **资源包就地托管**：一次托管任意数量的 `.zip`，自动算 SHA-1，并生成支持多包叠加的 VelocityResourcepacks 配置片段。资源包 HTTP 服务默认关闭。
+
+<p align="center">
+  <img src="assets/screenshot-vhosts.jpg" alt="按入口查看在线玩家" width="720">
+</p>
+<p align="center"><sub>按入口域名查看人数和延迟</sub></p>
+
+<p align="center">
+  <img src="assets/screenshot-plugin-load.png" alt="热加载插件" width="720">
+</p>
+<p align="center">
+  <img src="assets/screenshot-plugin-unload.png" alt="热卸载插件" width="720">
+</p>
+<p align="center"><sub>热加载 / 卸载插件，并报告清理结果</sub></p>
+
+<p align="center">
+  <img src="assets/screenshot-packs.png" alt="资源包下载提示" width="720">
+</p>
+<p align="center"><sub>资源包托管启用后，玩家进服会收到标准下载提示</sub></p>
 
 ## 环境与安装
 
@@ -25,7 +42,7 @@
 
 1. 从 [Releases](https://github.com/polang233/VelocityToolbox/releases) 下载 JAR，放入 Velocity 的 `plugins/`。
 2. 完整启动代理一次，生成 `plugins/VelocityToolbox/config.yml`。
-3. 给管理员授予 `velocitytoolbox.admin`，或按下方权限表细分授权；使用 `/vtoolbox help` 查看命令。
+3. 给管理员授予 `velocitytoolbox.admin`，或按下方权限表细分授权；使用 `/vtoolbox help` 或 `/vtb help` 查看命令。
 
 自行构建：
 
@@ -33,40 +50,45 @@
 .\gradlew.bat build
 ```
 
-## 常用命令
+## 命令
 
-```text
-/vtoolbox info
-/vtoolbox vhosts
-/vtoolbox plugin list
-/vtoolbox plugin inspect someplugin
-/vtoolbox plugin load SomePlugin-1.0.jar
-/vtoolbox plugin unload someplugin
-/vtoolbox plugin reload someplugin
-```
-
-主命令别名为 `/vtb`。`velocitytoolbox.admin` 保留为全部命令的兼容权限。普通查询不会刷后台；插件加载、卸载、重载和配置重载等关键操作只输出简短状态。
+主命令别名是 `/vtb`。`velocitytoolbox.admin` 仍可作为全部命令的兼容权限。普通查询不会刷后台；插件加载、卸载、重载和配置重载只输出简短状态。
 
 | 命令 | 作用 |
-|---|---|
+| --- | --- |
 | `/vtoolbox help` | 显示帮助 |
-| `/vtoolbox info` | 显示插件、代理、Java、插件数量和资源包托管概要 |
+| `/vtoolbox info` | 插件、代理、Java、插件数量和资源包托管概要 |
 | `/vtoolbox packs` | 列出资源包 URL 和 SHA-1 |
-| `/vtoolbox vhosts` | 按入口分组显示域名、端口和人数；点击入口行展开玩家名与延迟，悬停查看详情 |
+| `/vtoolbox vhosts` | 按入口分组显示域名、端口和人数；点击展开玩家名与延迟 |
 | `/vtoolbox reload` | 重载语言、配置与资源包托管 |
-| `/vtoolbox plugin list` | 显示插件名称、版本和作者；悬停查看完整元数据 |
-| `/vtoolbox plugin inspect <plugin-id>` | 按基本信息、依赖、运行时资源和风险四段检查插件 |
-| `/vtoolbox plugin load <file.jar>` | 从 `plugins/` 加载插件 |
-| `/vtoolbox plugin unload <plugin-id>` | 卸载插件 |
-| `/vtoolbox plugin reload <plugin-id>` | 卸载后重新加载插件 |
+| `/vtoolbox plugin list` | 名称、版本和作者；悬停看完整元数据 |
+| `/vtoolbox plugin inspect 插件ID` | 按基本信息、依赖、运行时资源和风险四段检查 |
+| `/vtoolbox plugin load 文件.jar` | 从 `plugins/` 加载插件 |
+| `/vtoolbox plugin unload 插件ID` | 卸载插件 |
+| `/vtoolbox plugin reload 插件ID` | 卸载后重新加载 |
 
 ### 细分权限
 
-不使用 `velocitytoolbox.admin` 时，必须先有基础权限 `velocitytoolbox.command`，再授予对应子命令权限：
+不用 `velocitytoolbox.admin` 时，必须先有 `velocitytoolbox.command`，再授予对应子命令权限。
 
-- 普通子命令：`velocitytoolbox.command.info`、`velocitytoolbox.command.packs`、`velocitytoolbox.command.vhosts`、`velocitytoolbox.command.reload`
-- 插件管理父权限：`velocitytoolbox.command.plugin`
-- 插件管理动作：`velocitytoolbox.command.plugin.list`、`velocitytoolbox.command.plugin.inspect`、`velocitytoolbox.command.plugin.load`、`velocitytoolbox.command.plugin.unload`、`velocitytoolbox.command.plugin.reload`
+普通子命令：
+
+- `velocitytoolbox.command.info`
+- `velocitytoolbox.command.packs`
+- `velocitytoolbox.command.vhosts`
+- `velocitytoolbox.command.reload`
+
+插件管理父权限：
+
+- `velocitytoolbox.command.plugin`
+
+插件管理动作：
+
+- `velocitytoolbox.command.plugin.list`
+- `velocitytoolbox.command.plugin.inspect`
+- `velocitytoolbox.command.plugin.load`
+- `velocitytoolbox.command.plugin.unload`
+- `velocitytoolbox.command.plugin.reload`
 
 例如只允许查看插件风险，需要同时授予 `velocitytoolbox.command`、`velocitytoolbox.command.plugin` 和 `velocitytoolbox.command.plugin.inspect`。帮助只显示执行者有权使用的子命令。
 
@@ -107,12 +129,6 @@ Velocity 4.0+ 没有公开的插件加载/卸载 API。VelocityToolbox 会阻止
 
 [![bStats](https://bstats.org/signatures/velocity/VelocityToolbox.svg)](https://bstats.org/plugin/velocity/VelocityToolbox/33451)
 
-欢迎在 [GitHub Issues](https://github.com/polang233/VelocityToolbox/issues) 提交问题和功能建议。尤其欢迎对失败自动回退、多代理统一运维、入口域名诊断和资源包可用性检测的想法。
+欢迎在 [GitHub Issues](https://github.com/polang233/VelocityToolbox/issues) 提交问题和功能建议。
 
-## 开源协议
-
-Copyright (C) 2026 Polang。
-
-VelocityToolbox 使用 [GNU General Public License v3.0 only](LICENSE) 开源。
-
-如果它帮你少重启了一次代理，欢迎给项目一个 [Star ⭐](https://github.com/polang233/VelocityToolbox)。
+如果它帮你少重启了一次代理，欢迎给项目一个 [Star🌟](https://github.com/polang233/VelocityToolbox)。

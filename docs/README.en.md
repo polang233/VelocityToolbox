@@ -6,7 +6,7 @@
 
 **A compact Velocity operations toolbox for runtime plugin management, virtual-host diagnostics, and optional resource-pack hosting.**
 
-[中文 README](../README.md) · [Modrinth description](MODRINTH.md) · [Architecture](ARCHITECTURE.md) · [Issues and ideas](https://github.com/polang233/VelocityToolbox/issues)
+[中文 README](../README.md) · [Forum copy (Chinese)](FORUM.zh.md) · [Modrinth description](MODRINTH.md) · [Architecture](ARCHITECTURE.md) · [Issues and ideas](https://github.com/polang233/VelocityToolbox/issues)
 
 ![Velocity](https://img.shields.io/badge/Velocity-4.0%2B-654FF0)
 ![Java](https://img.shields.io/badge/Java-25%2B-E76F00)
@@ -14,9 +14,26 @@
 ## Highlights
 
 - **Restart the proxy less often:** load, unload, or reload Velocity plugins from `plugins/`; inspect risk before the operation and receive a cleanup report afterward.
-- **Debug multi-domain networks:** `/vtoolbox vhosts` groups online players by the address they used to join; click an entry to expand names and pings, then hover a player for full details.
-- **Host multiple packs locally:** serve any number of `.zip` files, calculate SHA-1 hashes, and generate a multi-pack VelocityResourcepacks snippet.
-- **Conservative defaults:** the HTTP pack host is disabled by default; layered permissions, concise critical-operation console messages, and bilingual output are built in.
+- **Debug multi-domain networks:** `/vtb vhosts` groups online players by the address they used to join; click an entry to expand names and pings, then hover a player for full details.
+- **Host multiple packs locally:** serve any number of `.zip` files, calculate SHA-1 hashes, and generate a multi-pack VelocityResourcepacks snippet. The HTTP pack host is disabled by default.
+
+<p align="center">
+  <img src="../assets/screenshot-vhosts.jpg" alt="Players grouped by virtual host" width="720">
+</p>
+<p align="center"><sub>Player counts and ping grouped by the domain used to join</sub></p>
+
+<p align="center">
+  <img src="../assets/screenshot-plugin-load.png" alt="Hot-load a plugin" width="720">
+</p>
+<p align="center">
+  <img src="../assets/screenshot-plugin-unload.png" alt="Hot-unload a plugin" width="720">
+</p>
+<p align="center"><sub>Load or unload a plugin at runtime, with a cleanup report</sub></p>
+
+<p align="center">
+  <img src="../assets/screenshot-packs.png" alt="Resource pack download prompt" width="720">
+</p>
+<p align="center"><sub>Players see the standard pack prompt after hosting is enabled</sub></p>
 
 ## Requirements and installation
 
@@ -25,7 +42,7 @@
 
 1. Download the JAR from [Releases](https://github.com/polang233/VelocityToolbox/releases) and place it in Velocity's `plugins/` directory.
 2. Fully start the proxy once to generate `plugins/VelocityToolbox/config.yml`.
-3. Grant administrators `velocitytoolbox.admin`, or use the fine-grained permissions below, then run `/vtoolbox help`.
+3. Grant administrators `velocitytoolbox.admin`, or use the fine-grained permissions below, then run `/vtoolbox help` or `/vtb help`.
 
 Build from source with `./gradlew build` or `.\gradlew.bat build` on Windows.
 
@@ -34,25 +51,40 @@ Build from source with `./gradlew build` or `.\gradlew.bat build` on Windows.
 The main command has the `/vtb` alias. `velocitytoolbox.admin` remains a backward-compatible all-access permission. Read-only commands stay quiet in the console; plugin load/unload/reload and configuration reload emit concise status messages.
 
 | Command | Purpose |
-|---|---|
+| --- | --- |
 | `/vtoolbox help` | Show help |
-| `/vtoolbox info` | Show plugin, proxy, Java, plugin-count, and pack-host summary |
+| `/vtoolbox info` | Plugin, proxy, Java, plugin-count, and pack-host summary |
 | `/vtoolbox packs` | List resource-pack URLs and SHA-1 hashes |
-| `/vtoolbox vhosts` | Group players by entry domain/port and player count; click an entry for names and pings, hover for details |
+| `/vtoolbox vhosts` | Group players by entry domain/port and player count; click an entry for names and pings |
 | `/vtoolbox reload` | Reload language, configuration, and pack hosting |
-| `/vtoolbox plugin list` | Show names, versions, and authors; hover for full metadata |
-| `/vtoolbox plugin inspect <plugin-id>` | Four-section metadata, dependency, runtime, and risk report |
-| `/vtoolbox plugin load <file.jar>` | Load a plugin from `plugins/` |
-| `/vtoolbox plugin unload <plugin-id>` | Unload a plugin |
-| `/vtoolbox plugin reload <plugin-id>` | Unload and load a plugin again |
+| `/vtoolbox plugin list` | Names, versions, and authors; hover for full metadata |
+| `/vtoolbox plugin inspect plugin-id` | Four-section metadata, dependency, runtime, and risk report |
+| `/vtoolbox plugin load file.jar` | Load a plugin from `plugins/` |
+| `/vtoolbox plugin unload plugin-id` | Unload a plugin |
+| `/vtoolbox plugin reload plugin-id` | Unload and load a plugin again |
 
 ### Fine-grained permissions
 
-Without `velocitytoolbox.admin`, grant the base permission `velocitytoolbox.command` plus the matching subcommand permission:
+Without `velocitytoolbox.admin`, grant the base permission `velocitytoolbox.command`, then the matching subcommand permission.
 
-- General commands: `velocitytoolbox.command.info`, `velocitytoolbox.command.packs`, `velocitytoolbox.command.vhosts`, `velocitytoolbox.command.reload`
-- Plugin-management parent: `velocitytoolbox.command.plugin`
-- Plugin actions: `velocitytoolbox.command.plugin.list`, `velocitytoolbox.command.plugin.inspect`, `velocitytoolbox.command.plugin.load`, `velocitytoolbox.command.plugin.unload`, `velocitytoolbox.command.plugin.reload`
+General commands:
+
+- `velocitytoolbox.command.info`
+- `velocitytoolbox.command.packs`
+- `velocitytoolbox.command.vhosts`
+- `velocitytoolbox.command.reload`
+
+Plugin-management parent:
+
+- `velocitytoolbox.command.plugin`
+
+Plugin actions:
+
+- `velocitytoolbox.command.plugin.list`
+- `velocitytoolbox.command.plugin.inspect`
+- `velocitytoolbox.command.plugin.load`
+- `velocitytoolbox.command.plugin.unload`
+- `velocitytoolbox.command.plugin.reload`
 
 For example, inspection-only access requires `velocitytoolbox.command`, `velocitytoolbox.command.plugin`, and `velocitytoolbox.command.plugin.inspect`. Help output only lists commands the source can use.
 
@@ -91,10 +123,4 @@ Anonymous usage statistics are provided by [bStats](https://bstats.org/plugin/ve
 
 Bug reports and feature ideas are welcome on [GitHub Issues](https://github.com/polang233/VelocityToolbox/issues), especially ideas around automatic rollback, multi-proxy operations, virtual-host diagnostics, and pack availability checks.
 
-## License
-
-Copyright (C) 2026 Polang.
-
-VelocityToolbox is licensed under the [GNU General Public License v3.0 only](../LICENSE).
-
-If VelocityToolbox saves you a proxy restart, consider leaving a [Star ⭐](https://github.com/polang233/VelocityToolbox).
+If VelocityToolbox saves you a proxy restart, consider leaving a [Star🌟](https://github.com/polang233/VelocityToolbox).
