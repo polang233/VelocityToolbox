@@ -154,14 +154,21 @@ public final class ServerVersionSmokeTest {
         service.start();
         require(listeners.size() == 1, "start must register exactly one listener");
         require(PLAIN.serialize(service.status()).contains("enabled for 1"), "enabled status must include rule count");
+        String initialDetails = PLAIN.serialize(service.status(true));
+        require(initialDetails.contains("survival") && initialDetails.contains("only allow 1.12.2"),
+                "detailed status must identify the server and its allowed versions");
+        require(!PLAIN.serialize(service.status()).contains("\n"), "startup status must remain one line");
 
         Client switching = new Client(V120, true);
         ServerPreConnectEvent denied = fire(service, switching, survival);
         require(!denied.getResult().isAllowed() && switching.disconnected == null && switching.messages.size() == 1,
                 "denied switch must keep current server and send one message");
         String message = PLAIN.serialize(switching.messages.getFirst());
-        require(message.contains("survival") && message.contains("1.12.2") && message.contains("1.20/1.20.1")
-                && message.contains("763") && !message.contains("<requirement>"), "denial must explain actual rule and protocol");
+        require(message.contains("survival") && message.contains("1.12.2") && message.contains("1.20～1.20.1")
+                && !message.contains("763") && !message.contains("<requirement>"), "denial must show compact versions without protocol IDs");
+        require(hoverText(switching.messages.getFirst()).contains("Client protocol: 763")
+                && hoverText(switching.messages.getFirst()).contains("only allow 340"),
+                "denial hover must include the client protocol and rule protocols");
 
         Client initial = new Client(V120, false);
         require(!fire(service, initial, survival).getResult().isAllowed()
@@ -193,14 +200,49 @@ public final class ServerVersionSmokeTest {
         } catch (IOException expected) {
             require(!fire(service, new Client(V120, true), survival).getResult().isAllowed(),
                     "invalid reload must preserve previous rules");
+            require(PLAIN.serialize(service.status(true)).equals(initialDetails),
+                    "info must report the active rules after a failed reload");
         }
         read(directory, only112.replace("1.12.2", "1.20.1"));
         service.reload();
         require(fire(service, new Client(V120, true), survival).getResult().isAllowed(), "reload must install new rules");
         require(!fire(service, new Client(V112, true), survival).getResult().isAllowed(), "reload must replace old rules");
+        read(directory, """
+                enabled: true
+                servers:
+                  survival:
+                    allow: ["1.7.2", "1.20.1"]
+                  minigame:
+                    min: "1.18"
+                    max: "1.20.2"
+                    deny: ["1.19"]
+                  lobby:
+                    min: "1.18.1"
+                    max: "1.18"
+                """);
+        service.reload();
+        String details = PLAIN.serialize(service.status(true));
+        require(details.lines().count() == 4 && details.indexOf("lobby:") < details.indexOf("minigame:")
+                && details.indexOf("minigame:") < details.indexOf("survival:"),
+                "info must list every configured server in stable name order");
+        require(details.contains("minigame: 1.18 to 1.20.2; block 1.19")
+                && details.contains("lobby: 1.18 to 1.18.1")
+                && details.contains("only allow 1.7.2～1.7.5, 1.20～1.20.1")
+                && !details.contains("1.18/"),
+                "info must show range endpoints, allowlists, and blocklists");
+        String infoHover = hoverText(service.status(true));
+        require(infoHover.contains("757 to 764; block 759") && infoHover.contains("only allow 4, 763"),
+                "info hover must show the exact protocol bounds and lists");
+        lang.load("zh_cn");
+        String chineseDetails = PLAIN.serialize(service.status(true));
+        require(chineseDetails.contains("minigame：") && chineseDetails.contains("禁止 1.19")
+                && chineseDetails.contains("仅允许 1.7.2～1.7.5, 1.20～1.20.1"), "Chinese info must resolve the detailed rule messages");
+        require(hoverText(service.status(true)).contains("协议号要求："), "Chinese protocol hover must resolve");
+        lang.load("en_us");
         read(directory, "enabled: false\n");
         service.reload();
         require(fire(service, new Client(V112, true), survival).getResult().isAllowed(), "disabled module must pass");
+        require(!PLAIN.serialize(service.status(true)).contains("\n"), "disabled status must not list inactive rules");
         require(listeners.size() == 1, "reload must not duplicate listeners");
         service.close();
         require(listeners.isEmpty(), "close must remove owned listener");
@@ -210,6 +252,7 @@ public final class ServerVersionSmokeTest {
         failed.start();
         require(!fire(failed, new Client(V112, false), lobby).getResult().isAllowed(), "initial config failure must not silently bypass rules");
         require(PLAIN.serialize(failed.status()).contains("configuration failed"), "startup failure must be visible");
+        require(!PLAIN.serialize(failed.status(true)).contains("\n"), "failed initial load must not list rules");
         read(directory, "enabled: false\n");
         failed.reload();
         require(fire(failed, new Client(V112, false), lobby).getResult().isAllowed(), "reload must recover from startup failure");
@@ -218,6 +261,17 @@ public final class ServerVersionSmokeTest {
         lang.load("zh_cn");
         require(lang.plain("server-versions.status.enabled", Lang.ph("count", 4)).contains("4 个子服"),
                 "bundled Chinese translations must load");
+    }
+
+    private static String hoverText(Component component) {
+        StringBuilder text = new StringBuilder();
+        if (component.hoverEvent() != null && component.hoverEvent().value() instanceof Component hover) {
+            text.append(PLAIN.serialize(hover));
+        }
+        for (Component child : component.children()) {
+            text.append(hoverText(child));
+        }
+        return text.toString();
     }
 
     private static ServerPreConnectEvent fire(ServerVersionService service, Client client, RegisteredServer target) {

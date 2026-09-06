@@ -28,7 +28,6 @@ VelocityToolbox puts several day-to-day proxy operations behind one command. Loa
 - Use color-coded Adventure console output for startup, pack status, and critical plugin operations
 - Reload language, configuration, server version rules, and pack hosting without reloading other plugins
 - Built-in Chinese and English messages with MiniMessage formatting
-- Anonymous bStats metrics with the standard opt-out
 
 The resource-pack HTTP server is **disabled by default** and listens only after you explicitly enable it.
 
@@ -107,6 +106,14 @@ Plugin actions:
 
 For example, inspection-only access requires `velocitytoolbox.command`, `velocitytoolbox.command.plugin`, and `velocitytoolbox.command.plugin.inspect`. Help output only lists commands the source can use.
 
+## Per-server client version rules
+
+![Per-server client version rules](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-server-versions.png)
+
+Configure version ranges, allowlists, and blocklists under `server-versions` in `config.yml`. The module is disabled by default and uses Velocity's protocol API without ViaVersion. `/vtoolbox info` lists the active rules for each server, and `/vtoolbox reload` applies changes. Versions sharing a protocol are displayed as compact ranges; hover a rule for protocol IDs.
+
+See the [configuration guide](https://github.com/polang233/VelocityToolbox/blob/main/docs/SERVER_VERSIONS.md) for examples.
+
 ## Optional pack hosting
 
 ```yaml
@@ -130,12 +137,12 @@ Velocity does not provide a public plugin load/unload API. VelocityToolbox perfo
 
 Small, self-contained utility plugins are the best candidates after testing. Permission systems, protocol/packet plugins, connection managers, and plugins with large in-memory state should still be updated with a full proxy restart.
 
-## Metrics and support
-
-[![VelocityToolbox bStats](https://bstats.org/signatures/velocity/VelocityToolbox.svg)](https://bstats.org/plugin/velocity/VelocityToolbox/33451)
-
-bStats can be disabled in `plugins/bStats/config.txt`.
+## Support
 
 Bug reports and feature suggestions are welcome on the [GitHub issue tracker](https://github.com/polang233/VelocityToolbox/issues). Ideas around automatic rollback, multi-proxy operations, virtual-host diagnostics, and pack availability checks are especially welcome.
 
 If VelocityToolbox saves you a proxy restart, consider giving the project a [Star🌟](https://github.com/polang233/VelocityToolbox).
+
+## Usage statistics
+
+[![bStats](https://bstats.org/signatures/velocity/VelocityToolbox.svg)](https://bstats.org/plugin/velocity/VelocityToolbox/33451)

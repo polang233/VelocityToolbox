@@ -83,9 +83,11 @@ Velocity 运维工具箱：运行时插件管理、入口域名排查、子服�
 
 ## 子服客户端版本限制
 
+![各子服客户端版本限制](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-server-versions.png)
+
 在 `config.yml` 的 `server-versions` 段中启用。`min` / `max` 限制包含边界的版本范围，`allow` 指定允许列表，`deny` 指定禁止列表；禁止列表优先，未配置的子服不限制。
 
-切服拒绝时保留当前子服，首次进入拒绝时显示断开原因。`/vtoolbox reload` 重载规则，`/vtoolbox info` 查看状态。共用协议的版本会一起匹配，例如 1.20 和 1.20.1。配置示例和完整说明见 [子服版本限制](https://github.com/polang233/VelocityToolbox/blob/main/docs/SERVER_VERSIONS.md)。
+切服拒绝时保留当前子服，首次进入拒绝时显示断开原因。`/vtoolbox reload` 重载规则，`/vtoolbox info` 查看状态和各子服的具体版本限制。共用协议的版本会一起匹配，例如 1.20 和 1.20.1。配置示例和完整说明见 [子服版本限制](https://github.com/polang233/VelocityToolbox/blob/main/docs/SERVER_VERSIONS.md)。
 
 ## 可选资源包托管
 
@@ -116,11 +118,12 @@ Velocity 4.0+ 没有公开的插件加载 / 卸载 API。VelocityToolbox 会阻�
 
 简单工具插件适合在测试后热重载；权限、协议 / 数据包、连接管理或大型缓存插件更新后，仍建议完整重启代理。实现边界见 [架构说明](https://github.com/polang233/VelocityToolbox/blob/main/docs/ARCHITECTURE.md)。
 
-## 语言与统计
+## 语言
 
 `language` 留空时跟随服务器系统语言，没有对应语言文件时回退中文；也可固定为 `zh_cn`、`en_us` 或 `lang/` 下的自定义文件名。玩家消息支持 MiniMessage。`/vtoolbox reload` 会重载语言。
 
-## 使用统计
-[![bStats](https://bstats.org/signatures/velocity/VelocityToolbox.svg)](https://bstats.org/plugin/velocity/VelocityToolbox/33451)
-
 ### 如果它帮你少重启了一次代理，欢迎给项目一个 [Star🌟](https://github.com/polang233/VelocityToolbox)。
+
+## 使用统计
+
+[![bStats](https://bstats.org/signatures/velocity/VelocityToolbox.svg)](https://bstats.org/plugin/velocity/VelocityToolbox/33451)

@@ -9,6 +9,7 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 import io.github.polang233.velocitytoolbox.lang.Lang;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.HoverEvent;
 import org.slf4j.Logger;
 
 import java.io.IOException;
@@ -57,13 +58,27 @@ public final class ServerVersionService implements AutoCloseable {
     }
 
     public Component status() {
+        return status(false);
+    }
+
+    public Component status(boolean includeRules) {
         Optional<ServerVersionConfig> current = config;
         if (current.isEmpty()) {
             return lang.get("server-versions.status.failed");
         }
-        return current.get().enabled()
+        Component result = current.get().enabled()
                 ? lang.get("server-versions.status.enabled", Lang.ph("count", current.get().rules().size()))
                 : lang.get("server-versions.status.disabled");
+        if (includeRules && current.get().enabled()) {
+            for (String server : current.get().rules().keySet().stream().sorted().toList()) {
+                ServerVersionConfig.Rule rule = current.get().rules().get(server);
+                result = result.append(Component.newline()).append(lang.get("server-versions.status.rule",
+                        Lang.ph("server", server),
+                        Lang.ph("requirement", requirement(rule, false)))
+                        .hoverEvent(HoverEvent.showText(protocolDetails(rule))));
+            }
+        }
+        return result;
     }
 
     @Subscribe(order = PostOrder.LAST)
@@ -90,7 +105,9 @@ public final class ServerVersionService implements AutoCloseable {
         ProtocolVersion version = player.getProtocolVersion();
         reject(event, lang.get("server-versions.denied", Lang.ph("server", name),
                 Lang.ph("version", label(version)), Lang.ph("protocol", version.getProtocol()),
-                Lang.ph("requirement", requirement(rule))));
+                Lang.ph("requirement", requirement(rule, false)))
+                .hoverEvent(HoverEvent.showText(protocolDetails(rule).append(Component.newline())
+                        .append(lang.get("server-versions.client-protocol", Lang.ph("protocol", version.getProtocol()))))));
     }
 
     private void reject(ServerPreConnectEvent event, Component reason) {
@@ -104,24 +121,33 @@ public final class ServerVersionService implements AutoCloseable {
         }
     }
 
-    private String requirement(ServerVersionConfig.Rule rule) {
+    private Component protocolDetails(ServerVersionConfig.Rule rule) {
+        return lang.get("server-versions.protocol-details", Lang.ph("requirement", requirement(rule, true)));
+    }
+
+    private String requirement(ServerVersionConfig.Rule rule, boolean protocolIds) {
         String result = lang.plain("server-versions.requirement.range",
-                Lang.ph("min", label(rule.min())), Lang.ph("max", label(rule.max())));
+                Lang.ph("min", protocolIds ? rule.min().getProtocol() : rule.min().getVersionIntroducedIn()),
+                Lang.ph("max", protocolIds ? rule.max().getProtocol() : rule.max().getMostRecentSupportedVersion()));
         if (!rule.allow().isEmpty()) {
-            result += lang.plain("server-versions.requirement.allow", Lang.ph("versions", labels(rule.allow())));
+            result += lang.plain("server-versions.requirement.allow", Lang.ph("versions", labels(rule.allow(), protocolIds)));
         }
         if (!rule.deny().isEmpty()) {
-            result += lang.plain("server-versions.requirement.deny", Lang.ph("versions", labels(rule.deny())));
+            result += lang.plain("server-versions.requirement.deny", Lang.ph("versions", labels(rule.deny(), protocolIds)));
         }
         return result;
     }
 
-    private static String labels(Set<ProtocolVersion> versions) {
-        return versions.stream().sorted().map(ServerVersionService::label).collect(Collectors.joining(", "));
+    private static String labels(Set<ProtocolVersion> versions, boolean protocolIds) {
+        return versions.stream().sorted()
+                .map(version -> protocolIds ? Integer.toString(version.getProtocol()) : label(version))
+                .collect(Collectors.joining(", "));
     }
 
     private static String label(ProtocolVersion version) {
-        return String.join("/", version.getVersionsSupportedBy());
+        String first = version.getVersionIntroducedIn();
+        String last = version.getMostRecentSupportedVersion();
+        return first.equals(last) ? first : first + "～" + last;
     }
 
     @Override

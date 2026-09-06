@@ -178,9 +178,12 @@ log:
 server-versions:
   status:
     enabled: "<green>Server version rules: enabled for <count> servers"
+    rule: "  <aqua><server></aqua><gray>: <requirement>"
     disabled: "<gray>Server version rules: disabled"
     failed: "<red>Server version rules: configuration failed; all server connections are blocked"
-  denied: "<red>Cannot join <server>.<newline><yellow>Version requirements: <requirement><newline><gray>Your client: <version>, protocol <protocol>."
+  denied: "<red>Cannot join <server>.<newline><yellow>Version requirements: <requirement><newline><gray>Your client: <version>."
+  protocol-details: "<gray>Protocol requirements: <requirement>"
+  client-protocol: "<gray>Client protocol: <protocol>"
   unavailable: "<red>Server version rules are unavailable. Contact an administrator."
   requirement:
     range: "<min> to <max>"
