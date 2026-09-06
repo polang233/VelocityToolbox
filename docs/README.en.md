@@ -6,7 +6,7 @@
 
 **A Velocity operations toolbox for plugin management, virtual-host diagnostics, per-server client version rules, and optional resource-pack hosting.**
 
-[中文 README](../README.md) · [Forum copy (Chinese)](FORUM.zh.md) · [Modrinth description](MODRINTH.md) · [Architecture](ARCHITECTURE.md) · [Issues and ideas](https://github.com/polang233/VelocityToolbox/issues)
+[中文 README](../README.md) · [Architecture](ARCHITECTURE.md) · [Issues and ideas](https://github.com/polang233/VelocityToolbox/issues)
 
 ![Velocity](https://img.shields.io/badge/Velocity-4.0%2B-654FF0)
 ![Java](https://img.shields.io/badge/Java-25%2B-E76F00)
@@ -90,6 +90,8 @@ For example, inspection-only access requires `velocitytoolbox.command`, `velocit
 
 ## Per-server client version rules
 
+![Per-server client version rules](../assets/screenshot-server-versions.png)
+
 Enable this optional module in the `server-versions` section of `plugins/VelocityToolbox/config.yml`. It uses Velocity's client protocol API and does not require ViaVersion on the proxy or backend servers.
 
 ```yaml
@@ -106,9 +108,9 @@ server-versions:
 
 The module defaults to disabled. Server names match `velocity.toml`, ignoring case. Unlisted servers have no restriction. `min` and `max` are inclusive; omitted bounds use Velocity's supported minimum and maximum. A nonempty `allow` list adds a whitelist, while `deny` always takes precedence. Both the range and whitelist must match. Quote version names; known integer protocol IDs such as `340` also work.
 
-Use `/vtoolbox reload` or `/velocity reload` to apply changes and `/vtoolbox info` to check the module status. A rejected server switch keeps the player on the current server; an initial rejection disconnects with the reason. There is no automatic fallback server selection. Invalid reloads retain the previous rules. If the first load fails, connections are blocked until you repair the file or disable the module and reload from the console.
+Use `/vtoolbox reload` or `/velocity reload` to apply changes and `/vtoolbox info` to check the module status and each server's active version range, allowlist, and blocklist, sorted by server name. A rejected server switch keeps the player on the current server; an initial rejection disconnects with the reason. There is no automatic fallback server selection. Invalid reloads retain the previous rules. If the first load fails, connections are blocked until you repair the file or disable the module and reload from the console.
 
-Versions sharing a protocol, such as 1.20 and 1.20.1, match together. Geyser connections are checked using Geyser's Java protocol. These rules do not translate protocols or expand Velocity's supported versions. Messages can be customized under `server-versions` in the language files. Routing plugins must finish redirecting before this module's `LAST` listener runs.
+Versions sharing a protocol, such as 1.20 and 1.20.1, match together. Displayed lower bounds use the earliest matching version and upper bounds use the latest. Lists and client versions show compact ranges such as `1.18～1.18.1`; hover an info rule or a denied-switch chat message for protocol IDs. Geyser connections are checked using Geyser's Java protocol. These rules do not translate protocols or expand Velocity's supported versions. Messages can be customized under `server-versions` in the language files. Routing plugins must finish redirecting before this module's `LAST` listener runs.
 
 ## Optional resource-pack hosting
 
@@ -135,14 +137,14 @@ Velocity 4.0+ has no public plugin load/unload API. VelocityToolbox refuses to u
 
 Small utility plugins are the best candidates after testing. Fully restart the proxy after updating permission, protocol/packet, connection-management, or large-cache plugins. See the [architecture notes](ARCHITECTURE.md) for the implementation boundary.
 
-## Language, metrics, and support
+## Language and support
 
 `language` left empty follows the server's system language and falls back to Chinese when no matching language file exists. Set it to `zh_cn`, `en_us`, or a custom file under `lang/`. Standard files are `lang/zh_cn.yml` and `lang/en_us.yml`. Player-facing messages use MiniMessage; startup, pack, and critical plugin-operation console messages use color-coded Adventure components when supported. Help commands use a lighter orange than the prefix. `/vtoolbox reload` reloads the language.
-
-Anonymous usage statistics are provided by [bStats](https://bstats.org/plugin/velocity/VelocityToolbox/33451) and can be disabled in `plugins/bStats/config.txt`.
-
-[![bStats](https://bstats.org/signatures/velocity/VelocityToolbox.svg)](https://bstats.org/plugin/velocity/VelocityToolbox/33451)
 
 Bug reports and feature ideas are welcome on [GitHub Issues](https://github.com/polang233/VelocityToolbox/issues), especially ideas around automatic rollback, multi-proxy operations, virtual-host diagnostics, and pack availability checks.
 
 If VelocityToolbox saves you a proxy restart, consider leaving a [Star🌟](https://github.com/polang233/VelocityToolbox).
+
+## Usage statistics
+
+[![bStats](https://bstats.org/signatures/velocity/VelocityToolbox.svg)](https://bstats.org/plugin/velocity/VelocityToolbox/33451)

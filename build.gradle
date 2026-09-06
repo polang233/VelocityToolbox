@@ -3,7 +3,7 @@ plugins {
 }
 
 group = 'io.github.polang233.velocitytoolbox'
-version = '1.2.0'
+version = '1.2.1'
 description = 'Plugin management, virtual-host diagnostics, per-server client version rules, and optional multi-pack hosting for Velocity 4.0+'
 
 ext {

@@ -143,7 +143,7 @@ public final class VelocityToolboxPlugin {
     }
 
     public Component serverVersionStatus() {
-        return serverVersionService.status();
+        return serverVersionService.status(true);
     }
 
     @Subscribe

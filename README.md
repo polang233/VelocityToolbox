@@ -6,10 +6,17 @@
 
 **Velocity 运维工具箱：运行时插件管理、入口域名排查、子服客户端版本限制，以及可选的资源包 HTTP 托管。**
 
-[English](docs/README.en.md) · [论坛文案](docs/FORUM.zh.md) · [Modrinth 文案](docs/MODRINTH.md) · [架构说明](docs/ARCHITECTURE.md) · [问题与建议](https://github.com/polang233/VelocityToolbox/issues)
+[English](docs/README.en.md) · [架构说明](docs/ARCHITECTURE.md) · [问题与建议](https://github.com/polang233/VelocityToolbox/issues)
 
 ![Velocity](https://img.shields.io/badge/Velocity-4.0%2B-654FF0)
 ![Java](https://img.shields.io/badge/Java-25%2B-E76F00)
+
+## 下载与发布平台
+
+[![GitHub Releases](https://img.shields.io/badge/GitHub-Releases-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/polang233/VelocityToolbox/releases)
+[![Modrinth](https://img.shields.io/badge/Modrinth-Download-1BD96A?style=for-the-badge&logo=modrinth&logoColor=white)](https://modrinth.com/plugin/velocitytoolbox)
+[![MineBBS](https://img.shields.io/badge/MineBBS-Download-2E7D32?style=for-the-badge)](https://www.minebbs.com/resources/velocitytoolbox.18104/)
+[![苦力怕论坛](https://img.shields.io/badge/KLPBBS-Download-4CAF50?style=for-the-badge)](https://klpbbs.com/thread-173633-1-1.html)
 
 ## 为什么用它
 
@@ -94,6 +101,8 @@
 
 ## 子服客户端版本限制
 
+![各子服客户端版本限制](assets/screenshot-server-versions.png)
+
 在 `plugins/VelocityToolbox/config.yml` 的 `server-versions` 段中启用，并按子服配置最低/最高版本、允许列表和禁止列表，无需 ViaVersion。禁止列表优先，未配置的子服不限制。
 
 ```yaml
@@ -108,7 +117,7 @@ server-versions:
       deny: ["1.20.2"]
 ```
 
-新安装默认关闭。`/vtoolbox reload` 和 `/velocity reload` 会重载规则，`/vtoolbox info` 显示模块状态。切服拒绝时保留原服；首次进入拒绝时断开并显示原因。配置重载失败保留旧规则，首次加载失败则拒绝连接，修复后可重载恢复。
+新安装默认关闭。`/vtoolbox reload` 和 `/velocity reload` 会重载规则，`/vtoolbox info` 显示模块状态及各子服的版本范围、允许列表和禁止列表。切服拒绝时保留原服；首次进入拒绝时断开并显示原因。配置重载失败保留旧规则，首次加载失败则拒绝连接，修复后可重载恢复。
 
 同协议版本无法区分，例如 1.20 和 1.20.1 会一起匹配。模块只限制进入，跨版本协议转换仍需兼容插件。完整配置、提示自定义与验收步骤见 [版本限制说明](docs/SERVER_VERSIONS.md)。
 
@@ -141,14 +150,14 @@ Velocity 4.0+ 没有公开的插件加载/卸载 API。VelocityToolbox 会阻止
 
 简单工具插件适合在测试后使用热重载；权限、协议/数据包、连接管理或大型缓存插件更新后仍建议完整重启代理。实现边界见 [架构说明](docs/ARCHITECTURE.md)。
 
-## 语言、统计与反馈
+## 语言与反馈
 
 `language` 留空时自动跟随服务器系统语言，没有对应语言文件时回退中文；也可固定为 `zh_cn`、`en_us` 或 `lang/` 下的自定义文件名。标准语言文件是 `lang/zh_cn.yml` 和 `lang/en_us.yml`。玩家消息支持 MiniMessage；后台启动、资源包和关键插件操作使用 Adventure 组件分色。命令帮助中的命令文本使用浅橙色，与前缀区分。`/vtoolbox reload` 会重载语言。
-
-本插件通过 [bStats](https://bstats.org/plugin/velocity/VelocityToolbox/33451) 收集匿名使用数据，可在 `plugins/bStats/config.txt` 中关闭。
-
-[![bStats](https://bstats.org/signatures/velocity/VelocityToolbox.svg)](https://bstats.org/plugin/velocity/VelocityToolbox/33451)
 
 欢迎在 [GitHub Issues](https://github.com/polang233/VelocityToolbox/issues) 提交问题和功能建议。
 
 如果它帮你少重启了一次代理，欢迎给项目一个 [Star🌟](https://github.com/polang233/VelocityToolbox)。
+
+## 使用统计
+
+[![bStats](https://bstats.org/signatures/velocity/VelocityToolbox.svg)](https://bstats.org/plugin/velocity/VelocityToolbox/33451)

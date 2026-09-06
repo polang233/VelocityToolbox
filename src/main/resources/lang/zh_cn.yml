@@ -178,9 +178,12 @@ log:
 server-versions:
   status:
     enabled: "<green>子服版本限制：已启用，共 <count> 个子服规则"
+    rule: "  <aqua><server></aqua><gray>：<requirement>"
     disabled: "<gray>子服版本限制：已关闭"
     failed: "<red>子服版本限制：配置加载失败，暂时拒绝所有子服连接"
-  denied: "<red>无法进入 <server>。<newline><yellow>版本要求：<requirement><newline><gray>你的客户端：<version>，协议号 <protocol>。"
+  denied: "<red>无法进入 <server>。<newline><yellow>版本要求：<requirement><newline><gray>你的客户端：<version>。"
+  protocol-details: "<gray>协议号要求：<requirement>"
+  client-protocol: "<gray>客户端协议号：<protocol>"
   unavailable: "<red>子服版本限制配置暂时不可用，请联系管理员。"
   requirement:
     range: "<min> 至 <max>"
