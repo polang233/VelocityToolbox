@@ -3,10 +3,10 @@ prefix: "<bold><#FF6600>[VTB]</bold> "
 command:
   help:
     title: "<#FF6600>VelocityToolbox commands"
-    info: "<#CCFFFF>plugin, proxy, Java, and pack-host summary"
+    info: "<#CCFFFF>plugin, proxy, Java, server version rules, and pack-host summary"
     packs: "<#CCFFFF>URL and SHA-1 for each zip"
     vhosts: "<#CCFFFF>group players by entry domain/port and show player details"
-    reload: "<#CCFFFF>reload language, config, and pack hosting"
+    reload: "<#CCFFFF>reload language, config, server version rules, and pack hosting"
     plugin: "<#CCFFFF>plugin management (list / inspect / load / unload / reload)"
   plugin:
     title: "<#FF6600>Plugin management"
@@ -91,7 +91,7 @@ command:
     enabled: "<green>on"
     disabled: "<red>off"
   reload:
-    ok: "<green>Reloaded language, config, and pack hosting."
+    ok: "<green>Reloaded language, config, server version rules, and pack hosting."
     fail: "<#FF5555>Reload failed. Check the proxy log."
 
 plugins:
@@ -149,7 +149,7 @@ log:
     commands-unregistered: "<aqua>Unregistered <count> command(s) for plugin <plugin>."
     leftover-handlers: "<yellow>Removed <count> leftover listener(s) for plugin <plugin> by class loader."
     leftover-channels: "<yellow>Unregistered <count> plugin message channel(s) for plugin <plugin> by class loader."
-    reloaded: "<green><source> reloaded configuration, language, and pack hosting."
+    reloaded: "<green><source> reloaded configuration, language, server version rules, and pack hosting."
   pack-fail: "Pack hosting failed to start. Plugin management commands still work."
   reload-fail: "Could not reload language or pack hosting."
   list-jars: "Could not list plugin JARs in <dir>."
@@ -174,3 +174,18 @@ log:
     tasks: "Could not cancel scheduled tasks for the plugin."
     executor: "Could not shut down the executor for plugin <plugin>."
     classloader: "Could not close the plugin class loader."
+
+server-versions:
+  status:
+    enabled: "<green>Server version rules: enabled for <count> servers"
+    disabled: "<gray>Server version rules: disabled"
+    failed: "<red>Server version rules: configuration failed; all server connections are blocked"
+  denied: "<red>Cannot join <server>.<newline><yellow>Version requirements: <requirement><newline><gray>Your client: <version>, protocol <protocol>."
+  unavailable: "<red>Server version rules are unavailable. Contact an administrator."
+  requirement:
+    range: "<min> to <max>"
+    allow: "; only allow <versions>"
+    deny: "; block <versions>"
+  load-fail: "Could not load the server-versions section in config.yml. All server connections are blocked. Fix the file and run /vtoolbox reload, or set server-versions.enabled: false."
+  reload-fail: "Could not reload the server-versions section in config.yml. Keeping the last valid rules; connections stay blocked if no configuration has loaded successfully."
+  unknown-server: "Server <server> in config.yml's server-versions section is not registered. Check the name in velocity.toml. The rule will apply if that server is registered later."

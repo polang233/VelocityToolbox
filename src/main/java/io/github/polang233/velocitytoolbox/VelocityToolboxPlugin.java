@@ -17,6 +17,8 @@ import io.github.polang233.velocitytoolbox.plugins.PluginLoadService;
 import io.github.polang233.velocitytoolbox.lang.Lang;
 import io.github.polang233.velocitytoolbox.metrics.Metrics;
 import io.github.polang233.velocitytoolbox.pack.PackService;
+import io.github.polang233.velocitytoolbox.version.ServerVersionService;
+import net.kyori.adventure.text.Component;
 import org.slf4j.Logger;
 
 import java.nio.file.Path;
@@ -48,6 +50,7 @@ public final class VelocityToolboxPlugin {
 
     private PackService packService;
     private PluginLoadService pluginLoadService;
+    private ServerVersionService serverVersionService;
     private CommandMeta commandMeta;
 
     @Inject
@@ -87,6 +90,8 @@ public final class VelocityToolboxPlugin {
         }
 
         pluginLoadService = new PluginLoadService(proxy, logger, lang, dataDirectory);
+        serverVersionService = new ServerVersionService(this, proxy, dataDirectory, lang, logger);
+        serverVersionService.start();
 
         VelocityToolboxCommand toolboxCommand = new VelocityToolboxCommand(
                 this, proxy, pluginLoadService, packService, lang);
@@ -105,6 +110,7 @@ public final class VelocityToolboxPlugin {
                 : "log.console.pack-host-disabled");
         lang.send(proxy.getConsoleCommandSource(), "log.console.plugins-dir",
                 Lang.ph("dir", pluginLoadService.pluginsDirectory()));
+        lang.send(proxy.getConsoleCommandSource(), serverVersionService.status());
     }
 
     @Subscribe
@@ -114,18 +120,30 @@ public final class VelocityToolboxPlugin {
 
     /**
      * {@code /vtoolbox reload} 与代理 {@code /velocity reload} 都会走到这里：
-     * 重载语言、配置和资源包托管，不重载其它插件。
+     * 重载语言、配置、资源包托管和子服版本限制，不重载其它插件。
      */
     public boolean reloadAll() {
+        boolean success = true;
         try {
             PluginConfig config = PluginConfig.load(dataDirectory);
             lang.load(config.language());
             packService.reload(config.packHost());
-            return true;
         } catch (Exception exception) {
             logger.error(lang.plain("log.reload-fail"), exception);
-            return false;
+            success = false;
         }
+        // Independent module: a pack-host failure must not prevent a rules reload (or vice versa).
+        try {
+            serverVersionService.reload();
+        } catch (Exception exception) {
+            logger.error(lang.plain("server-versions.reload-fail"), exception);
+            success = false;
+        }
+        return success;
+    }
+
+    public Component serverVersionStatus() {
+        return serverVersionService.status();
     }
 
     @Subscribe
@@ -136,6 +154,9 @@ public final class VelocityToolboxPlugin {
         }
         if (packService != null) {
             packService.close();
+        }
+        if (serverVersionService != null) {
+            serverVersionService.close();
         }
     }
 

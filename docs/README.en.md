@@ -4,7 +4,7 @@
 
 # VelocityToolbox
 
-**A compact Velocity operations toolbox for runtime plugin management, virtual-host diagnostics, and optional resource-pack hosting.**
+**A Velocity operations toolbox for plugin management, virtual-host diagnostics, per-server client version rules, and optional resource-pack hosting.**
 
 [中文 README](../README.md) · [Forum copy (Chinese)](FORUM.zh.md) · [Modrinth description](MODRINTH.md) · [Architecture](ARCHITECTURE.md) · [Issues and ideas](https://github.com/polang233/VelocityToolbox/issues)
 
@@ -53,10 +53,10 @@ The main command has the `/vtb` alias. `velocitytoolbox.admin` remains a backwar
 | Command | Purpose |
 | --- | --- |
 | `/vtoolbox help` | Show help |
-| `/vtoolbox info` | Plugin, proxy, Java, plugin-count, and pack-host summary |
+| `/vtoolbox info` | Plugin, proxy, Java, plugin-count, server version rules, and pack-host summary |
 | `/vtoolbox packs` | List resource-pack URLs and SHA-1 hashes |
 | `/vtoolbox vhosts` | Group players by entry domain/port and player count; click an entry for names and pings |
-| `/vtoolbox reload` | Reload language, configuration, and pack hosting |
+| `/vtoolbox reload` | Reload language, configuration, server version rules, and pack hosting |
 | `/vtoolbox plugin list` | Names, versions, and authors; hover for full metadata |
 | `/vtoolbox plugin inspect plugin-id` | Four-section metadata, dependency, runtime, and risk report |
 | `/vtoolbox plugin load file.jar` | Load a plugin from `plugins/` |
@@ -87,6 +87,28 @@ Plugin actions:
 - `velocitytoolbox.command.plugin.reload`
 
 For example, inspection-only access requires `velocitytoolbox.command`, `velocitytoolbox.command.plugin`, and `velocitytoolbox.command.plugin.inspect`. Help output only lists commands the source can use.
+
+## Per-server client version rules
+
+Enable this optional module in the `server-versions` section of `plugins/VelocityToolbox/config.yml`. It uses Velocity's client protocol API and does not require ViaVersion on the proxy or backend servers.
+
+```yaml
+server-versions:
+  enabled: true
+  servers:
+    survival:
+      allow: ["1.12.2", "1.20.1"]
+    minigame:
+      min: "1.18"
+      max: max
+      deny: ["1.20.2"]
+```
+
+The module defaults to disabled. Server names match `velocity.toml`, ignoring case. Unlisted servers have no restriction. `min` and `max` are inclusive; omitted bounds use Velocity's supported minimum and maximum. A nonempty `allow` list adds a whitelist, while `deny` always takes precedence. Both the range and whitelist must match. Quote version names; known integer protocol IDs such as `340` also work.
+
+Use `/vtoolbox reload` or `/velocity reload` to apply changes and `/vtoolbox info` to check the module status. A rejected server switch keeps the player on the current server; an initial rejection disconnects with the reason. There is no automatic fallback server selection. Invalid reloads retain the previous rules. If the first load fails, connections are blocked until you repair the file or disable the module and reload from the console.
+
+Versions sharing a protocol, such as 1.20 and 1.20.1, match together. Geyser connections are checked using Geyser's Java protocol. These rules do not translate protocols or expand Velocity's supported versions. Messages can be customized under `server-versions` in the language files. Routing plugins must finish redirecting before this module's `LAST` listener runs.
 
 ## Optional resource-pack hosting
 

@@ -172,6 +172,7 @@ public final class VelocityToolboxCommand {
         fieldLine(source, "command.field.proxy-version", proxy.getVersion().getVersion(), Lang.BODY);
         fieldLine(source, "command.field.java-version", System.getProperty("java.version"), Lang.BODY);
         fieldLine(source, "command.field.loaded-plugins", plugins.loadedIds().size(), Lang.BODY);
+        lang.send(source, plugin.serverVersionStatus());
         fieldLine(source, "command.field.pack-host",
                 packService.enabled()
                         ? lang.plain("command.pack-host.enabled")

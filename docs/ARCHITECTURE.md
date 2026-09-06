@@ -10,6 +10,9 @@ io.github.polang233.velocitytoolbox
 ├── lang/Lang                        MiniMessage 语言（默认 zh_cn，可 en_us / 自定义）
 ├── command/VelocityToolboxCommand   /vtoolbox
 ├── metrics/Metrics                  bStats 官方单文件（只改了 package）
+├── version/                         子服客户端版本限制
+│   ├── ServerVersionConfig          config.yml 的 server-versions 段、不可变规则、版本别名解析
+│   └── ServerVersionService         连接前拦截、规则重载与监听清理
 ├── pack/                            资源包 HTTP 托管
 │   ├── PackService                  读配置、扫描、启动 HTTP、写片段
 │   ├── PackConfig                   config.yml 的 pack-host 段
@@ -32,9 +35,13 @@ io.github.polang233.velocitytoolbox
 
 目录内每个 ZIP 都会生成独立 URL、SHA-1 和 `local-path`。生成片段使用 VelocityResourcepacks 1.9.0+ 的 `global.packs`：1.20.3+ 客户端可以按顺序叠加多个包，旧客户端只使用第一项。真正的玩家、版本和后端服务器分配仍由 VelocityResourcepacks 负责。
 
+## 子服版本限制
+
+规则位于 `config.yml` 的 `server-versions` 段，与资源包托管分别解析。缺少该段时默认关闭。`ServerVersionService` 持有一个监听器和一个 `volatile` 不可变配置快照；重载先解析所有规则，成功后整体替换，失败保留旧状态。首次加载失败时拒绝连接并输出配置错误。关闭时定向注销监听器，不创建任务或外部连接。`ServerPreConnectEvent` 在 `LAST` 顺序检查当前结果中的目标，读取 `Player.getProtocolVersion()`；范围、允许列表和禁止列表都按当前 Velocity 的协议枚举判断。规则说明见 [子服版本限制](SERVER_VERSIONS.md)。
+
 ## 插件管理
 
-命令操作的是 Velocity `plugins/` 里的真实 JAR。`/vtoolbox reload` 重载语言、配置和资源包托管，不重载其它插件。
+命令操作的是 Velocity `plugins/` 里的真实 JAR。`/vtoolbox reload` 重载语言、配置、子服版本限制和资源包托管，不重载其它插件。
 
 Velocity 4.0 以上的 `PluginManager` 没有公开 load / unload，因此按代理启动路径反射：`loadCandidate` → 创建容器 → Guice → `registerPlugin` → `registerInternally` → 只对该插件触发 `ProxyInitializeEvent`。卸载时对该插件触发 `ProxyShutdownEvent`（抛错也继续清理），再用**插件实例**拆监听器，按类加载器补扫残留监听器和自定义消息通道，取消任务，注销命令（含没写 `CommandMeta.plugin(...)` 的，例如 ShadiaoVelocity），关闭线程池和类加载器。清理结果和异常类型会发到执行命令的人，完整堆栈进代理日志。
 

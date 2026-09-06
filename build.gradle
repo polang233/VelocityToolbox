@@ -3,8 +3,8 @@ plugins {
 }
 
 group = 'io.github.polang233.velocitytoolbox'
-version = '1.1.1'
-description = 'Runtime plugin inspection and management, virtual-host diagnostics, and optional multi-pack hosting for Velocity 4.0+'
+version = '1.2.0'
+description = 'Plugin management, virtual-host diagnostics, per-server client version rules, and optional multi-pack hosting for Velocity 4.0+'
 
 ext {
     pluginId = 'velocitytoolbox'
@@ -78,6 +78,16 @@ def languageResourceSmokeTest = tasks.register('languageResourceSmokeTest', Java
 tasks.named('check') {
     dependsOn packSnippetSmokeTest
     dependsOn languageResourceSmokeTest
+    dependsOn 'serverVersionSmokeTest'
+}
+
+tasks.register('serverVersionSmokeTest', JavaExec) {
+    group = 'verification'
+    description = 'Verifies per-server protocol rules, connection denials, and configuration reload without ViaVersion.'
+    dependsOn tasks.named('testClasses')
+    dependsOn tasks.named('jar')
+    classpath = sourceSets.test.output + files(tasks.named('jar')) + configurations.compileClasspath
+    mainClass = 'io.github.polang233.velocitytoolbox.version.ServerVersionSmokeTest'
 }
 
 tasks.named('test', Test) {

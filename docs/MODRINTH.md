@@ -4,7 +4,7 @@
 
 # VelocityToolbox
 
-**Runtime plugin management, virtual-host diagnostics, and optional resource-pack hosting for Velocity networks.**
+**Plugin management, virtual-host diagnostics, per-server client version rules, and optional resource-pack hosting for Velocity networks.**
 
 VelocityToolbox puts several day-to-day proxy operations behind one command. Load or reload a small plugin without a full proxy restart, see which domain each online player used to join, or turn a local directory of resource packs into ready-to-use URLs and SHA-1 hashes.
 
@@ -20,12 +20,13 @@ VelocityToolbox puts several day-to-day proxy operations behind one command. Loa
 - Refuse unloads when another loaded plugin declares a required dependency on the target
 - Report cleanup of listeners, tasks, commands, plugin-message channels, executors, and class loaders
 - Group online players by the virtual host they joined through, including source IPs for live diagnostics
+- Set per-server client version ranges, allowlists, and blocklists using Velocity's protocol API, without ViaVersion
 - Optionally host any number of local resource-pack `.zip` files over HTTP
 - Calculate SHA-1 hashes and generate a multi-pack VelocityResourcepacks configuration snippet
 - Use backward-compatible administrator access or layered base, parent, and action permissions
 - Keep read-only commands quiet while logging concise plugin and configuration operations
 - Use color-coded Adventure console output for startup, pack status, and critical plugin operations
-- Reload language, configuration, and pack hosting without reloading other plugins
+- Reload language, configuration, server version rules, and pack hosting without reloading other plugins
 - Built-in Chinese and English messages with MiniMessage formatting
 - Anonymous bStats metrics with the standard opt-out
 
@@ -71,10 +72,10 @@ The main command alias is `/vtb`. `velocitytoolbox.admin` remains a backward-com
 | Command | Purpose |
 | --- | --- |
 | `/vtoolbox help` | Show help |
-| `/vtoolbox info` | Plugin, proxy, Java, plugin-count, and pack-host summary |
+| `/vtoolbox info` | Plugin, proxy, Java, plugin-count, server version rules, and pack-host summary |
 | `/vtoolbox packs` | List hosted pack URLs and SHA-1 hashes |
 | `/vtoolbox vhosts` | Group players by entry domain/port and player count; click an entry for names and pings |
-| `/vtoolbox reload` | Reload language, configuration, and pack hosting |
+| `/vtoolbox reload` | Reload language, configuration, server version rules, and pack hosting |
 | `/vtoolbox plugin list` | Names, versions, and authors; hover for full metadata |
 | `/vtoolbox plugin inspect plugin-id` | Four-section metadata, dependency, runtime, and risk report |
 | `/vtoolbox plugin load file.jar` | Load a JAR from `plugins/` |

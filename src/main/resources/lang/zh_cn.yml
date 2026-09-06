@@ -3,10 +3,10 @@ prefix: "<bold><#FF6600>[VTB]</bold> "
 command:
   help:
     title: "<#FF6600>VelocityToolbox 命令"
-    info: "<#CCFFFF>插件、代理、Java 和资源包托管概要"
+    info: "<#CCFFFF>插件、代理、Java、子服版本限制和资源包托管概要"
     packs: "<#CCFFFF>列出每个 zip 的 URL 和 SHA-1"
     vhosts: "<#CCFFFF>按入口分组显示域名、端口、人数和玩家信息"
-    reload: "<#CCFFFF>重载语言、配置和资源包托管"
+    reload: "<#CCFFFF>重载语言、配置、子服版本限制和资源包托管"
     plugin: "<#CCFFFF>插件管理（list / inspect / load / unload / reload）"
   plugin:
     title: "<#FF6600>插件管理"
@@ -91,7 +91,7 @@ command:
     enabled: "<green>开"
     disabled: "<red>关"
   reload:
-    ok: "<green>已重载语言、配置和资源包托管。"
+    ok: "<green>已重载语言、配置、子服版本限制和资源包托管。"
     fail: "<#FF5555>重载失败，请看代理日志。"
 
 plugins:
@@ -149,7 +149,7 @@ log:
     commands-unregistered: "<aqua>已注销插件 <plugin> 的 <count> 条命令。"
     leftover-handlers: "<yellow>按类加载器扫出插件 <plugin> 的残留监听器 <count> 条。"
     leftover-channels: "<yellow>按类加载器注销插件 <plugin> 的 <count> 条消息通道。"
-    reloaded: "<green><source> 已重载配置、语言和资源包托管。"
+    reloaded: "<green><source> 已重载配置、语言、子服版本限制和资源包托管。"
   pack-fail: "资源包托管启动失败。插件管理命令仍可使用。"
   reload-fail: "无法重载语言或资源包托管。"
   list-jars: "无法列出 <dir> 里的插件 JAR。"
@@ -174,3 +174,18 @@ log:
     tasks: "无法取消插件的调度任务。"
     executor: "无法关闭插件 <plugin> 的线程池。"
     classloader: "无法关闭插件类加载器。"
+
+server-versions:
+  status:
+    enabled: "<green>子服版本限制：已启用，共 <count> 个子服规则"
+    disabled: "<gray>子服版本限制：已关闭"
+    failed: "<red>子服版本限制：配置加载失败，暂时拒绝所有子服连接"
+  denied: "<red>无法进入 <server>。<newline><yellow>版本要求：<requirement><newline><gray>你的客户端：<version>，协议号 <protocol>。"
+  unavailable: "<red>子服版本限制配置暂时不可用，请联系管理员。"
+  requirement:
+    range: "<min> 至 <max>"
+    allow: "；仅允许 <versions>"
+    deny: "；禁止 <versions>"
+  load-fail: "无法加载 config.yml 的 server-versions 配置，暂时拒绝所有子服连接。修复后执行 /vtoolbox reload，或设置 server-versions.enabled: false。"
+  reload-fail: "无法重载 config.yml 的 server-versions 配置，保留上次有效规则；若从未成功加载则继续拒绝子服连接。"
+  unknown-server: "config.yml 的 server-versions 配置中的子服 <server> 尚未注册，请核对 velocity.toml 的服务器名。规则会在同名子服注册后生效。"

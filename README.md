@@ -4,7 +4,7 @@
 
 # VelocityToolbox
 
-**把常用的 Velocity 运维能力收进一个轻量工具箱：运行时插件管理、入口域名排查，以及可选的资源包 HTTP 托管。**
+**Velocity 运维工具箱：运行时插件管理、入口域名排查、子服客户端版本限制，以及可选的资源包 HTTP 托管。**
 
 [English](docs/README.en.md) · [论坛文案](docs/FORUM.zh.md) · [Modrinth 文案](docs/MODRINTH.md) · [架构说明](docs/ARCHITECTURE.md) · [问题与建议](https://github.com/polang233/VelocityToolbox/issues)
 
@@ -57,10 +57,10 @@
 | 命令 | 作用 |
 | --- | --- |
 | `/vtoolbox help` | 显示帮助 |
-| `/vtoolbox info` | 插件、代理、Java、插件数量和资源包托管概要 |
+| `/vtoolbox info` | 插件、代理、Java、插件数量、子服版本限制和资源包托管概要 |
 | `/vtoolbox packs` | 列出资源包 URL 和 SHA-1 |
 | `/vtoolbox vhosts` | 按入口分组显示域名、端口和人数；点击展开玩家名与延迟 |
-| `/vtoolbox reload` | 重载语言、配置与资源包托管 |
+| `/vtoolbox reload` | 重载语言、配置、子服版本限制与资源包托管 |
 | `/vtoolbox plugin list` | 名称、版本和作者；悬停看完整元数据 |
 | `/vtoolbox plugin inspect 插件ID` | 按基本信息、依赖、运行时资源和风险四段检查 |
 | `/vtoolbox plugin load 文件.jar` | 从 `plugins/` 加载插件 |
@@ -91,6 +91,26 @@
 - `velocitytoolbox.command.plugin.reload`
 
 例如只允许查看插件风险，需要同时授予 `velocitytoolbox.command`、`velocitytoolbox.command.plugin` 和 `velocitytoolbox.command.plugin.inspect`。帮助只显示执行者有权使用的子命令。
+
+## 子服客户端版本限制
+
+在 `plugins/VelocityToolbox/config.yml` 的 `server-versions` 段中启用，并按子服配置最低/最高版本、允许列表和禁止列表，无需 ViaVersion。禁止列表优先，未配置的子服不限制。
+
+```yaml
+server-versions:
+  enabled: true
+  servers:
+    survival:
+      allow: ["1.12.2", "1.20.1"]
+    minigame:
+      min: "1.18"
+      max: max
+      deny: ["1.20.2"]
+```
+
+新安装默认关闭。`/vtoolbox reload` 和 `/velocity reload` 会重载规则，`/vtoolbox info` 显示模块状态。切服拒绝时保留原服；首次进入拒绝时断开并显示原因。配置重载失败保留旧规则，首次加载失败则拒绝连接，修复后可重载恢复。
+
+同协议版本无法区分，例如 1.20 和 1.20.1 会一起匹配。模块只限制进入，跨版本协议转换仍需兼容插件。完整配置、提示自定义与验收步骤见 [版本限制说明](docs/SERVER_VERSIONS.md)。
 
 ## 可选资源包托管
 

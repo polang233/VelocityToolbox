@@ -1,6 +1,6 @@
 # VelocityToolbox
 
-把常用的 Velocity 运维能力收进一个轻量工具箱：运行时插件管理、入口域名排查，以及可选的资源包 HTTP 托管。
+Velocity 运维工具箱：运行时插件管理、入口域名排查、子服客户端版本限制，以及可选的资源包 HTTP 托管。
 
 - 源码：[GitHub](https://github.com/polang233/VelocityToolbox)
 - 下载：[Releases](https://github.com/polang233/VelocityToolbox/releases)
@@ -14,6 +14,7 @@
 
 - **少重启一次代理**：加载、卸载或重载 `plugins/` 里的 Velocity 插件；操作前可只读检查风险，操作后报告清理结果。
 - **排查多入口网络**：`/vtb vhosts` 按玩家加入时用的域名分组，先显示入口概要；点击入口行展开玩家名和延迟，悬停可看完整信息。
+- **按子服限制客户端版本**：在 `config.yml` 的 `server-versions` 段配置最低/最高版本、允许列表和禁止列表，无需 ViaVersion。默认关闭，支持配置重载。
 - **资源包就地托管**：一次托管任意数量的 `.zip`，自动算 SHA-1，并生成支持多包叠加的 VelocityResourcepacks 配置片段。资源包 HTTP 服务默认关闭。
 
 按入口域名查看人数和延迟：
@@ -45,10 +46,10 @@
 | 命令 | 作用 |
 | --- | --- |
 | `/vtoolbox help` | 显示帮助 |
-| `/vtoolbox info` | 插件、代理、Java、插件数量和资源包托管概要 |
+| `/vtoolbox info` | 插件、代理、Java、插件数量、子服版本限制和资源包托管概要 |
 | `/vtoolbox packs` | 列出资源包 URL 和 SHA-1 |
 | `/vtoolbox vhosts` | 按入口分组显示域名、端口和人数；点击展开玩家名与延迟 |
-| `/vtoolbox reload` | 重载语言、配置与资源包托管 |
+| `/vtoolbox reload` | 重载语言、配置、子服版本限制与资源包托管 |
 | `/vtoolbox plugin list` | 名称、版本和作者；悬停看完整元数据 |
 | `/vtoolbox plugin inspect 插件ID` | 按基本信息、依赖、运行时资源和风险四段检查 |
 | `/vtoolbox plugin load 文件.jar` | 从 `plugins/` 加载插件 |
@@ -79,6 +80,12 @@
 - `velocitytoolbox.command.plugin.reload`
 
 例如只允许查看插件风险，需要同时授予 `velocitytoolbox.command`、`velocitytoolbox.command.plugin` 和 `velocitytoolbox.command.plugin.inspect`。帮助只显示执行者有权使用的子命令。
+
+## 子服客户端版本限制
+
+在 `config.yml` 的 `server-versions` 段中启用。`min` / `max` 限制包含边界的版本范围，`allow` 指定允许列表，`deny` 指定禁止列表；禁止列表优先，未配置的子服不限制。
+
+切服拒绝时保留当前子服，首次进入拒绝时显示断开原因。`/vtoolbox reload` 重载规则，`/vtoolbox info` 查看状态。共用协议的版本会一起匹配，例如 1.20 和 1.20.1。配置示例和完整说明见 [子服版本限制](https://github.com/polang233/VelocityToolbox/blob/main/docs/SERVER_VERSIONS.md)。
 
 ## 可选资源包托管
 

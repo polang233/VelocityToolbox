@@ -6,6 +6,29 @@ language: ""
 
 # /vtoolbox plugin load|unload|reload 管理 plugins/ 目录里的其它 Velocity 插件。
 
+# 子服客户端版本限制。无需安装 ViaVersion。
+# /vtoolbox reload 或 /velocity reload 重载规则；/vtoolbox info 查看模块状态。
+server-versions:
+  # 默认关闭。未列出的子服不限制，服务器名对应 velocity.toml 的 [servers]。
+  enabled: false
+  # min/max 含边界，省略时使用当前 Velocity 支持的最低/最高版本。
+  # max: max 跟随当前 Velocity 支持的最高版本，升级代理后会更新。
+  # allow 非空时只允许列表中的协议；deny 优先拒绝。范围与 allow 同时满足才放行。
+  # 版本名必须加引号，也支持整数协议号，例如 340 = 1.12.2。
+  # 同协议版本会一起匹配，例如 "1.20" 和 "1.20.1" 都是 763。
+  # 配置重载失败保留上次有效规则；首次加载失败则拒绝子服连接，修复后重载恢复。
+  servers: {}
+  # 示例，启用时用实际子服名替换，并用以下内容替换上面的 servers: {}：
+  # servers:
+  #   lobby:
+  #     min: "1.12"
+  #     max: max
+  #   survival:
+  #     allow: ["1.12.2", "1.20.1"]
+  #   minigame:
+  #     min: "1.18"
+  #     deny: ["1.19.1", "1.20.2"]
+
 pack-host:
   # 是否开启资源包 HTTP 托管。关闭后不再监听端口。
   enabled: false
