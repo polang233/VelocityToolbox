@@ -4,7 +4,7 @@
 
 # VelocityToolbox
 
-**A Velocity operations toolbox for plugin management, virtual-host diagnostics, per-server client version rules, and optional resource-pack hosting.**
+**A Velocity operations toolbox for plugin management, virtual-host diagnostics, per-server client version rules, and resource-pack hosting and delivery.**
 
 [中文 README](../README.md) · [Architecture](ARCHITECTURE.md) · [Issues and ideas](https://github.com/polang233/VelocityToolbox/issues)
 
@@ -14,8 +14,8 @@
 ## Highlights
 
 - **Restart the proxy less often:** load, unload, or reload Velocity plugins from `plugins/`; inspect risk before the operation and receive a cleanup report afterward.
-- **Debug multi-domain networks:** `/vtb vhosts` groups online players by the address they used to join; click an entry to expand names and pings, then hover a player for full details.
-- **Host multiple packs locally:** serve any number of `.zip` files, calculate SHA-1 hashes, and generate a multi-pack VelocityResourcepacks snippet. The HTTP pack host is disabled by default.
+- **Debug multi-domain networks:** `/vtb server hosts` groups online players by the address they used to join; click an entry to expand names and pings, then hover a player for full details.
+- **Host multiple packs locally:** serve ZIPs, calculate SHA-1, and deliver packs by server, client version and permission. Hosting and delivery default to disabled.
 
 <p align="center">
   <img src="../assets/screenshot-vhosts.jpg" alt="Players grouped by virtual host" width="720">
@@ -33,7 +33,7 @@
 <p align="center">
   <img src="../assets/screenshot-packs.png" alt="Resource pack download prompt" width="720">
 </p>
-<p align="center"><sub>Players see the standard pack prompt after hosting is enabled</sub></p>
+<p align="center"><sub>Players see the standard pack prompt after delivery is configured and enabled</sub></p>
 
 ## Requirements and installation
 
@@ -54,8 +54,10 @@ The main command has the `/vtb` alias. `velocitytoolbox.admin` remains a backwar
 | --- | --- |
 | `/vtoolbox help` | Show help |
 | `/vtoolbox info` | Plugin, proxy, Java, plugin-count, server version rules, and pack-host summary |
-| `/vtoolbox packs` | List resource-pack URLs and SHA-1 hashes |
-| `/vtoolbox vhosts` | Group players by entry domain/port and player count; click an entry for names and pings |
+| `/vtoolbox pack list` | List configured packs and hosted files |
+| `/vtoolbox pack status player` | Show delivery and load status |
+| `/vtoolbox pack resend player` | Resend the current server's packs |
+| `/vtoolbox server hosts` | Group players by entry domain/port and player count; click an entry for names and pings |
 | `/vtoolbox reload` | Reload language, configuration, server version rules, and pack hosting |
 | `/vtoolbox plugin list` | Names, versions, and authors; hover for full metadata |
 | `/vtoolbox plugin inspect plugin-id` | Four-section metadata, dependency, runtime, and risk report |
@@ -70,8 +72,8 @@ Without `velocitytoolbox.admin`, grant the base permission `velocitytoolbox.comm
 General commands:
 
 - `velocitytoolbox.command.info`
-- `velocitytoolbox.command.packs`
-- `velocitytoolbox.command.vhosts`
+- `velocitytoolbox.command.pack.list`
+- `velocitytoolbox.command.server.hosts`
 - `velocitytoolbox.command.reload`
 
 Plugin-management parent:
@@ -85,6 +87,10 @@ Plugin actions:
 - `velocitytoolbox.command.plugin.load`
 - `velocitytoolbox.command.plugin.unload`
 - `velocitytoolbox.command.plugin.reload`
+
+Pack commands require `velocitytoolbox.command.pack` plus the respective `velocitytoolbox.command.pack.list`, `velocitytoolbox.command.pack.status` or `velocitytoolbox.command.pack.resend` permission. Server queries require `velocitytoolbox.command.server` and `velocitytoolbox.command.server.hosts`.
+
+Since 1.3.0, the old `packs` and `vhosts` commands have moved to `pack list` and `server hosts`. Update their old action permissions; administrator access remains valid.
 
 For example, inspection-only access requires `velocitytoolbox.command`, `velocitytoolbox.command.plugin`, and `velocitytoolbox.command.plugin.inspect`. Help output only lists commands the source can use.
 
@@ -112,24 +118,40 @@ Use `/vtoolbox reload` or `/velocity reload` to apply changes and `/vtoolbox inf
 
 Versions sharing a protocol, such as 1.20 and 1.20.1, match together. Displayed lower bounds use the earliest matching version and upper bounds use the latest. Lists and client versions show compact ranges such as `1.18～1.18.1`; hover an info rule or a denied-switch chat message for protocol IDs. Geyser connections are checked using Geyser's Java protocol. These rules do not translate protocols or expand Velocity's supported versions. Messages can be customized under `server-versions` in the language files. Routing plugins must finish redirecting before this module's `LAST` listener runs.
 
-## Optional resource-pack hosting
+## Resource pack hosting and delivery
 
-Pack hosting is disabled by default. Once enabled, VelocityToolbox runs an HTTP server on the proxy machine, scans any number of ZIP files, and writes `velocityresourcepacks-snippet.yml`. Every ZIP receives its own URL, SHA-1, and `local-path`. [VelocityResourcepacks](https://modrinth.com/plugin/velocityresourcepacks) decides which packs are sent to each player; VelocityToolbox does not send packs itself.
+`pack-host` serves local ZIPs over HTTP. `resource-packs` selects and sends packs to players. Both default to disabled; external URLs work without the local host. Scanned ZIPs are only sent when a delivery rule references them.
 
 ```yaml
 pack-host:
-  enabled: false
+  enabled: true
   bind: 0.0.0.0
   port: 8765
-  public-url: ""          # set a player-reachable URL for internet use
-  packs-directory: packs  # defaults to plugins/VelocityToolbox/packs
+  public-url: "https://packs.example.com"
+  packs-directory: packs
+
+resource-packs:
+  enabled: true
+  delay: 1
+  timeout: 60
+  required: false
+  prompt: "<aqua>Please load the server resource pack."
+  packs:
+    base:
+      file: base.zip
+  default: [base]
+  servers: {}
 ```
 
-Place `.zip` files in the pack directory, set `enabled: true`, configure firewall/reverse-proxy access and `public-url` when needed, then run `/vtoolbox reload`. Merge the generated snippet into VelocityResourcepacks.
+Place your ZIP in the configured directory, set a reachable URL, then run `/vtb reload`. Local `file` entries reuse the host URL and SHA-1; external entries require `url` and a real `sha1`. Server `packs` replace `default`; `variants` match top to bottom using `versions.min/max/allow/deny` and optional `permission`.
 
-The generated `global.packs` list contains every ZIP in file-name order. Minecraft 1.20.3+ clients can stack all listed packs; older clients use only the first entry. This field requires VelocityResourcepacks 1.9.0+. Remove entries that should not be global; use `restricted` / `permission` for player-specific combinations, or configure per-server and per-version assignments in VelocityResourcepacks.
+Clients on 1.20.3+ stack packs in order. Older clients use the server's `legacy` full pack, or the first compatible entry. `delay` and `timeout` are seconds. `required` and `prompt` can be overridden per server. Required-pack rejection, incompatibility, missing permission, failure or timeout disconnects the player; optional failures only show a message. A client acceptance is not a successful load.
 
-VelocityToolbox does not configure port forwarding, DNS, or HTTPS. When `public-url` is empty, it attempts to use the first detected LAN IPv4 address. Never use `0.0.0.0` as a player-facing download address.
+Backend packs coexist. VTB removes only its own modern-client packs. Legacy clients keep the backend's latest pack until switching servers or a manual resend; individual removal is unavailable, so a pack may remain until replaced or disconnected.
+
+Invalid reloads retain the previous delivery rules. The host keeps its listener when bind/port are unchanged; a failed listener change attempts to restore the old service. If restoration fails, new local offers are suspended. VTB does not configure port forwarding or HTTPS. The legacy export snippet remains available for hosting-only setups. Disable the previous delivery plugin when enabling VTB delivery.
+
+See [the configuration reference](RESOURCE_PACKS.md) for examples and migration notes.
 
 ## Runtime plugin safety
 

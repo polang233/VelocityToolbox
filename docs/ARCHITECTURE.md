@@ -8,12 +8,15 @@ io.github.polang233.velocitytoolbox
 ├── BuildConstants                   Gradle 从 build.gradle 生成，供 @Plugin 使用
 ├── config/                          config.yml 与默认文件拷贝
 ├── lang/Lang                        MiniMessage 语言（默认 zh_cn，可 en_us / 自定义）
-├── command/VelocityToolboxCommand   /vtoolbox
+├── command/                         /vtb 根命令与 PluginCommand、PackCommand、ServerCommand
 ├── metrics/Metrics                  bStats 官方单文件（只改了 package）
 ├── version/                         子服客户端版本限制
+│   ├── VersionRule                  共享协议范围、允许和禁止列表
 │   ├── ServerVersionConfig          config.yml 的 server-versions 段、不可变规则、版本别名解析
 │   └── ServerVersionService         连接前拦截、规则重载与监听清理
-├── pack/                            资源包 HTTP 托管
+├── pack/                            资源包托管与下发
+│   ├── PackRules                    不可变包定义、分配与选包
+│   ├── PackSender                   玩家请求、状态、超时与清理
 │   ├── PackService                  读配置、扫描、启动 HTTP、写片段
 │   ├── PackConfig                   config.yml 的 pack-host 段
 │   ├── PackScanner                  扫描 zip、SHA-1、安全文件名
@@ -33,7 +36,9 @@ io.github.polang233.velocitytoolbox
 
 `PackHttpServer` 只绑定 `bind:port`，在本机提供 HTTP。`public-url` 只用来写出客户端下载链接，插件不会做端口映射、域名或 HTTPS。外网访问要自己放行端口后再填 `public-url`。
 
-目录内每个 ZIP 都会生成独立 URL、SHA-1 和 `local-path`。生成片段使用 VelocityResourcepacks 1.9.0+ 的 `global.packs`：1.20.3+ 客户端可以按顺序叠加多个包，旧客户端只使用第一项。真正的玩家、版本和后端服务器分配仍由 VelocityResourcepacks 负责。
+目录内每个 ZIP 都会生成独立 URL、SHA-1 和 `local-path`。生成片段使用 VelocityResourcepacks 1.9.0+ 的 `global.packs`：1.20.3+ 客户端可以按顺序叠加多个包，旧客户端只使用第一项。也可以启用 VTB 的 resource-packs 段直接按玩家版本、权限和子服下发。配置与迁移见 [资源包说明](RESOURCE_PACKS.md)。
+
+资源包规则先对照准备好的托管快照校验，再应用托管变更与下发规则。监听地址不变时更新快照，改地址失败时恢复旧监听。下发状态按连接和请求 UUID 隔离；公共列表前缀保留，改变的后缀按顺序重新下发。延迟发送前再次确认子服与权限，退出或停用时清理任务。后端包不拦截，现代客户端仅移除本插件请求。
 
 ## 子服版本限制
 

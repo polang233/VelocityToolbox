@@ -23,8 +23,8 @@ import java.util.concurrent.Executors;
  */
 final class PackHttpServer implements AutoCloseable {
 
-    private final Path packsDirectory;
-    private final Map<String, HostedPack> packs;
+    private volatile Path packsDirectory;
+    private volatile Map<String, HostedPack> packs;
 
     private HttpServer httpServer;
     private ExecutorService executor;
@@ -32,6 +32,11 @@ final class PackHttpServer implements AutoCloseable {
     PackHttpServer(Path packsDirectory, Map<String, HostedPack> packs) {
         this.packsDirectory = packsDirectory;
         this.packs = packs;
+    }
+
+    void update(Path directory, Map<String, HostedPack> files) {
+        packsDirectory = directory;
+        packs = Map.copyOf(files);
     }
 
     void bind(String host, int port) throws IOException {

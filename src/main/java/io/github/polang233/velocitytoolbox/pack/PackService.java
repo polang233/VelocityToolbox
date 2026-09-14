@@ -33,49 +33,98 @@ public final class PackService implements AutoCloseable {
         this.lang = lang;
     }
 
+    public record Prepared(PackConfig config, Path directory, String origin, Map<String, HostedPack> packs) {
+        public Prepared {
+            packs = Map.copyOf(packs);
+        }
+
+        public List<HostedPack> list() {
+            return List.copyOf(packs.values());
+        }
+    }
+
+    public synchronized Prepared prepare(PackConfig next) throws IOException {
+        Path dir = Path.of(next.packsDirectory());
+        dir = (dir.isAbsolute() ? dir : dataDirectory.resolve(dir)).toAbsolutePath().normalize();
+        if (!next.enabled()) return new Prepared(next, dir, null, Map.of());
+        if (next.port() < 1 || next.port() > 65535) throw new IOException("Invalid pack-host.port");
+        Files.createDirectories(dir);
+        PackConfig old = config;
+        String origin;
+        try {
+            config = next;
+            origin = resolvePublicOrigin();
+        } finally {
+            config = old;
+        }
+        return new Prepared(next, dir, origin, PackScanner.scan(dir, origin));
+    }
+
+    public synchronized void apply(Prepared next) throws IOException {
+        PackHttpServer replacement = null;
+        boolean reuse = enabled() && next.config().enabled()
+                && config.bind().equals(next.config().bind()) && config.port() == next.config().port();
+        if (next.config().enabled() && !reuse) {
+            replacement = new PackHttpServer(next.directory(), next.packs());
+            try {
+                replacement.bind(next.config().bind(), next.config().port());
+            } catch (IOException failure) {
+                replacement.close();
+                // A changed bind address may overlap the currently bound port.
+                if (!enabled() || config.port() != next.config().port()) throw failure;
+                httpServer.close();
+                httpServer = null;
+                try {
+                    replacement = new PackHttpServer(next.directory(), next.packs());
+                    replacement.bind(next.config().bind(), next.config().port());
+                } catch (IOException retry) {
+                    replacement.close();
+                    PackHttpServer restored = new PackHttpServer(packsDirectory, packs);
+                    try {
+                        restored.bind(config.bind(), config.port());
+                        httpServer = restored;
+                    } catch (IOException restore) {
+                        restored.close();
+                        retry.addSuppressed(restore);
+                    }
+                    throw retry;
+                }
+            }
+        }
+        if (reuse) httpServer.update(next.directory(), next.packs());
+        else {
+            if (httpServer != null) httpServer.close();
+            httpServer = replacement;
+        }
+        config = next.config();
+        packsDirectory = next.directory();
+        publicOrigin = next.origin();
+        packs.clear();
+        packs.putAll(next.packs());
+        if (enabled()) {
+            try {
+                PackSnippetWriter.write(dataDirectory.resolve("velocityresourcepacks-snippet.yml"), packsDirectory, packs());
+            } catch (IOException e) {
+                console.sendMessage(net.kyori.adventure.text.Component.text("Pack snippet: " + e.getMessage()));
+            }
+            logStatus();
+        }
+    }
+
     public synchronized void start() throws IOException {
         start(PackConfig.load(dataDirectory));
     }
 
-    public synchronized void start(PackConfig packConfig) throws IOException {
-        try {
-            config = packConfig;
-            packsDirectory = resolvePacksDirectory();
-            if (Files.exists(packsDirectory) && !Files.isDirectory(packsDirectory)) {
-                throw new IOException("pack-host.packs-directory 不是目录: " + packsDirectory);
-            }
-            Files.createDirectories(packsDirectory);
-
-            if (!config.enabled()) {
-                return;
-            }
-            if (config.port() <= 0 || config.port() > 65535) {
-                throw new IOException("无效的 pack-host.port: " + config.port());
-            }
-
-            publicOrigin = resolvePublicOrigin();
-            packs.clear();
-            packs.putAll(PackScanner.scan(packsDirectory, publicOrigin));
-            httpServer = new PackHttpServer(packsDirectory, packs);
-            httpServer.bind(config.bind(), config.port());
-            PackSnippetWriter.write(
-                    dataDirectory.resolve("velocityresourcepacks-snippet.yml"),
-                    packsDirectory,
-                    packs());
-            logStatus();
-        } catch (IOException exception) {
-            close();
-            throw exception;
-        }
+    public synchronized void start(PackConfig config) throws IOException {
+        apply(prepare(config));
     }
 
     public synchronized void reload() throws IOException {
-        reload(PackConfig.load(dataDirectory));
+        start();
     }
 
-    public synchronized void reload(PackConfig packConfig) throws IOException {
-        close();
-        start(packConfig);
+    public synchronized void reload(PackConfig config) throws IOException {
+        start(config);
     }
 
     public List<HostedPack> packs() {
@@ -104,18 +153,6 @@ public final class PackService implements AutoCloseable {
         }
         packs.clear();
         publicOrigin = null;
-    }
-
-    /**
-     * 绝对路径原样使用；相对路径从 {@code plugins/VelocityToolbox/} 起算，
-     * 因此 {@code ../OtherPlugin/packs} 可以指到旁边另一个插件的数据目录。
-     */
-    private Path resolvePacksDirectory() {
-        Path configured = Path.of(config.packsDirectory());
-        Path resolved = configured.isAbsolute()
-                ? configured
-                : dataDirectory.resolve(configured);
-        return resolved.toAbsolutePath().normalize();
     }
 
     private String resolvePublicOrigin() throws IOException {

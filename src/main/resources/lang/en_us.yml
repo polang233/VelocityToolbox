@@ -6,7 +6,7 @@ command:
     info: "<#CCFFFF>plugin, proxy, Java, server version rules, and pack-host summary"
     packs: "<#CCFFFF>URL and SHA-1 for each zip"
     vhosts: "<#CCFFFF>group players by entry domain/port and show player details"
-    reload: "<#CCFFFF>reload language, config, server version rules, and pack hosting"
+    reload: "<#CCFFFF>reload language, config, server version rules, pack hosting and delivery"
     plugin: "<#CCFFFF>plugin management (list / inspect / load / unload / reload)"
   plugin:
     title: "<#FF6600>Plugin management"
@@ -91,7 +91,7 @@ command:
     enabled: "<green>on"
     disabled: "<red>off"
   reload:
-    ok: "<green>Reloaded language, config, server version rules, and pack hosting."
+    ok: "<green>Reloaded language, config, server version rules, pack hosting and delivery."
     fail: "<#FF5555>Reload failed. Check the proxy log."
 
 plugins:
@@ -192,3 +192,37 @@ server-versions:
   load-fail: "Could not load the server-versions section in config.yml. All server connections are blocked. Fix the file and run /vtoolbox reload, or set server-versions.enabled: false."
   reload-fail: "Could not reload the server-versions section in config.yml. Keeping the last valid rules; connections stay blocked if no configuration has loaded successfully."
   unknown-server: "Server <server> in config.yml's server-versions section is not registered. Check the name in velocity.toml. The rule will apply if that server is registered later."
+
+modules:
+  plugin: "<#CCFFFF>Plugin management"
+  pack: "<#CCFFFF>Pack hosting, delivery and player status"
+  server: "<#CCFFFF>Server and entry queries"
+delivery:
+  enabled: "<green>Resource pack delivery is enabled."
+  disabled: "<#FF6600>Delivery is disabled, or the player has not joined a backend."
+  offline: "<#FF5555>Online player not found."
+  resent: "<green>Scheduled resource packs for the player's current server."
+  no-state: "<#CCFFFF>No delivery record for <player>."
+  status: "<#FF6600>Resource packs for <player> <gray>· <server>"
+  backend: "<#CCFFFF>The backend controls this legacy client's pack until the next switch or manual resend."
+  waiting: "<#CCFFFF>Packs selected; waiting to send."
+  empty: "<gray>No VTB pack offers."
+  item: "<#CCFFFF><pack> <gray>· <state>"
+  skipped: "<#FF6600>No compatible permitted variant for: <packs>"
+  failure: "<#FF5555>Resource pack <pack>: <reason>"
+  pack: "<#CCFFFF><pack> <gray>· <state> · <url>"
+  file: "<#CCFFFF><file><newline><gray><url><newline>SHA-1: <sha1>"
+  help:
+    list: "<#CCFFFF>List configured packs and hosted files"
+    status: "<#CCFFFF>Show a player's pack status"
+    resend: "<#CCFFFF>Resend packs for the player's current server"
+  state:
+    ready: "ready"
+    waiting: "waiting for client"
+    accepted: "accepted"
+    downloaded: "downloaded, waiting to apply"
+    loaded: "loaded"
+    failed: "failed to load"
+    declined: "declined"
+    timeout: "timed out"
+    unavailable: "unavailable, incompatible version or missing permission"

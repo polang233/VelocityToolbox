@@ -1,21 +1,21 @@
 # VelocityToolbox
 
-Velocity 运维工具箱：运行时插件管理、入口域名排查、子服客户端版本限制，以及可选的资源包 HTTP 托管。
+Velocity 运维工具箱：运行时插件管理、入口域名排查、子服客户端版本限制，以及资源包托管与下发。
 
 - 源码：[GitHub](https://github.com/polang233/VelocityToolbox)
 - 下载：[Releases](https://github.com/polang233/VelocityToolbox/releases)
 - 问题与建议：[Issues](https://github.com/polang233/VelocityToolbox/issues)
 
-环境：**Velocity 4.0+**，**Java 25+**，无硬前置。资源包分配可搭配 [VelocityResourcepacks 1.9.0+](https://modrinth.com/plugin/velocityresourcepacks)。
+环境：**Velocity 4.0+**，**Java 25+**，无硬前置。资源包下发已内置。
 
 ![VelocityToolbox](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/logo-256.png)
 
 ## 能做什么
 
 - **少重启一次代理**：加载、卸载或重载 `plugins/` 里的 Velocity 插件；操作前可只读检查风险，操作后报告清理结果。
-- **排查多入口网络**：`/vtb vhosts` 按玩家加入时用的域名分组，先显示入口概要；点击入口行展开玩家名和延迟，悬停可看完整信息。
+- **排查多入口网络**：`/vtb server hosts` 按玩家加入时用的域名分组，先显示入口概要；点击入口行展开玩家名和延迟，悬停可看完整信息。
 - **按子服限制客户端版本**：在 `config.yml` 的 `server-versions` 段配置最低/最高版本、允许列表和禁止列表，无需 ViaVersion。默认关闭，支持配置重载。
-- **资源包就地托管**：一次托管任意数量的 `.zip`，自动算 SHA-1，并生成支持多包叠加的 VelocityResourcepacks 配置片段。资源包 HTTP 服务默认关闭。
+- **资源包就地托管**：一次托管任意数量的 `.zip`，自动算 SHA-1，支持按子服和版本下发、叠加多个资源包。资源包 HTTP 服务默认关闭。
 
 按入口域名查看人数和延迟：
 
@@ -29,7 +29,7 @@ Velocity 运维工具箱：运行时插件管理、入口域名排查、子服�
 
 ![热卸载插件](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-plugin-unload.png)
 
-资源包托管启用后，玩家进服会收到标准下载提示：
+资源包下发配置并启用后，玩家进服会收到标准下载提示：
 
 ![资源包下载提示](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-packs.png)
 
@@ -47,8 +47,8 @@ Velocity 运维工具箱：运行时插件管理、入口域名排查、子服�
 | --- | --- |
 | `/vtoolbox help` | 显示帮助 |
 | `/vtoolbox info` | 插件、代理、Java、插件数量、子服版本限制和资源包托管概要 |
-| `/vtoolbox packs` | 列出资源包 URL 和 SHA-1 |
-| `/vtoolbox vhosts` | 按入口分组显示域名、端口和人数；点击展开玩家名与延迟 |
+| `/vtoolbox pack list` | 列出资源包 URL 和 SHA-1 |
+| `/vtoolbox server hosts` | 按入口分组显示域名、端口和人数；点击展开玩家名与延迟 |
 | `/vtoolbox reload` | 重载语言、配置、子服版本限制与资源包托管 |
 | `/vtoolbox plugin list` | 名称、版本和作者；悬停看完整元数据 |
 | `/vtoolbox plugin inspect 插件ID` | 按基本信息、依赖、运行时资源和风险四段检查 |
@@ -63,8 +63,8 @@ Velocity 运维工具箱：运行时插件管理、入口域名排查、子服�
 普通子命令：
 
 - `velocitytoolbox.command.info`
-- `velocitytoolbox.command.packs`
-- `velocitytoolbox.command.vhosts`
+- `velocitytoolbox.command.pack.list`
+- `velocitytoolbox.command.server.hosts`
 - `velocitytoolbox.command.reload`
 
 插件管理父权限：
@@ -89,28 +89,38 @@ Velocity 运维工具箱：运行时插件管理、入口域名排查、子服�
 
 切服拒绝时保留当前子服，首次进入拒绝时显示断开原因。`/vtoolbox reload` 重载规则，`/vtoolbox info` 查看状态和各子服的具体版本限制。共用协议的版本会一起匹配，例如 1.20 和 1.20.1。配置示例和完整说明见 [子服版本限制](https://github.com/polang233/VelocityToolbox/blob/main/docs/SERVER_VERSIONS.md)。
 
-## 可选资源包托管
+## 资源包托管与下发
 
-资源包托管默认关闭。启用后会在代理机器上启动 HTTP 服务，扫描目录内的 zip，并生成 `velocityresourcepacks-snippet.yml`。每个 zip 都有独立 URL、SHA-1 和 `local-path`。由 VelocityResourcepacks 决定发给哪些玩家；本插件不直接发包。
+`pack-host` 提供 HTTP 下载，`resource-packs` 决定玩家使用哪些包。两个模块默认关闭，使用外部直链时只需开启下发。放入目录的 ZIP 不会自动下发，必须在配置中定义并分配。
 
 ```yaml
 pack-host:
-  enabled: false
+  enabled: true
   bind: 0.0.0.0
   port: 8765
-  public-url: ""          # 外网使用时填写玩家可以访问的地址
-  packs-directory: packs  # 默认 plugins/VelocityToolbox/packs
+  public-url: "https://packs.example.com"
+  packs-directory: packs
+
+resource-packs:
+  enabled: true
+  delay: 1
+  timeout: 60
+  required: false
+  prompt: "<#CCFFFF>建议加载服务器资源包。"
+  packs:
+    base:
+      file: base.zip
+  default: [base]
+  servers: {}
 ```
 
-启用步骤：
+将实际资源包放入 `packs-directory`，配置客户端下载地址，然后执行 `/vtb reload`。`file` 自动使用本地 URL 和 SHA-1；外部地址用 `url` 与真实 `sha1`。子服分配、版本变体、权限和旧客户端回退见 [资源包配置](https://github.com/polang233/VelocityToolbox/blob/main/docs/RESOURCE_PACKS.md)。
 
-1. 把 `.zip` 放入 `packs-directory`。
-2. 把 `enabled` 改为 `true`；外网使用时配置防火墙 / 反向代理和 `public-url`。
-3. 执行 `/vtoolbox reload`，再把生成的配置片段合并进 VelocityResourcepacks。
+1.20.3+ 支持按顺序叠加多个包；旧客户端使用 `legacy` 指定的完整包，未指定时取第一个兼容包。`required` 开启后，拒绝、无法匹配、加载失败或超时会断开。后端发包允许共存，旧客户端以后端最新发送为准。
 
-生成片段的 `global.packs` 会按文件名顺序列出全部 zip。Minecraft 1.20.3+ 客户端可依次叠加多个资源包，旧客户端只使用列表第一项。该字段需要 VelocityResourcepacks 1.9.0+。
+VTB 仅配置本机 HTTP 监听，不自动映射端口或配置 HTTPS。`public-url` 必须是玩家能访问的地址。原有配置片段仍会生成，供只使用托管的场景使用；启用 VTB 下发时停用原下发插件，避免重复发送。
 
-本插件不会自动配置端口映射、域名或 HTTPS。`public-url` 留空时会尝试使用第一块局域网 IPv4；不要把 `0.0.0.0` 当作玩家下载地址。
+资源包操作需 pack 模块权限和对应的 list、status、resend 动作权限；入口查询需 server 模块权限和 hosts 动作权限。1.3.0 的命令与权限迁移见资源包说明。
 
 ## 热管理注意
 

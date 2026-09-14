@@ -49,3 +49,47 @@ pack-host:
   #   D:/resourcepacks              — Windows 绝对路径
   #   /var/www/resourcepacks        — Linux 绝对路径
   packs-directory: packs
+
+# 资源包下发。与上面的 HTTP 托管分别开关。
+resource-packs:
+  enabled: false
+  # 秒，支持小数。delay 是进入子服后的等待时间，timeout 是单次加载的期限。
+  delay: 1
+  timeout: 60
+  # 必需包被拒绝、无法匹配、加载失败或超时会断开玩家。
+  required: false
+  prompt: "<#CCFFFF>建议加载服务器资源包。"
+  packs: {}
+  default: []
+  servers: {}
+  # 启用时替换上面的空配置，例如：
+  # packs:
+  #   base:
+  #     file: base.zip
+  #   prison:
+  #     variants:
+  #       - file: prison-modern.zip
+  #         versions:
+  #           min: "1.20.3"
+  #       - file: prison-full.zip
+  #         versions:
+  #           max: "1.20.2"
+  #   old:
+  #     file: prison-full.zip
+  #   event:
+  #     url: "https://packs.example.com/event.zip"
+  #     sha1: "填写实际 ZIP 的 40 位 SHA-1"
+  #     permission: "velocitytoolbox.pack.event"
+  # default: [base]
+  # servers:
+  #   prison:
+  #     packs: [base, prison]
+  #     legacy: old
+  #     required: true
+  #     prompt: "<#CCFFFF>监狱服需要资源包。"
+  # file 是托管目录内的文件名，url + sha1 是外部直链，两种来源二选一。
+  # versions 支持 min/max/allow/deny，版本名加引号，也可以用整数协议号。
+  # variants 按顺序取首个兼容且有权限的项；包和变体均可写 permission。
+  # 子服 packs 替换 default，空列表清除 VTB 管理的现代客户端资源包。
+  # 1.20.3+ 按顺序叠加，后面的包覆盖前面。旧客户端只用 legacy，
+  # 未填写 legacy 时取第一个兼容包；必须提供完整单包，不会自动合并 ZIP。

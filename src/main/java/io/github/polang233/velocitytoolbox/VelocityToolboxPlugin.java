@@ -16,7 +16,8 @@ import io.github.polang233.velocitytoolbox.config.PluginConfig;
 import io.github.polang233.velocitytoolbox.plugins.PluginLoadService;
 import io.github.polang233.velocitytoolbox.lang.Lang;
 import io.github.polang233.velocitytoolbox.metrics.Metrics;
-import io.github.polang233.velocitytoolbox.pack.PackService;
+import io.github.polang233.velocitytoolbox.pack.*;
+import io.github.polang233.velocitytoolbox.config.ResourceFiles;
 import io.github.polang233.velocitytoolbox.version.ServerVersionService;
 import net.kyori.adventure.text.Component;
 import org.slf4j.Logger;
@@ -49,6 +50,7 @@ public final class VelocityToolboxPlugin {
     private final Lang lang;
 
     private PackService packService;
+    private PackSender packSender;
     private PluginLoadService pluginLoadService;
     private ServerVersionService serverVersionService;
     private CommandMeta commandMeta;
@@ -79,12 +81,9 @@ public final class VelocityToolboxPlugin {
         metricsFactory.make(this, BSTATS_ID);
 
         packService = new PackService(dataDirectory, proxy.getConsoleCommandSource(), lang);
+        packSender = new PackSender(this, proxy, packService, lang, logger);
         try {
-            if (config != null) {
-                packService.start(config.packHost());
-            } else {
-                packService.start();
-            }
+            reloadPacks(config != null ? config.packHost() : PackConfig.load(dataDirectory));
         } catch (Exception exception) {
             logger.error(lang.plain("log.pack-fail"), exception);
         }
@@ -94,7 +93,7 @@ public final class VelocityToolboxPlugin {
         serverVersionService.start();
 
         VelocityToolboxCommand toolboxCommand = new VelocityToolboxCommand(
-                this, proxy, pluginLoadService, packService, lang);
+                this, proxy, pluginLoadService, packService, lang, packSender);
         BrigadierCommand command = toolboxCommand.build();
         commandMeta = proxy.getCommandManager()
                 .metaBuilder(command)
@@ -122,12 +121,12 @@ public final class VelocityToolboxPlugin {
      * {@code /vtoolbox reload} 与代理 {@code /velocity reload} 都会走到这里：
      * 重载语言、配置、资源包托管和子服版本限制，不重载其它插件。
      */
-    public boolean reloadAll() {
+    public synchronized boolean reloadAll() {
         boolean success = true;
         try {
             PluginConfig config = PluginConfig.load(dataDirectory);
             lang.load(config.language());
-            packService.reload(config.packHost());
+            reloadPacks(config.packHost());
         } catch (Exception exception) {
             logger.error(lang.plain("log.reload-fail"), exception);
             success = false;
@@ -152,12 +151,21 @@ public final class VelocityToolboxPlugin {
             proxy.getCommandManager().unregister(commandMeta);
             commandMeta = null;
         }
+        if (packSender != null) packSender.close();
         if (packService != null) {
             packService.close();
         }
         if (serverVersionService != null) {
             serverVersionService.close();
         }
+    }
+
+    private void reloadPacks(PackConfig config) throws java.io.IOException {
+        PackService.Prepared prepared = packService.prepare(config);
+        PackRules rules = PackRules.read(ResourceFiles.loadYaml(dataDirectory.resolve("config.yml"))
+                .node("resource-packs"), prepared.list());
+        packService.apply(prepared);
+        packSender.apply(rules);
     }
 
     private PluginConfig loadConfigAndLang() {

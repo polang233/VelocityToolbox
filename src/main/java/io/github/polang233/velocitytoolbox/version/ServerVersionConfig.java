@@ -7,12 +7,13 @@ import org.spongepowered.configurate.ConfigurationNode;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-/** Immutable rules, parsed once when the module loads or reloads. */
+/**
+ * Immutable rules, parsed once when the module loads or reloads.
+ */
 public record ServerVersionConfig(boolean enabled, Map<String, Rule> rules) {
 
     public ServerVersionConfig {
@@ -55,13 +56,8 @@ public record ServerVersionConfig(boolean enabled, Map<String, Rule> rules) {
             }
             ConfigurationNode node = entry.getValue();
             checkKeys(node, path, Set.of("min", "max", "allow", "deny"));
-            ProtocolVersion min = bound(node.node("min"), path + ".min", ProtocolVersion.MINIMUM_VERSION, "min");
-            ProtocolVersion max = bound(node.node("max"), path + ".max", ProtocolVersion.MAXIMUM_VERSION, "max");
-            if (min.compareTo(max) > 0) {
-                throw invalid(path, "min must not be newer than max");
-            }
-            Rule rule = new Rule(min, max, versions(node.node("allow"), path + ".allow"),
-                    versions(node.node("deny"), path + ".deny"));
+            VersionRule range = VersionRule.read(node, "config.yml: server-versions." + path);
+            Rule rule = new Rule(range.min(), range.max(), range.allow(), range.deny());
             if (rules.putIfAbsent(name.toLowerCase(Locale.ROOT), rule) != null) {
                 throw invalid(path, "duplicate server name ignoring case");
             }
@@ -78,48 +74,6 @@ public record ServerVersionConfig(boolean enabled, Map<String, Rule> rules) {
                 throw invalid(path.isEmpty() ? String.valueOf(key) : path + "." + key, "unknown option");
             }
         }
-    }
-
-    private static ProtocolVersion bound(ConfigurationNode node, String path,
-                                         ProtocolVersion fallback, String keyword) throws IOException {
-        if (node.virtual()) {
-            return fallback;
-        }
-        if (keyword.equalsIgnoreCase(node.getString())) {
-            return fallback;
-        }
-        return version(node, path);
-    }
-
-    private static Set<ProtocolVersion> versions(ConfigurationNode node, String path) throws IOException {
-        if (node.virtual()) {
-            return Set.of();
-        }
-        if (!node.isList()) {
-            throw invalid(path, "expected a list such as [\"1.12.2\", \"1.20.1\"]");
-        }
-        Set<ProtocolVersion> result = new LinkedHashSet<>();
-        int index = 0;
-        for (ConfigurationNode child : node.childrenList()) {
-            result.add(version(child, path + "[" + index++ + "]"));
-        }
-        return Set.copyOf(result);
-    }
-
-    private static ProtocolVersion version(ConfigurationNode node, String path) throws IOException {
-        Object raw = node.raw();
-        // Reject YAML decimal numbers: unquoted 1.20 would otherwise silently become 1.2.
-        if (!(raw instanceof String || raw instanceof Integer || raw instanceof Long)) {
-            throw invalid(path, "quote Minecraft version names, or use an integer protocol ID");
-        }
-        String value = String.valueOf(raw).trim();
-        for (ProtocolVersion version : ProtocolVersion.SUPPORTED_VERSIONS) {
-            if (version.getVersionsSupportedBy().contains(value)
-                    || Integer.toString(version.getProtocol()).equals(value)) {
-                return version;
-            }
-        }
-        throw invalid(path, "unknown version '" + value + "' in this Velocity build");
     }
 
     private static IOException invalid(String path, String detail) {
