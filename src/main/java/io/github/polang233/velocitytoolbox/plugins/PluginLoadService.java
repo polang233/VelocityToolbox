@@ -13,6 +13,7 @@ import com.velocitypowered.api.plugin.PluginManager;
 import com.velocitypowered.api.plugin.meta.PluginDependency;
 import com.velocitypowered.api.proxy.ProxyServer;
 import io.github.polang233.velocitytoolbox.lang.Lang;
+import io.github.polang233.velocitytoolbox.plugins.internal.PluginAccess;
 import org.slf4j.Logger;
 
 import java.io.IOException;
@@ -28,7 +29,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 /**
- * 对 {@code plugins/*.jar} 里的真实 Velocity 插件做 load / unload / reload。
+ * 对 {@code plugins/*.jar} 中的 Velocity 插件执行加载、卸载和重载。
  *
  * <p>加载顺序与 4.0 以上代理启动时一致：{@code loadCandidate} → {@code createPluginFromCandidate}
  * → Guice {@code createPlugin} → {@code registerPlugin} → {@code registerInternally}
@@ -73,8 +74,8 @@ public final class PluginLoadService {
         List<PluginInfo> infos = new ArrayList<>();
         for (PluginContainer container : proxy.getPluginManager().getPlugins()) {
             PluginDescription description = container.getDescription();
-            List<String> required = dependencies(description, false);
-            List<String> optional = dependencies(description, true);
+            List<String> required = PluginInspector.dependencies(description, false);
+            List<String> optional = PluginInspector.dependencies(description, true);
             infos.add(new PluginInfo(
                     description.getId(),
                     description.getName().orElse(description.getId()),
@@ -111,91 +112,12 @@ public final class PluginLoadService {
 
     public synchronized PluginInspection inspect(String id) {
         String requested = id == null ? "" : id.trim();
-        Optional<PluginContainer> optional = proxy.getPluginManager().getPlugin(requested);
-        if (optional.isEmpty()) {
+        PluginContainer container = proxy.getPluginManager().getPlugin(requested).orElse(null);
+        if (container == null) {
             return PluginInspection.notFound(requested);
         }
-
-        PluginContainer container = optional.get();
-        PluginDescription description = container.getDescription();
-        Object instance = container.getInstance().orElse(null);
-        PluginCleanup.RuntimeInventory inventory = cleanup.inspect(container, instance);
-        List<String> dependents = dependentsOf(container);
-        List<String> requiredDependencies = dependencies(description, false);
-        List<String> optionalDependencies = dependencies(description, true);
-        List<String> providedIds = description.getProvidedIds().stream()
-                .sorted(String.CASE_INSENSITIVE_ORDER)
-                .toList();
-        Path source = description.getSource().orElse(null);
-        boolean sourceAvailable = source != null && Files.isRegularFile(source);
-
-        List<PluginInspection.Issue> issues = new ArrayList<>();
-        PluginInspection.Risk risk = PluginInspection.Risk.LOW;
-        if (isProtected(description.getId())) {
-            issues.add(PluginInspection.Issue.PROTECTED);
-            risk = PluginInspection.Risk.BLOCKED;
-        }
-        if (!dependents.isEmpty()) {
-            issues.add(PluginInspection.Issue.REQUIRED_BY_OTHERS);
-            risk = PluginInspection.Risk.BLOCKED;
-        }
-        if (!sourceAvailable) {
-            issues.add(PluginInspection.Issue.NO_SOURCE_JAR);
-            if (risk != PluginInspection.Risk.BLOCKED) {
-                risk = PluginInspection.Risk.HIGH;
-            }
-        }
-        if (instance == null) {
-            issues.add(PluginInspection.Issue.NO_INSTANCE);
-            if (risk != PluginInspection.Risk.BLOCKED) {
-                risk = PluginInspection.Risk.HIGH;
-            }
-        }
-        if (!providedIds.isEmpty()) {
-            issues.add(PluginInspection.Issue.PROVIDED_IDS);
-            if (risk == PluginInspection.Risk.LOW) {
-                risk = PluginInspection.Risk.MEDIUM;
-            }
-        }
-        if (inventory.channels() > 0) {
-            issues.add(PluginInspection.Issue.CUSTOM_CHANNELS);
-            if (risk == PluginInspection.Risk.LOW) {
-                risk = PluginInspection.Risk.MEDIUM;
-            }
-        }
-        if (inventory.executorActive()) {
-            issues.add(PluginInspection.Issue.EXECUTOR);
-            if (risk == PluginInspection.Risk.LOW) {
-                risk = PluginInspection.Risk.MEDIUM;
-            }
-        }
-        if (issues.isEmpty()) {
-            issues.add(PluginInspection.Issue.STANDARD_CLEANUP_ONLY);
-        }
-
-        return new PluginInspection(
-                true,
-                description.getId(),
-                description.getName().orElse(description.getId()),
-                description.getVersion().orElse("?"),
-                description.getAuthors(),
-                description.getDescription().orElse(""),
-                description.getUrl().orElse(""),
-                source == null || source.getFileName() == null ? "?" : source.getFileName().toString(),
-                instance == null ? "?" : instance.getClass().getName(),
-                sourceAvailable,
-                instance != null,
-                risk,
-                inventory.commands(),
-                inventory.tasks(),
-                inventory.listeners(),
-                inventory.channels(),
-                inventory.executorActive(),
-                dependents,
-                requiredDependencies,
-                optionalDependencies,
-                providedIds,
-                issues);
+        return PluginInspector.inspect(container, cleanup.inspect(container, container.getInstance().orElse(null)),
+                dependentsOf(container), isProtected(container.getDescription().getId()));
     }
 
     public synchronized OperationResult loadByFileName(String fileName) {
@@ -216,8 +138,8 @@ public final class PluginLoadService {
         PluginContainer container = null;
         boolean registered = false;
         try {
-            Object loader = VelocityInternalAccess.newJavaPluginLoader(proxy, pluginsDirectory);
-            PluginDescription candidate = (PluginDescription) VelocityInternalAccess.loadCandidate(loader, absoluteJar);
+            Object loader = PluginAccess.newJavaPluginLoader(proxy, pluginsDirectory);
+            PluginDescription candidate = (PluginDescription) PluginAccess.loadCandidate(loader, absoluteJar);
             String id = candidate.getId();
             if (isProtected(id)) {
                 return OperationResult.fail("plugins.load.protected", Map.of("plugin", id));
@@ -238,18 +160,18 @@ public final class PluginLoadService {
                 }
             }
 
-            realPlugin = (PluginDescription) VelocityInternalAccess.createPluginFromCandidate(loader, candidate);
-            container = (PluginContainer) VelocityInternalAccess.newPluginContainer(realPlugin);
-            Module pluginModule = (Module) VelocityInternalAccess.createModule(loader, container);
+            realPlugin = (PluginDescription) PluginAccess.createPluginFromCandidate(loader, candidate);
+            container = (PluginContainer) PluginAccess.newPluginContainer(realPlugin);
+            Module pluginModule = (Module) PluginAccess.createModule(loader, container);
             Module commonModule = commonModule(container);
-            VelocityInternalAccess.createPlugin(loader, container, pluginModule, commonModule);
-            VelocityInternalAccess.registerPlugin(proxy.getPluginManager(), container);
+            PluginAccess.createPlugin(loader, container, pluginModule, commonModule);
+            PluginAccess.registerPlugin(proxy.getPluginManager(), container);
             registered = true;
 
             Object instance = container.getInstance().orElse(null);
             if (instance != null) {
-                VelocityInternalAccess.registerInternally(proxy.getEventManager(), container, instance);
-                VelocityInternalAccess.fireForPlugin(
+                PluginAccess.registerInternally(proxy.getEventManager(), container, instance);
+                PluginAccess.fireForPlugin(
                         proxy.getEventManager(), new ProxyInitializeEvent(), container, instance);
             }
 
@@ -300,7 +222,7 @@ public final class PluginLoadService {
         try {
             if (instance != null) {
                 try {
-                    VelocityInternalAccess.fireForPlugin(
+                    PluginAccess.fireForPlugin(
                             proxy.getEventManager(), new ProxyShutdownEvent(), container, instance);
                 } catch (Exception exception) {
                     shutdownError = exception;
@@ -312,7 +234,7 @@ public final class PluginLoadService {
             if (shutdownError != null) {
                 report.markShutdownEventFailed();
             }
-            VelocityInternalAccess.unregisterPlugin(proxy.getPluginManager(), container);
+            PluginAccess.unregisterPlugin(proxy.getPluginManager(), container);
             cleanup.verify(container, instance, report);
             boolean stillLoaded = proxy.getPluginManager().isLoaded(pluginId);
             cleanup.closePluginClassLoader(instance);
@@ -364,7 +286,7 @@ public final class PluginLoadService {
     private CleanupReport rollbackFailedLoad(PluginContainer container) {
         Object instance = container.getInstance().orElse(null);
         CleanupReport report = cleanup.detach(container, instance);
-        VelocityInternalAccess.unregisterPlugin(proxy.getPluginManager(), container);
+        PluginAccess.unregisterPlugin(proxy.getPluginManager(), container);
         cleanup.closePluginClassLoader(instance);
         if (instance == null) {
             cleanup.closeDescriptionClassLoader(container.getDescription());
@@ -421,17 +343,6 @@ public final class PluginLoadService {
         ids.add(description.getId());
         ids.addAll(description.getProvidedIds());
         return ids;
-    }
-
-    private static List<String> dependencies(PluginDescription description, boolean optional) {
-        return description.getDependencies().stream()
-                .filter(dependency -> dependency.isOptional() == optional)
-                .map(dependency -> dependency.getVersion()
-                        .filter(version -> !version.isBlank())
-                        .map(version -> dependency.getId() + " " + version)
-                        .orElse(dependency.getId()))
-                .sorted(String.CASE_INSENSITIVE_ORDER)
-                .toList();
     }
 
     private Path resolvePluginJar(String fileName) {

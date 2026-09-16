@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 一次卸载实际拆掉了什么，以及扫出来的残留。
+ * 记录一次卸载清理的资源数量和残留。
  */
 public final class CleanupReport {
 

@@ -6,6 +6,8 @@ import com.velocitypowered.api.plugin.PluginContainer;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.scheduler.ScheduledTask;
 import io.github.polang233.velocitytoolbox.lang.Lang;
+import io.github.polang233.velocitytoolbox.plugins.internal.PluginAccess;
+import io.github.polang233.velocitytoolbox.plugins.internal.PluginResources;
 import org.slf4j.Logger;
 
 import java.lang.reflect.Field;
@@ -22,10 +24,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
 /**
- * 卸载时的公共清理：监听器、调度任务、命令、插件消息通道、插件线程池、插件类加载器。
- *
- * <p>对照 ServerUtils / VelocityHotReloader：它们拆监听器、任务、命令、类加载器。
- * 这里额外按类加载器扫残留监听器和自定义消息通道，并在清理后复查。</p>
+ * 清理插件登记的命令、监听器、任务、通道和线程池，再按类加载器检查残留。
  */
 final class PluginCleanup {
 
@@ -49,7 +48,7 @@ final class PluginCleanup {
         CleanupReport report = new CleanupReport();
         ClassLoader loader = classLoaderOf(instance, container);
         unregisterEvents(container, instance);
-        report.addExtraListeners(VelocityInternalAccess.removeHandlersLoadedBy(proxy.getEventManager(), loader));
+        report.addExtraListeners(PluginResources.removeHandlersLoadedBy(proxy.getEventManager(), loader));
         if (report.extraListeners() > 0) {
             lang.send(proxy.getConsoleCommandSource(), "log.console.leftover-handlers",
                     Lang.ph("plugin", container.getDescription().getId()),
@@ -59,7 +58,7 @@ final class PluginCleanup {
             report.addTasks(cancelTasks(instance));
         }
         report.addCommands(unregisterCommands(instance, container, loader));
-        int channels = VelocityInternalAccess.unregisterChannelsLoadedBy(proxy.getChannelRegistrar(), loader);
+        int channels = PluginResources.unregisterChannelsLoadedBy(proxy.getChannelRegistrar(), loader);
         report.addChannels(channels);
         if (channels > 0) {
             lang.send(proxy.getConsoleCommandSource(), "log.console.leftover-channels",
@@ -79,12 +78,12 @@ final class PluginCleanup {
             try {
                 tasks = proxy.getScheduler().tasksByPlugin(instance).size();
             } catch (NoSuchMethodError | RuntimeException ignored) {
-                // 只读预检失败不应影响后续真实卸载；实际卸载仍会单独尝试并记录异常。
+                // 预检失败时留给实际卸载重试并记录异常。
             }
         }
         OwnedCommands commands = ownedCommands(instance, container, loader);
-        int listeners = VelocityInternalAccess.leftoverHandlerCount(proxy.getEventManager(), loader);
-        int channels = VelocityInternalAccess.channelCountLoadedBy(proxy.getChannelRegistrar(), loader);
+        int listeners = PluginResources.leftoverHandlerCount(proxy.getEventManager(), loader);
+        int channels = PluginResources.channelCountLoadedBy(proxy.getChannelRegistrar(), loader);
         return new RuntimeInventory(
                 commands.count(), tasks, listeners, channels, executorAlreadyCreated(container));
     }
@@ -101,11 +100,11 @@ final class PluginCleanup {
                 report.leftover("plugins.leftover.still-loaded", Map.of("plugin", provided));
             }
         }
-        List<String> leftoverCommands = VelocityInternalAccess.leftoverCommandAliases(proxy.getCommandManager(), loader);
+        List<String> leftoverCommands = PluginResources.leftoverCommandAliases(proxy.getCommandManager(), loader);
         if (!leftoverCommands.isEmpty()) {
             report.leftover("plugins.leftover.commands", Map.of("detail", String.join(", ", leftoverCommands)));
         }
-        int leftoverListeners = VelocityInternalAccess.leftoverHandlerCount(proxy.getEventManager(), loader);
+        int leftoverListeners = PluginResources.leftoverHandlerCount(proxy.getEventManager(), loader);
         if (leftoverListeners > 0) {
             report.leftover("plugins.leftover.listeners", Map.of("count", String.valueOf(leftoverListeners)));
         }
@@ -119,11 +118,11 @@ final class PluginCleanup {
     }
 
     void closeDescriptionClassLoader(Object description) {
-        VelocityInternalAccess.classLoaderOf(description).ifPresent(this::closeClassLoader);
+        PluginAccess.classLoaderOf(description).ifPresent(this::closeClassLoader);
     }
 
     void closeClassLoadersForJar(Path jar) {
-        VelocityInternalAccess.closeClassLoadersForSource(jar);
+        PluginAccess.closeClassLoadersForSource(jar);
     }
 
     private int cancelTasks(Object pluginInstance) {
@@ -178,7 +177,7 @@ final class PluginCleanup {
         for (String alias : List.copyOf(commands.getAliases())) {
             CommandMeta meta = commandMeta(commands, alias);
             if (ownsCommand(meta, pluginInstance, container)
-                    || VelocityInternalAccess.commandAliasLoadedBy(commands, alias, loader)) {
+                    || PluginResources.commandAliasLoadedBy(commands, alias, loader)) {
                 if (meta != null) {
                     ownedMeta.add(meta);
                 } else {
@@ -263,7 +262,7 @@ final class PluginCleanup {
         if (instance != null) {
             return instance.getClass().getClassLoader();
         }
-        return VelocityInternalAccess.classLoaderOf(container.getDescription()).orElse(null);
+        return PluginAccess.classLoaderOf(container.getDescription()).orElse(null);
     }
 
     record RuntimeInventory(

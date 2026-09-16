@@ -111,3 +111,12 @@ def generateTemplates = tasks.register('generateTemplates', Copy) {
 }
 
 sourceSets.main.java.srcDir(generateTemplates.map { it.outputs })
+
+tasks.register('pluginAccessTest', JavaExec) {
+    group = 'verification'
+    description = 'Checks reflection and plugin resource ownership after cleanup.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + configurations.compileClasspath
+    mainClass = 'io.github.polang233.velocitytoolbox.plugins.internal.PluginAccessTest'
+}
+tasks.named('check') { dependsOn 'pluginAccessTest' }
