@@ -14,6 +14,7 @@
 ## 下载与发布平台
 
 [![GitHub Releases](https://img.shields.io/badge/GitHub-Releases-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/polang233/VelocityToolbox/releases)
+[![Hangar](https://img.shields.io/badge/Hangar-Download-B45309?style=for-the-badge)](https://hangar.papermc.io/polang/VelocityToolBox)
 [![Modrinth](https://img.shields.io/badge/Modrinth-Download-1BD96A?style=for-the-badge&logo=modrinth&logoColor=white)](https://modrinth.com/plugin/velocitytoolbox)
 [![MineBBS](https://img.shields.io/badge/MineBBS-Download-1976D2?style=for-the-badge)](https://www.minebbs.com/resources/velocitytoolbox.18104/)
 [![苦力怕论坛](https://img.shields.io/badge/KLPBBS-Download-2E7D32?style=for-the-badge)](https://klpbbs.com/thread-173633-1-1.html)

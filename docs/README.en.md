@@ -4,7 +4,7 @@
 
 Hot plugin management, custom resource pack delivery and hosting, entry-domain diagnostics, and server version rules for Velocity.
 
-[中文](../README.md) · [Wiki](https://github.com/polang233/VelocityToolbox/wiki/English) · [Releases](https://github.com/polang233/VelocityToolbox/releases) · [Modrinth](https://modrinth.com/plugin/velocitytoolbox)
+[中文](../README.md) · [Wiki](https://github.com/polang233/VelocityToolbox/wiki/English) · [Releases](https://github.com/polang233/VelocityToolbox/releases) · [Hangar](https://hangar.papermc.io/polang/VelocityToolBox) · [Modrinth](https://modrinth.com/plugin/velocitytoolbox)
 
 ## Install
 
