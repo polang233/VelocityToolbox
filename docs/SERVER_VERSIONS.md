@@ -41,7 +41,7 @@ server-versions:
 
 不认识的版本、错误的列表格式、拼错的选项和反向范围都会使重载失败，并在日志中指出配置路径；上次有效规则继续生效。若首次加载失败，没有可用旧规则，模块会拒绝所有子服连接。修复文件或设置 `server-versions.enabled: false` 后，从代理控制台执行 `/vtoolbox reload` 恢复。
 
-中英文提示位于 `lang/zh_cn.yml` 和 `lang/en_us.yml` 的 `server-versions` 段。旧语言文件缺少的新键会从随包文件补齐。自定义拒绝提示可使用 `<server>`、`<version>`、`<protocol>`、`<requirement>` 占位符。
+提示位于 `lang/zh_cn.yml`、`lang/zh_tw.yml` 和 `lang/en_us.yml` 的 `server.versions` 段。旧语言文件缺少的新键会从随包文件补齐。自定义拒绝提示可使用 `<server>`、`<version>`、`<protocol>`、`<requirement>` 占位符。
 
 ## 协议识别边界
 
