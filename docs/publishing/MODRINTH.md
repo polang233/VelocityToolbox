@@ -1,172 +1,84 @@
-<p align="center">
-  <img src="https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/logo.png" alt="VelocityToolbox logo" width="168">
-</p>
-
 # VelocityToolbox
 
-**Hot plugin management, custom resource pack delivery and hosting, entry-domain diagnostics, and per-server client version rules for Velocity networks.**
+Manage proxy plugins at runtime, send custom resource packs across your network, inspect entry domains, and set client version rules for each backend.
 
-Load or reload proxy plugins, choose resource packs for the whole network or individual backends, and check player connections from one command. Packs can come from VTB hosting or external URLs, with variants selected by client version and permission.
+![VelocityToolbox](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/logo-256.png)
 
-[Source code](https://github.com/polang233/VelocityToolbox) · [Issue tracker](https://github.com/polang233/VelocityToolbox/issues) · [Chinese documentation](https://github.com/polang233/VelocityToolbox/blob/main/README.md) · [Architecture notes](https://github.com/polang233/VelocityToolbox/blob/main/docs/maintainer/ARCHITECTURE.md)
+[Wiki](https://github.com/polang233/VelocityToolbox/wiki/English) · [Source code](https://github.com/polang233/VelocityToolbox) · [Report an issue](https://github.com/polang233/VelocityToolbox/issues)
 
-![Velocity](https://img.shields.io/badge/Velocity-4.0%2B-654FF0)
-![Java](https://img.shields.io/badge/Java-25%2B-E76F00)
+Requires **Velocity 4.0+ and Java 25+**. No required plugin dependencies.
 
-## Features
+## Plugin management
 
-- Load, unload, and reload plugin JARs already inside Velocity's `plugins/` directory
-- Set network-wide default resource packs and choose variants by backend, client version and permission
-- Use hosted ZIPs with automatic hashes or external URLs; stack packs on 1.20.3+ clients
-- Inspect a loaded plugin's dependencies, registered runtime resources, and unload risk without changing its state
-- Refuse unloads when another loaded plugin declares a required dependency on the target
-- Report cleanup of listeners, tasks, commands, plugin-message channels, executors, and class loaders
-- Group online players by the virtual host they joined through, including source IPs for live diagnostics
-- Set per-server client version ranges, allowlists, and blocklists using Velocity's protocol API, without ViaVersion
-- Use backward-compatible administrator access or layered base, parent, and action permissions
-- Keep read-only commands quiet while logging concise plugin and configuration operations
-- Use color-coded Adventure console output for startup, pack status, and critical plugin operations
-- Reload language, configuration, server version rules, and pack hosting without reloading other plugins
-- Built-in Simplified Chinese, Traditional Chinese and English messages with MiniMessage formatting
+Use `/vtb plugin list|inspect|load|unload|reload` to view, inspect or manage proxy plugins. VTB checks dependencies before unloading and reports cleanup of commands, listeners, tasks and other registered resources.
 
-The resource-pack HTTP server is **disabled by default** and listens only after you explicitly enable it.
+A plugin cannot be unloaded while another loaded plugin requires it. Hot updates are not suitable for every plugin; restart the proxy when updating permission, protocol or connection plugins.
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-plugin-load.png" alt="Hot-load a plugin" width="720">
-</p>
-<p align="center">
-  <img src="https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-plugin-unload.png" alt="Hot-unload a plugin" width="720">
-</p>
-<p align="center"><sub>Load or unload a plugin at runtime, with a cleanup report</sub></p>
+![Loading a plugin](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-plugin-load.png)
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-packs.png" alt="Resource pack download prompt" width="720">
-</p>
-<p align="center"><sub>Players see the standard pack prompt after delivery is configured and enabled</sub></p>
+![Unloading a plugin and cleanup results](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-plugin-unload.png)
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-vhosts.jpg" alt="Players grouped by virtual host" width="720">
-</p>
-<p align="center"><sub>Player counts and ping grouped by the domain used to join</sub></p>
+## Custom resource packs and hosting
 
-## Requirements
+Configure network-wide defaults under `resource-packs` in `config.yml`, then override them by backend. Each pack can have variants selected by client version and permission. VTB picks the first matching variant and skips packs with no match.
 
-- **Proxy:** Velocity 4.0 or newer
-- **Java:** 25 or newer
-- **Dependencies:** none
+Set packs as required or optional, add prompts, set loading timeouts, check player status and resend packs. A selected required pack disconnects the player if declined, failed or timed out. Joining, switching backends and reloading configuration update the selection without resending unchanged packs.
 
-## Installation
+- `url: "@filename.zip"` uses a file from `pack-host.packs-directory`. VTB creates its URL and calculates SHA-1, so you can omit `hash`.
+- External HTTP/HTTPS URLs require the ZIP's actual 40-character SHA-1 for caching, update detection and download checks. Local hosting is not needed.
+- `url: "@"` sends no pack and needs no file, hash or hosting.
 
-1. Download the latest file from the **Versions** tab.
-2. Place the JAR in Velocity's `plugins/` directory.
-3. Fully start the proxy once to generate `plugins/VelocityToolbox/config.yml`.
-4. Grant trusted administrators `velocitytoolbox.admin`.
-5. Run `/vtoolbox help` or `/vtb help`.
+Clients on 1.20.3+ can stack packs. Older clients receive the first matching complete pack. Version conditions select files; they do not convert resource formats. On modern clients, VTB removes only its own packs. Older clients cannot remove individual packs.
 
-## Commands
+![Client resource pack prompt](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-packs.png)
 
-The main command alias is `/vtb`. `velocitytoolbox.admin` remains a backward-compatible all-access permission. Read-only commands stay quiet in the console; plugin load/unload/reload and configuration reload emit concise status messages.
+`pack-host` serves local ZIPs over HTTP. Hosting and delivery have separate switches and both default to disabled. Adjust request rates, concurrent downloads, transfer deadlines, bandwidth and trusted proxies under `pack-host.security`.
 
-| Command | Purpose |
-| --- | --- |
-| `/vtoolbox help` | Show help |
-| `/vtoolbox info` | Plugin, proxy, Java, plugin-count, server version rules, and pack-host summary |
-| `/vtoolbox pack list` | List hosted pack URLs and SHA-1 hashes |
-| `/vtoolbox server hosts` | Group players by entry domain/port and player count; click an entry for names and pings |
-| `/vtoolbox reload` | Reload language, configuration, server version rules, and pack hosting |
-| `/vtoolbox plugin list` | Names, versions, and authors; hover for full metadata |
-| `/vtoolbox plugin inspect plugin-id` | Four-section metadata, dependency, runtime, and risk report |
-| `/vtoolbox plugin load file.jar` | Load a JAR from `plugins/` |
-| `/vtoolbox plugin unload plugin-id` | Unload a plugin |
-| `/vtoolbox plugin reload plugin-id` | Unload and load a plugin again |
+`public-url` is the client download address prefix. Leaving it empty selects a LAN address, which public players usually cannot reach. Set a reachable IP or domain and configure port forwarding or a reverse proxy as needed. VTB does not set up public access, HTTPS or download authentication.
 
-### Fine-grained permissions
+[Resource pack guide](https://github.com/polang233/VelocityToolbox/wiki/Resource-Packs-English) · [Default configuration with Chinese comments](https://github.com/polang233/VelocityToolbox/wiki/Configuration)
 
-Without `velocitytoolbox.admin`, grant the base permission `velocitytoolbox.command`, then the matching subcommand permission.
+## Backends and entry domains
 
-General commands:
+`/vtb server hosts` groups players by the domain and port they used to join. View player counts and latency, then click an entry for details.
 
-- `velocitytoolbox.command.info`
-- `velocitytoolbox.command.pack.list`
-- `velocitytoolbox.command.server.hosts`
-- `velocitytoolbox.command.reload`
+![Players grouped by entry domain](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-vhosts.jpg)
 
-Plugin-management parent:
+`server-versions` restricts client versions per backend using `min/max/allow/deny`, with the same rules as resource pack conditions. It needs no ViaVersion and does not translate protocols. Versions sharing a protocol match together.
 
-- `velocitytoolbox.command.plugin`
+A denied backend switch keeps the player on the current server. A denied initial connection disconnects with a reason. Invalid reloads keep the previous rules; invalid initial configuration blocks backend connections until fixed.
 
-Plugin actions:
+![Client version rules by backend](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-server-versions.png)
 
-- `velocitytoolbox.command.plugin.list`
-- `velocitytoolbox.command.plugin.inspect`
-- `velocitytoolbox.command.plugin.load`
-- `velocitytoolbox.command.plugin.unload`
-- `velocitytoolbox.command.plugin.reload`
+[Client version guide in Chinese](https://github.com/polang233/VelocityToolbox/wiki/Server-Versions)
 
-For example, inspection-only access requires `velocitytoolbox.command`, `velocitytoolbox.command.plugin`, and `velocitytoolbox.command.plugin.inspect`. Help output only lists commands the source can use.
+## Install and use
 
-## Resource pack hosting and delivery
+1. Download the JAR from the Versions tab, place it in the proxy's `plugins/` directory, and start the proxy.
+2. Grant administrators `velocitytoolbox.admin`. Run `/vtb help`; `/vtoolbox` also works.
+3. Edit `config.yml` in the plugin's data directory. Replace example files and backend names, and remove unused examples before enabling modules.
+4. Run `/vtb reload` to apply changes and `/vtb info` to check module status.
 
-`pack-host` serves local ZIPs over HTTP. `resource-packs` selects and sends packs to players. Both default to disabled; external URLs work without the local host. Scanned ZIPs are only sent when a delivery rule references them.
+Version restrictions, HTTP hosting and pack delivery default to disabled. When updating, replace the JAR and restart the proxy. Existing configuration still works: add `resource-packs` when you want delivery; leaving it out keeps delivery disabled. If you made few language changes, back up and move the old language files, then run `/vtb reload` to generate fresh copies. Reapply custom text using the new keys.
 
-```yaml
-pack-host:
-  enabled: true
-  bind: 0.0.0.0
-  port: 8765
-  public-url: "https://packs.example.com"
-  packs-directory: packs
+Common commands:
 
-resource-packs:
-  enabled: true
-  settings:
-    delay: 3
-    timeout: 60
-    required: false
-    prompt: "<#CCFFFF>Please load the server resource pack."
-  packs:
-    survival:
-      - url: "@survival.zip"
-        required: false
-  servers:
-    default:
-      packs: [survival]
-```
+- `/vtb plugin list`, `inspect plugin-id`, `load file.jar`, `unload plugin-id` and `reload plugin-id`: inspect or manage plugins.
+- `/vtb pack list`: list pack sources, conditions, hosted files and HTTP statistics.
+- `/vtb pack status player` and `/vtb pack resend player`: check loading or resend packs.
+- `/vtb server hosts`: inspect player entry domains.
+- `/vtb info` and `/vtb reload`: show module status or reload configuration, language and rules.
 
-Place survival.zip in the hosting directory. public-url is the client download address prefix. Leaving it empty selects a LAN address; public servers need a reachable address, and HTTPS requires a reverse proxy.
+`velocitytoolbox.admin` grants all commands. For narrower access, grant `velocitytoolbox.command` plus the module and action permissions. For example, pack status also needs `velocitytoolbox.command.pack` and `velocitytoolbox.command.pack.status`. General commands use `velocitytoolbox.command.info` or `velocitytoolbox.command.reload`.
 
-`url: "@"` sends no resource pack and needs no hosting; `@filename.zip` uses a hosted file. Hosted files calculate hashes automatically. External URLs need a real `hash` for caching, update detection and download checks. Run `/vtb reload` after changes.
+[All commands and permissions](https://github.com/polang233/VelocityToolbox/wiki/Modules-English)
 
-Clients on 1.20.3+ stack packs in order; older clients receive the first matching complete pack. Server assignments replace `servers.default.packs`. Variants inherit or override `settings.required/prompt`. Unmatched packs are skipped; selected required packs disconnect on rejection, failure or timeout.
+## Language and support
 
-Backend packs coexist. VTB removes only its own modern-client packs. Legacy clients keep the backend's latest pack until switching servers or a manual resend; individual removal is unavailable, so a pack may remain until replaced or disconnected.
+Messages support Simplified Chinese (`zh_cn`), Traditional Chinese (`zh_tw`), English (`en_us`) and custom MiniMessage language files. Leave `language` empty to follow the system locale; unsupported languages fall back to Simplified Chinese.
 
-Invalid reloads keep the previous rules. Set a reachable public-url and configure any port forwarding or HTTPS separately. Disable the previous delivery plugin when enabling VTB delivery.
+[Report an issue or suggest a feature](https://github.com/polang233/VelocityToolbox/issues)
 
-See [resource pack configuration](https://github.com/polang233/VelocityToolbox/wiki/Resource-Packs-English) for examples.
-
-Pack actions require the pack module permission and the respective list/status/resend action permission. Server hosts requires the server module permission and its hosts action. See [commands and permissions](https://github.com/polang233/VelocityToolbox/wiki/Modules-English).
-
-## Per-server client version rules
-
-![Per-server client version rules](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-server-versions.png)
-
-Configure version ranges, allowlists, and blocklists under `server-versions` in `config.yml`. The module is disabled by default and uses Velocity's protocol API without ViaVersion. `/vtoolbox info` lists the active rules for each server, and `/vtoolbox reload` applies changes. Versions sharing a protocol are displayed as compact ranges; hover a rule for protocol IDs.
-
-See the [configuration guide](https://github.com/polang233/VelocityToolbox/blob/main/docs/SERVER_VERSIONS.md) for examples.
-
-## Important hot-reload note
-
-Velocity does not provide a public plugin load/unload API. VelocityToolbox performs dependency checks and extensive cleanup, but no tool can guarantee safe hot-unloading for every third-party plugin.
-
-Small, self-contained utility plugins are the best candidates after testing. Permission systems, protocol/packet plugins, connection managers, and plugins with large in-memory state should still be updated with a full proxy restart.
-
-## Support
-
-Bug reports and feature suggestions are welcome on the [GitHub issue tracker](https://github.com/polang233/VelocityToolbox/issues).
-
-If VelocityToolbox saves you a proxy restart, consider giving the project a [Star🌟](https://github.com/polang233/VelocityToolbox).
-
-## Usage statistics
+VTB uses bStats for usage statistics. You can disable it in `plugins/bStats/config.txt`.
 
 [![bStats](https://bstats.org/signatures/velocity/VelocityToolbox.svg)](https://bstats.org/plugin/velocity/VelocityToolbox/33451)

@@ -2,142 +2,83 @@
 
 Velocity 运维工具箱：插件热管理、自定义资源包下发与托管、入口域名排查、子服客户端版本限制。
 
-- 源码：[GitHub](https://github.com/polang233/VelocityToolbox)
-- 下载：[Releases](https://github.com/polang233/VelocityToolbox/releases)
-- 问题与建议：[Issues](https://github.com/polang233/VelocityToolbox/issues)
-
-环境：**Velocity 4.0+**，**Java 25+**，无硬前置。资源包下发已内置。
-
 ![VelocityToolbox](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/logo-256.png)
 
-## 能做什么
+[下载插件](https://github.com/polang233/VelocityToolbox/releases/latest) · [Wiki 使用文档](https://github.com/polang233/VelocityToolbox/wiki) · [项目源码](https://github.com/polang233/VelocityToolbox) · [问题与建议](https://github.com/polang233/VelocityToolbox/issues)
 
-- **少重启一次代理**：加载、卸载或重载 `plugins/` 里的 Velocity 插件；操作前可只读检查风险，操作后报告清理结果。
-- **自定义资源包下发**：设置全服默认包，也可按子服、客户端版本和权限分配。支持自托管与外部直链，自托管自动计算哈希；1.20.3+ 可叠加多个包。
-- **排查多入口网络**：`/vtb server hosts` 按玩家加入时用的域名分组，先显示入口概要；点击入口行展开玩家名和延迟，悬停可看完整信息。
-- **按子服限制客户端版本**：在 `config.yml` 的 `server-versions` 段配置最低/最高版本、允许列表和禁止列表，无需 ViaVersion。默认关闭，支持配置重载。
+需要 **Velocity 4.0+、Java 25+**，无硬前置。
 
-热加载插件：
+## 插件热管理
 
-![热加载插件](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-plugin-load.png)
+用 `/vtb plugin list|inspect|load|unload|reload` 查看、检查或热管理代理插件。卸载前检查依赖，操作后报告命令、监听器、任务等资源的清理结果。
 
-热卸载插件，并报告清理结果：
+仍被其它插件硬依赖的插件不能卸载。热管理不适合所有插件，权限、协议或连接管理插件建议完整重启代理后更新。
 
-![热卸载插件](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-plugin-unload.png)
+![插件加载](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-plugin-load.png)
 
-资源包下发配置并启用后，玩家进服会收到标准下载提示：
+![插件卸载与清理结果](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-plugin-unload.png)
 
-![资源包下载提示](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-packs.png)
+## 自定义资源包下发与托管
 
-按入口域名查看人数和延迟：
+在 `config.yml` 的 `resource-packs` 中设置全服默认包，也可按子服、客户端版本和权限分配。每个包从上往下选择首个匹配的变体，未匹配则跳过。具体子服的分配替换全服默认分配。
 
-![按入口查看在线玩家](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-vhosts.jpg)
+支持必需或可选包、自定义提示、加载超时、状态查询和手动重发。已选中的必需包被拒绝、加载失败或超时会断开玩家。进服、切服和配置重载时自动更新，没变的包不重复发送。
 
-## 安装
+- `url: "@文件.zip"`：使用 `pack-host.packs-directory` 中的文件，自动生成下载链接和 SHA-1，无需填写 `hash`。
+- 外部 HTTP/HTTPS 直链：填写实际 ZIP 的 40 位 SHA-1，用于缓存、识别更新和下载校验，无需开启自托管。
+- `url: "@"`：不下发这个包，无需文件、哈希或托管。
 
-1. 从 [Releases](https://github.com/polang233/VelocityToolbox/releases) 下载 JAR，放入 Velocity 的 `plugins/`。
-2. 完整启动代理一次，生成 `plugins/VelocityToolbox/config.yml`。
-3. 给管理员授予 `velocitytoolbox.admin`，或按下方权限表细分授权；使用 `/vtoolbox help` 或 `/vtb help` 查看命令。
+1.20.3+ 支持多包叠加；旧客户端只接收首个匹配的完整包。版本条件只负责选包，不转换材质格式。现代客户端只撤下 VTB 自己发送的包，旧客户端无法单独撤包。
 
-## 命令
+![客户端资源包提示](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-packs.png)
 
-主命令别名是 `/vtb`。`velocitytoolbox.admin` 仍可作为全部命令的兼容权限。普通查询不会刷后台；插件加载、卸载、重载和配置重载只输出简短状态。
+`pack-host` 提供本地 ZIP 的 HTTP 下载，与下发分别开关，两者默认关闭。可在 `pack-host.security` 中调整限频、并发、下载期限、带宽和可信反代。
 
-| 命令 | 作用 |
-| --- | --- |
-| `/vtoolbox help` | 显示帮助 |
-| `/vtoolbox info` | 插件、代理、Java、插件数量、子服版本限制和资源包托管概要 |
-| `/vtoolbox pack list` | 列出资源包 URL 和 SHA-1 |
-| `/vtoolbox server hosts` | 按入口分组显示域名、端口和人数；点击展开玩家名与延迟 |
-| `/vtoolbox reload` | 重载语言、配置、子服版本限制与资源包托管 |
-| `/vtoolbox plugin list` | 名称、版本和作者；悬停看完整元数据 |
-| `/vtoolbox plugin inspect 插件ID` | 按基本信息、依赖、运行时资源和风险四段检查 |
-| `/vtoolbox plugin load 文件.jar` | 从 `plugins/` 加载插件 |
-| `/vtoolbox plugin unload 插件ID` | 卸载插件 |
-| `/vtoolbox plugin reload 插件ID` | 卸载后重新加载 |
+`public-url` 是玩家下载地址的前缀，留空自动选择本机局域网地址，公网玩家通常无法访问。公网服需填写可访问的 IP 或域名，并自行配置端口映射或反代。插件不会自动配置公网入口或 HTTPS，也不提供下载鉴权。
 
-### 细分权限
+[资源包配置与原理](https://github.com/polang233/VelocityToolbox/wiki/Resource-Packs) · [带注释的默认配置](https://github.com/polang233/VelocityToolbox/wiki/Configuration)
 
-不用 `velocitytoolbox.admin` 时，必须先有 `velocitytoolbox.command`，再授予对应子命令权限。
+## 子服与入口
 
-普通子命令：
+`/vtb server hosts` 按玩家加入时使用的域名和端口分组，查看人数与延迟，点击展开玩家详情。
 
-- `velocitytoolbox.command.info`
-- `velocitytoolbox.command.pack.list`
-- `velocitytoolbox.command.server.hosts`
-- `velocitytoolbox.command.reload`
+![按入口域名查看玩家](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-vhosts.jpg)
 
-插件管理父权限：
+`server-versions` 按子服限制客户端版本，支持 `min/max/allow/deny`，与资源包的版本条件使用同一套规则。无需 ViaVersion，但不提供协议转换；共用协议的版本会一起匹配。
 
-- `velocitytoolbox.command.plugin`
+切服被拒时保留当前子服，首次进入被拒时显示断开原因。配置重载失败保留旧规则，首次加载失败则阻止子服连接，修复后重载即可。
 
-插件管理动作：
+![子服客户端版本限制](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-server-versions.png)
 
-- `velocitytoolbox.command.plugin.list`
-- `velocitytoolbox.command.plugin.inspect`
-- `velocitytoolbox.command.plugin.load`
-- `velocitytoolbox.command.plugin.unload`
-- `velocitytoolbox.command.plugin.reload`
+[子服版本限制说明](https://github.com/polang233/VelocityToolbox/wiki/Server-Versions)
 
-例如只允许查看插件风险，需要同时授予 `velocitytoolbox.command`、`velocitytoolbox.command.plugin` 和 `velocitytoolbox.command.plugin.inspect`。帮助只显示执行者有权使用的子命令。
+## 安装与使用
 
-## 资源包托管与下发
+1. 下载 JAR，放入代理的 `plugins/` 目录，完整启动代理一次。
+2. 给管理员授予 `velocitytoolbox.admin`，用 `/vtb help` 查看命令，也可使用 `/vtoolbox`。
+3. 按需编辑插件数据目录中的 `config.yml`，替换示例文件和子服名，删除不用的样例后再启用模块。
+4. 执行 `/vtb reload` 应用配置，用 `/vtb info` 查看各模块状态。
 
-`pack-host` 提供 HTTP 下载，`resource-packs` 决定玩家使用哪些包。两个模块默认关闭，使用外部直链时只需开启下发。放入目录的 ZIP 不会自动下发，必须在配置中定义并分配。
+子服版本限制、HTTP 托管和资源包下发默认关闭。更新插件时替换 JAR 后完整重启代理。旧配置可继续使用，想用资源包下发再补上 `resource-packs`，不加这段也不会启用下发。语言文件改动不多的话，建议备份后移走旧文件，再执行 `/vtb reload` 重新生成，自定义文案按新键名补回。
 
-```yaml
-pack-host:
-  enabled: true
-  bind: 0.0.0.0
-  port: 8765
-  public-url: "https://packs.example.com"
-  packs-directory: packs
+常用命令：
 
-resource-packs:
-  enabled: true
-  settings:
-    delay: 3
-    timeout: 60
-    required: false
-    prompt: "<#CCFFFF>请加载服务器资源包。"
-  packs:
-    survival:
-      - url: "@survival.zip"
-        required: false
-  servers:
-    default:
-      packs: [survival]
-```
+- `/vtb plugin list`、`inspect 插件ID`、`load 文件.jar`、`unload 插件ID`、`reload 插件ID`：查看或管理插件。
+- `/vtb pack list`：查看包来源、匹配条件、托管文件和 HTTP 统计。
+- `/vtb pack status 玩家`、`/vtb pack resend 玩家`：查看加载状态或重新下发。
+- `/vtb server hosts`：查看玩家入口。
+- `/vtb info`、`/vtb reload`：查看模块状态或重载配置、语言和规则。
 
-示例需在托管目录放入 survival.zip。public-url 是客户端下载地址前缀，留空自动选局域网地址；公网服请填写可访问的地址，HTTPS 需配置反代。
+管理员权限为 `velocitytoolbox.admin`。细分授权需要基础权限 `velocitytoolbox.command`，再加模块与动作权限。例如查看资源包状态还需 `velocitytoolbox.command.pack` 和 `velocitytoolbox.command.pack.status`。公共命令使用 `velocitytoolbox.command.info` 或 `velocitytoolbox.command.reload`。
 
-`url: "@"` 表示不下发材质包，无需托管；`@文件.zip` 使用自托管文件，均无需填写哈希。外部链接须填写真实 `hash`，用于缓存、更新识别和下载校验。修改后执行 `/vtb reload`。更多示例见 [资源包配置](https://github.com/polang233/VelocityToolbox/wiki/Resource-Packs)。
+[完整命令与权限](https://github.com/polang233/VelocityToolbox/wiki/Modules)
 
-1.20.3+ 按顺序叠加多个包；旧客户端只发送首个有匹配变体的完整包。子服列表替换 `servers.default.packs`。变体的 `required/prompt` 覆盖 `settings` 默认值；条件全部不匹配则跳过，只有选中的必需包被拒绝、加载失败或超时才断开玩家。后端发包允许共存。
+## 语言与反馈
 
+支持简体中文 `zh_cn`、繁体中文 `zh_tw`、英文 `en_us` 和自定义 MiniMessage 语言文件。`language` 留空跟随系统语言，无对应翻译时回退简体中文。
 
-资源包操作需 pack 模块权限和对应的 list、status、resend 动作权限；入口查询需 server 模块权限和 hosts 动作权限。完整命令与权限见 [Wiki](https://github.com/polang233/VelocityToolbox/wiki/Modules)。
+[语言文件说明](https://github.com/polang233/VelocityToolbox/wiki/Language) · [提交问题与建议](https://github.com/polang233/VelocityToolbox/issues)
 
-## 子服客户端版本限制
-
-![各子服客户端版本限制](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-server-versions.png)
-
-在 `config.yml` 的 `server-versions` 段中启用。`min` / `max` 限制包含边界的版本范围，`allow` 指定允许列表，`deny` 指定禁止列表；禁止列表优先，未配置的子服不限制。
-
-切服拒绝时保留当前子服，首次进入拒绝时显示断开原因。`/vtoolbox reload` 重载规则，`/vtoolbox info` 查看状态和各子服的具体版本限制。共用协议的版本会一起匹配，例如 1.20 和 1.20.1。配置示例和完整说明见 [子服版本限制](https://github.com/polang233/VelocityToolbox/wiki/Server-Versions)。
-
-## 热管理注意
-
-Velocity 4.0+ 没有公开的插件加载 / 卸载 API。VelocityToolbox 会阻止卸载仍被其它插件硬依赖的目标，并尽量清理监听器、任务、命令、消息通道、线程池与类加载器，但不能保证任意第三方插件都能安全热卸载。
-
-简单工具插件适合在测试后热重载；权限、协议 / 数据包、连接管理或大型缓存插件更新后，仍建议完整重启代理。实现边界见 [架构说明](https://github.com/polang233/VelocityToolbox/blob/main/docs/maintainer/ARCHITECTURE.md)。
-
-## 语言
-
-`language` 留空时跟随服务器系统语言，没有对应语言文件时回退中文；也可固定为 `zh_cn`、`zh_tw`、`en_us` 或 `lang/` 下的自定义文件名。玩家消息支持 MiniMessage。`/vtoolbox reload` 会重载语言。
-
-**如果它帮你少重启了一次代理，欢迎给项目一个 [⭐ Star](https://github.com/polang233/VelocityToolbox)。**
-
-## 使用统计
+插件使用 bStats 统计，可在 `plugins/bStats/config.txt` 中关闭。
 
 [![bStats](https://bstats.org/signatures/velocity/VelocityToolbox.svg)](https://bstats.org/plugin/velocity/VelocityToolbox/33451)

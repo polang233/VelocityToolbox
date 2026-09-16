@@ -4,147 +4,85 @@ Velocity 运维工具箱：插件热管理、自定义资源包下发与托管�
 
 [img]https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/logo-256.png[/img]
 
-[url=https://github.com/polang233/VelocityToolbox]项目源码[/url] | [url=https://github.com/polang233/VelocityToolbox/releases]下载插件[/url] | [url=https://github.com/polang233/VelocityToolbox/issues]问题与建议[/url]
+[url=https://github.com/polang233/VelocityToolbox/releases/latest]下载插件[/url] · [url=https://github.com/polang233/VelocityToolbox/wiki]Wiki 使用文档[/url] · [url=https://github.com/polang233/VelocityToolbox]项目源码[/url] · [url=https://github.com/polang233/VelocityToolbox/issues]问题与建议[/url]
 
-[b]运行环境[/b]
+需要 [b]Velocity 4.0+、Java 25+[/b]，无硬前置。
 
-[list]
-[*]Velocity 4.0 及以上。
-[*]Java 25 及以上。
-[*]无硬前置。资源包下发已内置。
-[/list]
+[b]插件热管理[/b]
 
-[b]能做什么[/b]
+用 /vtb plugin list|inspect|load|unload|reload 查看、检查或热管理代理插件。卸载前检查依赖，操作后报告命令、监听器、任务等资源的清理结果。
 
-[list]
-[*][b]运行时插件管理[/b]：加载、卸载或重载 plugins/ 里的 Velocity 插件。操作前可检查依赖与风险，操作后报告监听器、任务、命令等资源的清理结果。
-[*][b]自定义资源包下发[/b]：设置全服默认包，也可按子服、客户端版本和权限分配。支持自托管与外部直链，自托管自动计算哈希；1.20.3+ 可叠加多个包。
-[*][b]排查入口域名[/b]：/vtb server hosts 按玩家加入时使用的域名和端口分组。点击入口行展开玩家名与延迟，悬停查看详情。
-[*][b]限制子服客户端版本[/b]：为不同子服设置最低/最高版本、允许列表和禁止列表。直接使用 Velocity 的客户端协议 API，无需 ViaVersion。默认关闭，支持配置重载。
-[/list]
+仍被其它插件硬依赖的插件不能卸载。热管理不适合所有插件，权限、协议或连接管理插件建议完整重启代理后更新。
 
-[b]功能展示[/b]
-
-热加载插件：
 [img]https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-plugin-load.png[/img]
 
-热卸载插件并查看清理结果：
 [img]https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-plugin-unload.png[/img]
 
-配置并启用资源包下发后，玩家看到的下载提示：
-[img]https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-packs.png[/img]
+[b]自定义资源包下发与托管[/b]
 
-按入口域名查看玩家人数和延迟：
-[img]https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-vhosts.jpg[/img]
+在 config.yml 的 resource-packs 中设置全服默认包，也可按子服、客户端版本和权限分配。每个包从上往下选择首个匹配的变体，未匹配则跳过。具体子服的分配替换全服默认分配。
 
-[b]安装[/b]
-
-1. 从 [url=https://github.com/polang233/VelocityToolbox/releases]Releases[/url] 下载 JAR，放入 Velocity 的 plugins/ 目录。
-2. 完整启动代理一次，生成 plugins/VelocityToolbox/config.yml。
-3. 给管理员授予 velocitytoolbox.admin，或按下方权限说明细分授权。
-4. 使用 /vtoolbox help 或 /vtb help 查看命令。
-
-更新 VelocityToolbox 自身时，替换 JAR 后完整重启代理。
-
-[b]命令[/b]
-
-主命令为 /vtoolbox，别名为 /vtb。普通查询不会刷后台；插件加载、卸载、重载和配置重载只输出简短状态。
+支持必需或可选包、自定义提示、加载超时、状态查询和手动重发。已选中的必需包被拒绝、加载失败或超时会断开玩家。进服、切服和配置重载时自动更新，没变的包不重复发送。
 
 [list]
-[*][b]/vtoolbox help[/b]：显示帮助。
-[*][b]/vtoolbox info[/b]：查看插件、代理、Java、插件数量、子服版本限制和资源包托管概要。
-[*][b]/vtoolbox pack list[/b]：列出资源包 URL 和 SHA-1。
-[*][b]/vtoolbox server hosts[/b]：按入口域名和端口显示人数，点击展开玩家信息。
-[*][b]/vtoolbox reload[/b]：重载语言、配置、子服版本限制和资源包托管。
-[*][b]/vtoolbox plugin list[/b]：列出插件名称、版本和作者，悬停查看完整信息。
-[*][b]/vtoolbox plugin inspect 插件ID[/b]：检查基本信息、依赖、运行时资源和热卸载风险。
-[*][b]/vtoolbox plugin load 文件.jar[/b]：从 plugins/ 目录加载插件。
-[*][b]/vtoolbox plugin unload 插件ID[/b]：卸载插件。
-[*][b]/vtoolbox plugin reload 插件ID[/b]：卸载后重新加载插件。
+[*]url: "@文件.zip"：使用 pack-host.packs-directory 中的文件，自动生成下载链接和 SHA-1，无需填写 hash。
+[*]外部 HTTP/HTTPS 直链：填写实际 ZIP 的 40 位 SHA-1，用于缓存、识别更新和下载校验，无需开启自托管。
+[*]url: "@"：不下发这个包，无需文件、哈希或托管。
 [/list]
 
-[b]权限[/b]
+1.20.3+ 支持多包叠加；旧客户端只接收首个匹配的完整包。版本条件只负责选包，不转换材质格式。现代客户端只撤下 VTB 自己发送的包，旧客户端无法单独撤包。
 
-velocitytoolbox.admin 可以使用全部命令。
+[img]https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-packs.png[/img]
 
-细分授权时，先授予 velocitytoolbox.command，再授予对应子命令权限：
+pack-host 提供本地 ZIP 的 HTTP 下载，与下发分别开关，两者默认关闭。可在 pack-host.security 中调整限频、并发、下载期限、带宽和可信反代。
 
-[code]
-velocitytoolbox.command.info
-velocitytoolbox.command.pack.list
-velocitytoolbox.command.server.hosts
-velocitytoolbox.command.reload
-[/code]
+public-url 是玩家下载地址的前缀，留空自动选择本机局域网地址，公网玩家通常无法访问。公网服需填写可访问的 IP 或域名，并自行配置端口映射或反代。插件不会自动配置公网入口或 HTTPS，也不提供下载鉴权。
 
-插件管理还需要父权限 velocitytoolbox.command.plugin，以及对应操作权限：
+[url=https://github.com/polang233/VelocityToolbox/wiki/Resource-Packs]资源包配置与原理[/url] · [url=https://github.com/polang233/VelocityToolbox/wiki/Configuration]带注释的默认配置[/url]
 
-[code]
-velocitytoolbox.command.plugin.list
-velocitytoolbox.command.plugin.inspect
-velocitytoolbox.command.plugin.load
-velocitytoolbox.command.plugin.unload
-velocitytoolbox.command.plugin.reload
-[/code]
+[b]子服与入口[/b]
 
-例如，只允许检查插件风险，需要同时授予 velocitytoolbox.command、velocitytoolbox.command.plugin 和 velocitytoolbox.command.plugin.inspect。帮助只显示执行者有权使用的命令。
+/vtb server hosts 按玩家加入时使用的域名和端口分组，查看人数与延迟，点击展开玩家详情。
 
-[b]资源包托管与下发[/b]
+[img]https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-vhosts.jpg[/img]
 
-pack-host 提供本地 HTTP 下载，resource-packs 按子服、版本和权限下发。两个模块默认关闭。
-url: "@" 表示不下发材质包，无需托管；@文件.zip 使用自托管文件，均自动计算哈希。外部链接须填真实 hash，用于缓存、更新识别和下载校验。
-变体按版本和权限选择，required/prompt 可单独覆盖。版本规则与子服客户端版本限制一致。
-支持 1.20.3+ 多包叠加、旧客户端完整单包回退、强制接受、加载状态与重发。
-命令为 /vtb pack list、/vtb pack status 玩家、/vtb pack resend 玩家。
-细分授权需要 velocitytoolbox.command.pack 和对应的 list、status、resend 动作权限。
-入口查询需要 velocitytoolbox.command.server 与 velocitytoolbox.command.server.hosts。
-原 packs、vhosts 命令已移动到 pack list、server hosts，旧动作权限需更新。
-完整配置与迁移：[url=https://github.com/polang233/VelocityToolbox/blob/main/docs/RESOURCE_PACKS.md]资源包说明[/url]
+server-versions 按子服限制客户端版本，支持 min/max/allow/deny，与资源包的版本条件使用同一套规则。无需 ViaVersion，但不提供协议转换；共用协议的版本会一起匹配。
 
-[b]子服客户端版本限制[/b]
+切服被拒时保留当前子服，首次进入被拒时显示断开原因。配置重载失败保留旧规则，首次加载失败则阻止子服连接，修复后重载即可。
 
 [img]https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-server-versions.png[/img]
 
-在 config.yml 的 server-versions 段中配置。以下示例只允许指定版本进入 survival，并给 minigame 设置最低版本和禁止项：
+[url=https://github.com/polang233/VelocityToolbox/wiki/Server-Versions]子服版本限制说明[/url]
 
-[code]
-server-versions:
-  enabled: true
-  servers:
-    survival:
-      allow: ["1.12.2", "1.20.1"]
-    minigame:
-      min: "1.18"
-      max: max
-      deny: ["1.20.2"]
-[/code]
+[b]安装与使用[/b]
+
+1. 下载 JAR，放入代理的 plugins/ 目录，完整启动代理一次。
+2. 给管理员授予 velocitytoolbox.admin，用 /vtb help 查看命令，也可使用 /vtoolbox。
+3. 按需编辑插件数据目录中的 config.yml，替换示例文件和子服名，删除不用的样例后再启用模块。
+4. 执行 /vtb reload 应用配置，用 /vtb info 查看各模块状态。
+
+子服版本限制、HTTP 托管和资源包下发默认关闭。更新插件时替换 JAR 后完整重启代理。旧配置可继续使用，想用资源包下发再补上 resource-packs，不加这段也不会启用下发。语言文件改动不多的话，建议备份后移走旧文件，再执行 /vtb reload 重新生成，自定义文案按新键名补回。
+
+常用命令：
 
 [list]
-[*]服务器名对应 velocity.toml 的服务器配置，未列出的子服不限制。
-[*]min / max 包含边界；max: max 跟随当前 Velocity 支持的最高版本。
-[*]allow 非空时只允许列表中的协议；deny 优先拒绝。范围与允许列表必须同时满足。
-[*]切服被拒时保留当前子服；首次进入被拒时断开并显示原因。
-[*]/vtoolbox reload 或 /velocity reload 重载规则，/vtoolbox info 查看模块状态和各子服的版本范围、允许列表及禁止列表。
-[*]配置重载失败保留上次有效规则。首次加载失败时拒绝子服连接，修复后重载恢复。
+[*]/vtb plugin list、inspect 插件ID、load 文件.jar、unload 插件ID、reload 插件ID：查看或管理插件。
+[*]/vtb pack list：查看包来源、匹配条件、托管文件和 HTTP 统计。
+[*]/vtb pack status 玩家、/vtb pack resend 玩家：查看加载状态或重新下发。
+[*]/vtb server hosts：查看玩家入口。
+[*]/vtb info、/vtb reload：查看模块状态或重载配置、语言和规则。
 [/list]
 
-模块默认关闭。版本名必须加引号；共用协议的版本会一起匹配，例如 1.20 和 1.20.1。模块只限制能否进入，跨版本协议转换仍需兼容插件。
+管理员权限为 velocitytoolbox.admin。细分授权需要基础权限 velocitytoolbox.command，再加模块与动作权限。例如查看资源包状态还需 velocitytoolbox.command.pack 和 velocitytoolbox.command.pack.status。公共命令使用 velocitytoolbox.command.info 或 velocitytoolbox.command.reload。
 
-完整说明：[url=https://github.com/polang233/VelocityToolbox/blob/main/docs/SERVER_VERSIONS.md]子服客户端版本限制[/url]
+[url=https://github.com/polang233/VelocityToolbox/wiki/Modules]完整命令与权限[/url]
 
-[b]热管理说明[/b]
+[b]语言与反馈[/b]
 
-Velocity 4.0+ 没有公开的插件加载和卸载 API。VTB 会阻止卸载仍被其它插件硬依赖的目标，并尽量清理监听器、任务、命令、消息通道、线程池与类加载器，但不能保证任意第三方插件都能安全热卸载。
+支持简体中文 zh_cn、繁体中文 zh_tw、英文 en_us 和自定义 MiniMessage 语言文件。language 留空跟随系统语言，无对应翻译时回退简体中文。
 
-简单工具插件适合在测试后使用热重载。权限、协议或数据包、连接管理、大型缓存插件更新后，仍建议完整重启代理。
+[url=https://github.com/polang233/VelocityToolbox/wiki/Language]语言文件说明[/url] · [url=https://github.com/polang233/VelocityToolbox/issues]提交问题与建议[/url]
 
-实现说明：[url=https://github.com/polang233/VelocityToolbox/blob/main/docs/maintainer/ARCHITECTURE.md]架构文档[/url]
-
-[b]语言[/b]
-
-language 留空时跟随服务器系统语言，没有对应语言文件时回退中文。也可固定为 zh_cn、zh_tw、en_us，或 lang/ 下的自定义文件名。玩家消息支持 MiniMessage，/vtoolbox reload 会重载语言。
-
-可以在 [url=https://github.com/polang233/VelocityToolbox/issues]GitHub Issues[/url] 提交问题与建议。如果插件对你有帮助，也欢迎给 [url=https://github.com/polang233/VelocityToolbox]项目[/url] 点个 Star🌟。
-
-[b]使用统计[/b]
+插件使用 bStats 统计，可在 plugins/bStats/config.txt 中关闭。
 
 [url=https://bstats.org/plugin/velocity/VelocityToolbox/33451][img]https://bstats.org/signatures/velocity/VelocityToolbox.svg[/img][/url]
