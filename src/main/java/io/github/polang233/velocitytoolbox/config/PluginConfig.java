@@ -1,6 +1,6 @@
 package io.github.polang233.velocitytoolbox.config;
 
-import io.github.polang233.velocitytoolbox.pack.PackConfig;
+import io.github.polang233.velocitytoolbox.pack.config.PackConfig;
 import org.spongepowered.configurate.CommentedConfigurationNode;
 
 import java.io.IOException;

@@ -10,6 +10,7 @@ import com.velocitypowered.api.proxy.server.RegisteredServer;
 import com.velocitypowered.api.proxy.server.ServerInfo;
 import io.github.polang233.velocitytoolbox.config.ResourceFiles;
 import io.github.polang233.velocitytoolbox.lang.Lang;
+import io.github.polang233.velocitytoolbox.pack.config.PackRules;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.slf4j.Logger;
@@ -50,6 +51,7 @@ public final class ServerVersionSmokeTest {
             require(Files.readString(directory.resolve("config.yml")).equals(existingConfig),
                     "loading version rules must preserve existing config settings");
             rules(directory);
+            sharedPackRules(directory);
             invalidConfigs(directory);
             lifecycleAndEvents(directory);
             Files.writeString(directory.resolve("config.yml"), defaults);
@@ -105,6 +107,38 @@ public final class ServerVersionSmokeTest {
         require(!combined.allows(V112) && combined.allows(V120), "range and allow must both match");
     }
 
+    private static void sharedPackRules(Path directory) throws Exception {
+        for (String fields : List.of("", "min: min\nmax: max", "min: \"1.18.1\"\nmax: \"1.20.1\"",
+                "allow: [340, \"1.18.1\", \"1.20.1\"]\ndeny: [\"1.18\"]",
+                "min: \"1.18\"\nallow: [\"1.12.2\", \"1.20.1\"]", "deny: [\"1.20\"]")) {
+            Path file = directory.resolve("shared-rules.yml");
+            Files.writeString(file, fields.isEmpty() ? "{}" : fields);
+            var node = ResourceFiles.loadYaml(file);
+            var servers = ResourceFiles.loadBundledYaml("config.yml").node("server-versions");
+            servers.node("enabled").set(true);
+            servers.node("servers", "test").set(node);
+            var serverRule = ServerVersionConfig.from(servers).rules().get("test");
+
+            var packs = ResourceFiles.loadBundledYaml("config.yml").node("resource-packs");
+            packs.node("enabled").set(true);
+            var defaultVariant = packs.node("packs", "default").copy();
+            packs.node("packs").set(java.util.Map.of());
+            packs.node("packs", "default").set(defaultVariant);
+            packs.node("servers").set(java.util.Map.of("default", java.util.Map.of("packs", List.of("default"))));
+            var variant = packs.node("packs", "default").childrenList().getFirst();
+            variant.node("url").set("https://example.com/pack.zip");
+            variant.node("hash").set("0123456789abcdef0123456789abcdef01234567");
+            variant.node("conditions", "versions").set(node);
+            PackRules packRules = PackRules.read(packs, List.of());
+            require(serverRule.equals(packRules.packs().get("default").variants().getFirst().versions()),
+                    "server and pack rules must use identical parsed values");
+            for (ProtocolVersion version : ProtocolVersion.values()) {
+                boolean selected = !packRules.select("test", version, permission -> true).packs().isEmpty();
+                require(selected == serverRule.allows(version), "server/pack version mismatch: " + version);
+            }
+        }
+    }
+
     private static void invalidConfigs(Path directory) throws Exception {
         for (String rule : List.of(
                 "min: \"1.20.1\"\nmax: \"1.12.2\"",
@@ -155,7 +189,7 @@ public final class ServerVersionSmokeTest {
         require(listeners.size() == 1, "start must register exactly one listener");
         require(PLAIN.serialize(service.status()).contains("enabled for 1"), "enabled status must include rule count");
         String initialDetails = PLAIN.serialize(service.status(true));
-        require(initialDetails.contains("survival") && initialDetails.contains("only allow 1.12.2"),
+        require(initialDetails.contains("survival") && initialDetails.contains("allowed: 1.12.2"),
                 "detailed status must identify the server and its allowed versions");
         require(!PLAIN.serialize(service.status()).contains("\n"), "startup status must remain one line");
 
@@ -167,7 +201,7 @@ public final class ServerVersionSmokeTest {
         require(message.contains("survival") && message.contains("1.12.2") && message.contains("1.20～1.20.1")
                 && !message.contains("763") && !message.contains("<requirement>"), "denial must show compact versions without protocol IDs");
         require(hoverText(switching.messages.getFirst()).contains("Client protocol: 763")
-                && hoverText(switching.messages.getFirst()).contains("only allow 340"),
+                && hoverText(switching.messages.getFirst()).contains("allowed: 340"),
                 "denial hover must include the client protocol and rule protocols");
 
         Client initial = new Client(V120, false);
@@ -225,13 +259,13 @@ public final class ServerVersionSmokeTest {
         require(details.lines().count() == 4 && details.indexOf("lobby:") < details.indexOf("minigame:")
                 && details.indexOf("minigame:") < details.indexOf("survival:"),
                 "info must list every configured server in stable name order");
-        require(details.contains("minigame: 1.18 to 1.20.2; block 1.19")
+        require(details.contains("minigame: 1.18 to 1.20.2; excluded: 1.19")
                 && details.contains("lobby: 1.18 to 1.18.1")
-                && details.contains("only allow 1.7.2～1.7.5, 1.20～1.20.1")
+                && details.contains("allowed: 1.7.2～1.7.5, 1.20～1.20.1")
                 && !details.contains("1.18/"),
                 "info must show range endpoints, allowlists, and blocklists");
         String infoHover = hoverText(service.status(true));
-        require(infoHover.contains("757 to 764; block 759") && infoHover.contains("only allow 4, 763"),
+        require(infoHover.contains("757 to 764; excluded: 759") && infoHover.contains("allowed: 4, 763"),
                 "info hover must show the exact protocol bounds and lists");
         lang.load("zh_cn");
         String chineseDetails = PLAIN.serialize(service.status(true));
@@ -259,7 +293,7 @@ public final class ServerVersionSmokeTest {
         failed.close();
 
         lang.load("zh_cn");
-        require(lang.plain("server-versions.status.enabled", Lang.ph("count", 4)).contains("4 个子服"),
+        require(lang.plain("server.versions.status.enabled", Lang.ph("count", 4)).contains("4 个子服"),
                 "bundled Chinese translations must load");
     }
 

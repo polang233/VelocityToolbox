@@ -16,10 +16,8 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
 
-/** Owns one listener and an atomic configuration snapshot. No ViaVersion API is used. */
+/** 在切服前检查客户端版本，重载失败时保留上次有效配置。 */
 public final class ServerVersionService implements AutoCloseable {
 
     private final Object owner;
@@ -27,7 +25,7 @@ public final class ServerVersionService implements AutoCloseable {
     private final Path dataDirectory;
     private final Lang lang;
     private final Logger logger;
-    // Empty means no configuration has loaded successfully; reject connections until repaired.
+    // 首次配置失败时拒绝连接，避免绕过版本限制。
     private volatile Optional<ServerVersionConfig> config = Optional.empty();
 
     public ServerVersionService(Object owner, ProxyServer proxy, Path dataDirectory, Lang lang, Logger logger) {
@@ -42,7 +40,7 @@ public final class ServerVersionService implements AutoCloseable {
         try {
             reload();
         } catch (IOException exception) {
-            logger.error(lang.plain("server-versions.load-fail"), exception);
+            logger.error(lang.plain("server.versions.log.load-failed"), exception);
         }
         proxy.getEventManager().register(owner, this);
     }
@@ -51,7 +49,7 @@ public final class ServerVersionService implements AutoCloseable {
         ServerVersionConfig next = ServerVersionConfig.load(dataDirectory);
         for (String name : next.rules().keySet()) {
             if (proxy.getServer(name).isEmpty()) {
-                logger.warn(lang.plain("server-versions.unknown-server", Lang.ph("server", name)));
+                logger.warn(lang.plain("server.versions.log.unknown-server", Lang.ph("server", name)));
             }
         }
         config = Optional.of(next);
@@ -64,17 +62,17 @@ public final class ServerVersionService implements AutoCloseable {
     public Component status(boolean includeRules) {
         Optional<ServerVersionConfig> current = config;
         if (current.isEmpty()) {
-            return lang.get("server-versions.status.failed");
+            return lang.get("server.versions.status.failed");
         }
         Component result = current.get().enabled()
-                ? lang.get("server-versions.status.enabled", Lang.ph("count", current.get().rules().size()))
-                : lang.get("server-versions.status.disabled");
+                ? lang.get("server.versions.status.enabled", Lang.ph("count", current.get().rules().size()))
+                : lang.get("server.versions.status.disabled");
         if (includeRules && current.get().enabled()) {
             for (String server : current.get().rules().keySet().stream().sorted().toList()) {
-                ServerVersionConfig.Rule rule = current.get().rules().get(server);
-                result = result.append(Component.newline()).append(lang.get("server-versions.status.rule",
+                VersionRule rule = current.get().rules().get(server);
+                result = result.append(Component.newline()).append(lang.get("server.versions.status.rule",
                         Lang.ph("server", server),
-                        Lang.ph("requirement", requirement(rule, false)))
+                        Lang.ph("requirement", VersionText.format(lang, rule, false)))
                         .hoverEvent(HoverEvent.showText(protocolDetails(rule))));
             }
         }
@@ -83,7 +81,7 @@ public final class ServerVersionService implements AutoCloseable {
 
     @Subscribe(order = PostOrder.LAST)
     public void onServerPreConnect(ServerPreConnectEvent event) {
-        // Respect an earlier denial and inspect the destination after earlier routing listeners.
+        // 使用前置监听器处理后的目标服务器。
         RegisteredServer target = event.getResult().getServer().orElse(null);
         if (target == null) {
             return;
@@ -91,63 +89,38 @@ public final class ServerVersionService implements AutoCloseable {
         Optional<ServerVersionConfig> current = config;
         Player player = event.getPlayer();
         if (current.isEmpty()) {
-            reject(event, lang.get("server-versions.unavailable"));
+            reject(event, lang.get("server.versions.unavailable"));
             return;
         }
         if (!current.get().enabled()) {
             return;
         }
         String name = target.getServerInfo().getName();
-        ServerVersionConfig.Rule rule = current.get().rules().get(name.toLowerCase(Locale.ROOT));
+        VersionRule rule = current.get().rules().get(name.toLowerCase(Locale.ROOT));
         if (rule == null || rule.allows(player.getProtocolVersion())) {
             return;
         }
         ProtocolVersion version = player.getProtocolVersion();
-        reject(event, lang.get("server-versions.denied", Lang.ph("server", name),
-                Lang.ph("version", label(version)), Lang.ph("protocol", version.getProtocol()),
-                Lang.ph("requirement", requirement(rule, false)))
+        reject(event, lang.get("server.versions.denied", Lang.ph("server", name),
+                Lang.ph("version", VersionText.label(version)), Lang.ph("protocol", version.getProtocol()),
+                Lang.ph("requirement", VersionText.format(lang, rule, false)))
                 .hoverEvent(HoverEvent.showText(protocolDetails(rule).append(Component.newline())
-                        .append(lang.get("server-versions.client-protocol", Lang.ph("protocol", version.getProtocol()))))));
+                        .append(lang.get("server.versions.client-protocol", Lang.ph("protocol", version.getProtocol()))))));
     }
 
     private void reject(ServerPreConnectEvent event, Component reason) {
         event.setResult(ServerPreConnectEvent.ServerResult.denied());
         Player player = event.getPlayer();
         if (player.getCurrentServer().isEmpty()) {
-            // Chat cannot explain an initial-join denial; close with a visible reason instead.
+            // 首次加入尚无聊天界面，使用断开原因提示。
             player.disconnect(reason);
         } else {
             lang.send(player, reason);
         }
     }
 
-    private Component protocolDetails(ServerVersionConfig.Rule rule) {
-        return lang.get("server-versions.protocol-details", Lang.ph("requirement", requirement(rule, true)));
-    }
-
-    private String requirement(ServerVersionConfig.Rule rule, boolean protocolIds) {
-        String result = lang.plain("server-versions.requirement.range",
-                Lang.ph("min", protocolIds ? rule.min().getProtocol() : rule.min().getVersionIntroducedIn()),
-                Lang.ph("max", protocolIds ? rule.max().getProtocol() : rule.max().getMostRecentSupportedVersion()));
-        if (!rule.allow().isEmpty()) {
-            result += lang.plain("server-versions.requirement.allow", Lang.ph("versions", labels(rule.allow(), protocolIds)));
-        }
-        if (!rule.deny().isEmpty()) {
-            result += lang.plain("server-versions.requirement.deny", Lang.ph("versions", labels(rule.deny(), protocolIds)));
-        }
-        return result;
-    }
-
-    private static String labels(Set<ProtocolVersion> versions, boolean protocolIds) {
-        return versions.stream().sorted()
-                .map(version -> protocolIds ? Integer.toString(version.getProtocol()) : label(version))
-                .collect(Collectors.joining(", "));
-    }
-
-    private static String label(ProtocolVersion version) {
-        String first = version.getVersionIntroducedIn();
-        String last = version.getMostRecentSupportedVersion();
-        return first.equals(last) ? first : first + "～" + last;
+    private Component protocolDetails(VersionRule rule) {
+        return lang.get("server.versions.protocol-details", Lang.ph("requirement", VersionText.format(lang, rule, true)));
     }
 
     @Override

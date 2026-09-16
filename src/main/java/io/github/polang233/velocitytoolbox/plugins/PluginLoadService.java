@@ -105,7 +105,7 @@ public final class PluginLoadService {
                     .sorted(String.CASE_INSENSITIVE_ORDER)
                     .toList();
         } catch (IOException exception) {
-            logger.warn(lang.plain("log.list-jars", Lang.ph("dir", pluginsDirectory)), exception);
+            logger.warn(lang.plain("plugin.log.list-failed", Lang.ph("dir", pluginsDirectory)), exception);
             return List.of();
         }
     }
@@ -123,7 +123,7 @@ public final class PluginLoadService {
     public synchronized OperationResult loadByFileName(String fileName) {
         Path jar = resolvePluginJar(fileName);
         if (jar == null) {
-            return OperationResult.fail("plugins.load.need-jar", Map.of("dir", pluginsDirectory.toString()));
+            return OperationResult.fail("plugin.load.need-jar", Map.of("dir", pluginsDirectory.toString()));
         }
         return load(jar);
     }
@@ -131,7 +131,7 @@ public final class PluginLoadService {
     public synchronized OperationResult load(Path jar) {
         Path absoluteJar = jar.toAbsolutePath().normalize();
         if (!Files.isRegularFile(absoluteJar)) {
-            return OperationResult.fail("plugins.load.missing-file", Map.of("file", absoluteJar.getFileName().toString()));
+            return OperationResult.fail("plugin.load.missing-file", Map.of("file", absoluteJar.getFileName().toString()));
         }
 
         PluginDescription realPlugin = null;
@@ -142,19 +142,19 @@ public final class PluginLoadService {
             PluginDescription candidate = (PluginDescription) PluginAccess.loadCandidate(loader, absoluteJar);
             String id = candidate.getId();
             if (isProtected(id)) {
-                return OperationResult.fail("plugins.load.protected", Map.of("plugin", id));
+                return OperationResult.fail("plugin.load.protected", Map.of("plugin", id));
             }
             if (proxy.getPluginManager().isLoaded(id)) {
-                return OperationResult.fail("plugins.load.already", Map.of("plugin", id));
+                return OperationResult.fail("plugin.load.already", Map.of("plugin", id));
             }
             for (String providedId : candidate.getProvidedIds()) {
                 if (proxy.getPluginManager().isLoaded(providedId)) {
-                    return OperationResult.fail("plugins.load.id-taken", Map.of("plugin", providedId));
+                    return OperationResult.fail("plugin.load.id-taken", Map.of("plugin", providedId));
                 }
             }
             for (PluginDependency dependency : candidate.getDependencies()) {
                 if (!dependency.isOptional() && !proxy.getPluginManager().isLoaded(dependency.getId())) {
-                    return OperationResult.fail("plugins.load.missing-dep", Map.of(
+                    return OperationResult.fail("plugin.load.missing-dep", Map.of(
                             "plugin", id,
                             "dependency", dependency.getId()));
                 }
@@ -175,43 +175,43 @@ public final class PluginLoadService {
                         proxy.getEventManager(), new ProxyInitializeEvent(), container, instance);
             }
 
-            lang.send(proxy.getConsoleCommandSource(), "log.console.plugin-loaded",
+            lang.send(proxy.getConsoleCommandSource(), "plugin.log.plugin-loaded",
                     Lang.ph("plugin", realPlugin.getId()),
                     Lang.ph("version", realPlugin.getVersion().orElse("")));
-            lang.send(proxy.getConsoleCommandSource(), "log.console.plugin-loaded-file",
+            lang.send(proxy.getConsoleCommandSource(), "plugin.log.plugin-loaded-file",
                     Lang.ph("file", absoluteJar.getFileName()));
-            return OperationResult.ok("plugins.load.ok", Map.of("plugin", realPlugin.getId()));
+            return OperationResult.ok("plugin.load.ok", Map.of("plugin", realPlugin.getId()));
         } catch (Exception exception) {
-            logger.error(lang.plain("log.load-fail", Lang.ph("file", absoluteJar.getFileName())), exception);
+            logger.error(lang.plain("plugin.log.load-failed", Lang.ph("file", absoluteJar.getFileName())), exception);
             CleanupReport rollback = null;
             if (registered && container != null) {
                 try {
                     rollback = rollbackFailedLoad(container);
                 } catch (Exception rollbackError) {
-                    logger.error(lang.plain("log.rollback-fail", Lang.ph("file", absoluteJar.getFileName())), rollbackError);
+                    logger.error(lang.plain("plugin.log.rollback-failed", Lang.ph("file", absoluteJar.getFileName())), rollbackError);
                 }
             } else {
                 cleanup.closeDescriptionClassLoader(realPlugin);
             }
             cleanup.closeClassLoadersForJar(absoluteJar);
-            return OperationResult.fail("plugins.load.fail", Map.of("file", absoluteJar.getFileName().toString()),
+            return OperationResult.fail("plugin.load.fail", Map.of("file", absoluteJar.getFileName().toString()),
                     rollback, exception);
         }
     }
 
     public synchronized OperationResult unload(String id) {
         if (isProtected(id)) {
-            return OperationResult.fail("plugins.unload.protected", Map.of("plugin", id));
+            return OperationResult.fail("plugin.unload.protected", Map.of("plugin", id));
         }
         Optional<PluginContainer> optional = proxy.getPluginManager().getPlugin(id);
         if (optional.isEmpty()) {
-            return OperationResult.fail("plugins.unload.not-loaded", Map.of("plugin", id));
+            return OperationResult.fail("plugin.unload.not-loaded", Map.of("plugin", id));
         }
         PluginContainer container = optional.get();
         String pluginId = container.getDescription().getId();
         List<String> dependents = dependentsOf(container);
         if (!dependents.isEmpty()) {
-            return OperationResult.fail("plugins.unload.depended", Map.of(
+            return OperationResult.fail("plugin.unload.depended", Map.of(
                     "plugin", pluginId,
                     "dependents", String.join(", ", dependents)));
         }
@@ -226,7 +226,7 @@ public final class PluginLoadService {
                             proxy.getEventManager(), new ProxyShutdownEvent(), container, instance);
                 } catch (Exception exception) {
                     shutdownError = exception;
-                    logger.error(lang.plain("log.unload-fail", Lang.ph("plugin", pluginId)), exception);
+                    logger.error(lang.plain("plugin.log.unload-failed", Lang.ph("plugin", pluginId)), exception);
                 }
             }
 
@@ -244,28 +244,28 @@ public final class PluginLoadService {
             cleanup.closeClassLoadersForJar(source);
 
             if (stillLoaded) {
-                logger.error(lang.plain("log.unload-fail", Lang.ph("plugin", pluginId)));
-                return OperationResult.fail("plugins.unload.fail", Map.of("plugin", pluginId), report,
+                logger.error(lang.plain("plugin.log.unload-failed", Lang.ph("plugin", pluginId)));
+                return OperationResult.fail("plugin.unload.fail", Map.of("plugin", pluginId), report,
                         shutdownError != null ? shutdownError : new IllegalStateException(pluginId));
             }
 
-            lang.send(proxy.getConsoleCommandSource(), "log.console.plugin-unloaded",
+            lang.send(proxy.getConsoleCommandSource(), "plugin.log.plugin-unloaded",
                     Lang.ph("plugin", pluginId));
-            return new OperationResult(true, "plugins.unload.ok", Map.of("plugin", pluginId), report, shutdownError);
+            return new OperationResult(true, "plugin.unload.ok", Map.of("plugin", pluginId), report, shutdownError);
         } catch (Exception exception) {
-            logger.error(lang.plain("log.unload-fail", Lang.ph("plugin", pluginId)), exception);
-            return OperationResult.fail("plugins.unload.fail", Map.of("plugin", pluginId), exception);
+            logger.error(lang.plain("plugin.log.unload-failed", Lang.ph("plugin", pluginId)), exception);
+            return OperationResult.fail("plugin.unload.fail", Map.of("plugin", pluginId), exception);
         }
     }
 
     public synchronized OperationResult reload(String id) {
         Optional<PluginContainer> optional = proxy.getPluginManager().getPlugin(id);
         if (optional.isEmpty()) {
-            return OperationResult.fail("plugins.unload.not-loaded", Map.of("plugin", id));
+            return OperationResult.fail("plugin.unload.not-loaded", Map.of("plugin", id));
         }
         Path jar = optional.get().getDescription().getSource().orElse(null);
         if (jar == null) {
-            return OperationResult.fail("plugins.reload.no-jar", Map.of("plugin", id));
+            return OperationResult.fail("plugin.reload.no-jar", Map.of("plugin", id));
         }
         OperationResult unloaded = unload(id);
         if (!unloaded.success()) {
@@ -275,12 +275,12 @@ public final class PluginLoadService {
         if (!loaded.success()) {
             return new OperationResult(
                     false,
-                    "plugins.reload.load-failed",
+                    "plugin.reload.load-failed",
                     Map.of("plugin", id),
                     loaded.cleanup(),
                     loaded.error());
         }
-        return OperationResult.ok("plugins.reload.ok", Map.of("plugin", id), unloaded.cleanup());
+        return OperationResult.ok("plugin.reload.ok", Map.of("plugin", id), unloaded.cleanup());
     }
 
     private CleanupReport rollbackFailedLoad(PluginContainer container) {

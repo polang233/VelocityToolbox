@@ -1,51 +1,164 @@
-# 界面语言。留空 = 自动跟随服务器系统语言，没有对应语言文件时回退中文。
-# 也可填 zh_cn / en_us，或 lang/ 下自定义文件名（不要写 .yml）。
-# 玩家可见消息用 MiniMessage，默认强调色 #FF6600、正文 #CCFFFF（1.16+ 客户端可显示 RGB）。
-# 改完后执行 /vtoolbox reload。
+# 语言文件名，不含 .yml：zh_cn（简体）、zh_tw（繁体）、en_us 或 lang/ 中的自定义文件。
+# 留空跟随系统语言，繁体中文系统使用 zh_tw；找不到对应翻译时回退简体中文。
 language: ""
 
-# /vtoolbox plugin load|unload|reload 管理 plugins/ 目录里的其它 Velocity 插件。
-
-# 子服客户端版本限制。无需安装 ViaVersion。
-# /vtoolbox reload 或 /velocity reload 重载规则；/vtoolbox info 查看模块状态。
+# 子服客户端版本限制。
 server-versions:
-  # 默认关闭。未列出的子服不限制，服务器名对应 velocity.toml 的 [servers]。
+  # 是否检查玩家进入子服时的客户端版本；false 不限制。
   enabled: false
-  # min/max 含边界，省略时使用当前 Velocity 支持的最低/最高版本。
-  # max: max 跟随当前 Velocity 支持的最高版本，升级代理后会更新。
-  # allow 非空时只允许列表中的协议；deny 优先拒绝。范围与 allow 同时满足才放行。
-  # 版本名必须加引号，也支持整数协议号，例如 340 = 1.12.2。
-  # 同协议版本会一起匹配，例如 "1.20" 和 "1.20.1" 都是 763。
-  # 配置重载失败保留上次有效规则；首次加载失败则拒绝子服连接，修复后重载恢复。
-  servers: {}
-  # 示例，启用时用实际子服名替换，并用以下内容替换上面的 servers: {}：
-  # servers:
-  #   lobby:
-  #     min: "1.12"
-  #     max: max
-  #   survival:
-  #     allow: ["1.12.2", "1.20.1"]
-  #   minigame:
-  #     min: "1.18"
-  #     deny: ["1.19.1", "1.20.2"]
+  # 键名对应 velocity.toml 中的子服名；未列出的子服不限制。
+  # min/max 包含边界，省略时采用代理支持的最低/最高版本。
+  # min: min、max: max 跟随代理支持范围。
+  # allow 非空时还须命中允许列表；deny 优先排除。
+  # 版本名加引号，也可填整数协议号；同协议版本一起匹配。
+  servers:
+    lobby:
+      min: min
+      max: max
+    survival:
+      min: "1.15"
+      max: max
+    rpg:
+      min: "1.15"
+      deny: ["1.19.1", "1.19.2"]
+    minigame:
+      allow: ["1.20.1", "1.21.1"]
 
+# 资源包 HTTP 托管，提供 ZIP 下载。
 pack-host:
-  # 是否开启资源包 HTTP 托管。关闭后不再监听端口。
+  # 是否启动 HTTP 服务；仅使用外部直链或 url: "@" 时无需开启。
   enabled: false
-  # HTTP 监听网卡。0.0.0.0 表示本机所有网卡都接请求。
-  # 这只是服务绑在哪，不是玩家客户端去打开的地址。
+  # 本机监听地址；0.0.0.0 表示所有网卡，不是客户端下载地址。
   bind: 0.0.0.0
-  # HTTP 监听端口。本插件只在本机提供这个服务，不会自动映射到公网。
-  # 外网要下载资源包，需自行在防火墙 / 路由器 / 云安全组 / 反代里放行该端口。
+  # 本机 HTTP 端口，1–65535；公网访问需配置防火墙或端口映射。
   port: 8765
-  # 写进下载 URL 的来源（协议 + 主机 + 端口）。玩家客户端必须打得开这个地址。
-  # 留空：自动用检测到的第一块局域网 IPv4，适合内网。
-  # 外网：先把上面的 port 放到外网可访问，再填例如 http://公网IP:8765 或 https://pack.example.com
-  # 不要填 127.0.0.1 / localhost（除非玩家和代理同一台电脑），也不要填 0.0.0.0。
+  # 玩家下载地址前缀，如 http://公网IP:8765 或 https://packs.example.com；不带查询参数或片段。
+  # 留空自动选本机局域网地址；公网服请填写可访问的地址。
+  # @survival.zip 对应 <public-url>/packs/survival.zip；HTTPS 需自行配置反代。
   public-url: ""
-  # 资源包 zip 目录。可以是：
-  #   packs                         — 相对本插件数据目录，实际为 plugins/VelocityToolbox/packs
-  #   ../OtherPlugin/packs          — 相对本插件数据目录，指到旁边另一个插件
-  #   D:/resourcepacks              — Windows 绝对路径
-  #   /var/www/resourcepacks        — Linux 绝对路径
+  # ZIP 目录：相对插件数据目录，也可填绝对路径。
+  # 例如 packs、../OtherPlugin/packs、D:/resourcepacks、/var/www/resourcepacks。
   packs-directory: packs
+  # 下载保护，按在线人数、共用公网 IP 的人数和出口带宽调整。
+  security:
+    # 全服同时下载上限，正整数。
+    max-downloads: 64
+    # 单 IP 同时下载上限；同一公网 IP 下的玩家共享。
+    max-downloads-per-ip: 8
+    # 单 IP 每分钟请求补充额度，正整数；允许短时突发，HEAD 和错误请求也计数。
+    requests-per-minute-per-ip: 120
+    # 单次 HTTP 下载期限（秒），正整数；包含限速等待时间。
+    # resource-packs.settings.timeout 还需留出客户端加载时间。
+    max-download-seconds: 60
+    # 全服总下载带宽，整数 MiB/s；0 不限速。
+    bandwidth-mib: 0
+    # 每次下载的带宽，整数 MiB/s；0 不限速，同时受总带宽约束。
+    per-download-mib: 0
+    # 可信反代的 IP/CIDR，如 ["127.0.0.1/32"]；直连时保持空列表。
+    # 仅信任这些来源的 X-Forwarded-For，不要填写所有地址。
+    trusted-proxies: []
+
+# 资源包选择与下发，与 HTTP 托管独立开关。
+resource-packs:
+  # false 时不校验下列资源文件，也不下发。
+  # 开启时会校验全部包定义，需准备示例文件或删除不用的定义和分配。
+  enabled: false
+  # 各变体的默认下发设置。
+  settings:
+    # 进入子服后等待多久再下发，单位秒，可为 0，支持小数。
+    delay: 3
+    # 每个请求从下发到加载成功的期限，单位秒，必须大于 0，支持小数。
+    timeout: 60
+    # 默认是否必须加载；已选中包被拒绝、加载失败或超时会断开玩家。
+    required: false
+    # 客户端确认界面的附加提示，使用 MiniMessage；空字符串不加提示。
+    # 是否显示该界面还取决于客户端版本和玩家保存的资源包偏好。
+    prompt: "<#CCFFFF>请加载服务器资源包。"
+
+  # 包名使用英文字母、数字、短横线或下划线；一个包可含多个有序变体。
+  # 按顺序取首个满足 conditions 的变体，全部不匹配则跳过。
+  packs:
+    default:
+      # url: "@" 不下发这个包，无需文件、哈希或托管。
+      - url: "@"
+
+    survival:
+      # "@文件.zip" 引用托管目录中的 ZIP，大小写须一致，不支持子目录。
+      # 链接由 public-url 生成，哈希自动计算，无需填写 hash。
+      - url: "@survival.zip"
+        # 覆盖 settings.required；未填写时继承默认值。
+        required: true
+        # 覆盖 settings.prompt；未填写时继承默认值。
+        prompt: "<#CCFFFF>生存服需要资源包。"
+        # 适用条件；未填写表示不限制，多项条件必须同时满足。
+        conditions:
+          # 与 server-versions 共用 min/max/allow/deny 规则，只选文件，不转换资源格式。
+          versions:
+            min: "1.20.3"
+            max: max
+      # 无条件回退项放在最后；此处表示前面都不匹配时不下发。
+      - url: "@"
+
+    rpg:
+      # 按客户端版本选择；旧版本使用包含全部资源的完整单包。
+      - url: "@rpg-modern.zip"
+        required: true
+        prompt: "<#CCFFFF>RPG 玩法需要资源包。"
+        conditions:
+          versions:
+            min: "1.20.3"
+            max: max
+      - url: "@rpg-legacy.zip"
+        required: true
+        conditions:
+          versions:
+            min: "1.15"
+            max: "1.20.2"
+
+    ui:
+      # 现代客户端的可选叠加包。
+      - url: "@ui.zip"
+        required: false
+        conditions:
+          versions:
+            min: "1.20.3"
+
+    vip:
+      - url: "@vip.zip"
+        conditions:
+          # 选包所需权限；省略或留空表示不限制，与版本条件同时生效。
+          permission: "velocitytoolbox.pack.vip"
+          versions:
+            min: "1.20.3"
+            deny: ["1.21.2"]
+
+    event:
+      # 外部 HTTP/HTTPS 下载直链，不使用 pack-host 或 public-url；替换为实际地址。
+      - url: "https://packs.example.com/event.zip"
+        # 实际 ZIP 的 40 位 SHA-1，用于缓存、识别更新和校验下载内容。
+        # 以下值仅作格式示例；外部文件更新时同步修改，自托管来源无需填写。
+        hash: "0123456789abcdef0123456789abcdef01234567"
+        required: false
+        prompt: "<#CCFFFF>可选加载活动资源包。"
+        conditions:
+          versions:
+            allow: ["1.20.1", "1.21.1"]
+
+  # 子服分配：具体子服的 packs 完整替换默认列表。
+  servers:
+    # default 是保留名称，适用于未单独配置的子服；缺省为空列表。
+    default:
+      # 填写上方定义的包名；1.20.3+ 按列表顺序叠加，后面的覆盖前面的。
+      # 旧客户端只使用首个实际匹配的包，应提供完整单包。
+      packs: [default]
+    lobby:
+      # 空列表不下发，并撤下 VTB 的现代客户端包；旧客户端需后续包替换或重连。
+      packs: []
+    survival:
+      packs: [survival]
+    rpg:
+      packs: [rpg, ui]
+    vip:
+      packs: [survival, vip]
+    event:
+      packs: [event]

@@ -1,24 +1,64 @@
-prefix: "<bold><#FF6600>[VTB]</bold> "
+# MiniMessage 文本。保留 <player> 等占位符；缩进空格用于模块层级显示。
 
-command:
+# 通用文字、标点与版本格式
+common:
+  prefix: "<bold><#FF6600>[VTB]</bold> "
+  separator: "："
+  none: "无"
+  unknown: "未知"
+  "yes": "是"
+  "no": "否"
+  console: "控制台"
+  enabled: "已启用"
+  disabled: "已关闭"
+  usage: "<#FF6600>用法</#FF6600>  <#CCFFFF><usage>"
+  versions:
+    range: "<min> 至 <max>"
+    allow: "；仅允许 <versions>"
+    deny: "；禁止 <versions>"
+
+# 公共命令、基本信息与初始化
+main:
+  language:
+    regenerate: "<yellow>语言文件 <file> 使用旧结构，当前使用随包默认语言。请先备份，再移走该文件并执行 /vtb reload 重新生成；自定义语言可复制新版模板。"
   help:
     title: "<#FF6600>VelocityToolbox 命令"
-    info: "<#CCFFFF>插件、代理、Java、子服版本限制和资源包托管概要"
-    packs: "<#CCFFFF>列出每个 zip 的 URL 和 SHA-1"
-    vhosts: "<#CCFFFF>按入口分组显示域名、端口、人数和玩家信息"
-    reload: "<#CCFFFF>重载语言、配置、子服版本限制和资源包托管"
-    plugin: "<#CCFFFF>插件管理（list / inspect / load / unload / reload）"
-  plugin:
-    title: "<#FF6600>插件管理"
+    info: "<#CCFFFF>插件、代理、版本限制与资源包状态"
+    reload: "<#CCFFFF>重载配置、语言、版本限制与资源包"
+  info:
+    title: "<#FF6600>VelocityToolbox 信息"
+    field:
+      toolbox-version: "<gray>工具箱版本"
+      proxy-version: "<gray>代理版本"
+      java-version: "<gray>Java"
+    section: "<#FFB366>基本信息"
+  reload:
+    ok: "<green>已重载配置、语言、版本限制与资源包。"
+    fail: "<#FF5555>重载失败，请看代理日志。"
+  log:
+    started: "<green>VelocityToolbox <version> 已启动。"
+    reloaded: "<green><source> 已重载配置、语言、版本限制与资源包。"
+    reload-failed: "配置或资源包重载失败 / Configuration or resource pack reload failed."
+
+# 插件管理：帮助、检查、操作结果与日志
+plugin:
+  title: "<#FFB366>插件管理"
+  help:
     list: "<#CCFFFF>列出插件名称、版本和作者；悬停查看详情"
     inspect: "<#CCFFFF>只读检查热卸载风险和已登记资源"
-    load: "<#CCFFFF>从 plugins/ 加载"
-    unload: "<#CCFFFF>卸载"
-    reload: "<#CCFFFF>卸载后再加载"
-    limit: "<#CCFFFF>简单插件热卸载通常没问题。LuckPerms、协议/数据包、权限或长期占连接的大型插件即使能卸掉，也不建议热卸载；出问题请完整重启代理。"
-    list-title: "<#FF6600>已加载插件 <#CCFFFF><count> 个"
-    inspect-title: "<#FF6600>插件检查"
-    hover-hint: "<gray>点击可补全 /vtoolbox plugin inspect"
+    load: "<#CCFFFF>从 plugins/ 加载 JAR"
+    unload: "<#CCFFFF>卸载指定插件并清理资源"
+    reload: "<#CCFFFF>卸载后重新加载指定插件"
+    limit: "<#CCFFFF>权限、协议和连接管理插件建议重启代理更新。"
+    summary: "<#CCFFFF>查看、检查和热管理代理插件"
+  info:
+    count: "<gray>已加载插件：<#CCFFFF><count>"
+    directory: "<gray>插件目录：<#CCFFFF><path>"
+  list:
+    title: "<#FF6600>已加载插件 <#CCFFFF><count> 个"
+    hover: "<gray>点击可补全 /vtoolbox plugin inspect"
+  inspect:
+    title: "<#FF6600>插件检查"
     section:
       basic: "<#FFB366>基本信息"
       dependencies: "<#FFB366>依赖关系"
@@ -28,92 +68,46 @@ command:
       low: "低"
       medium: "中"
       high: "高"
-      blocked: "禁止"
-  info:
-    title: "<#FF6600>VelocityToolbox 信息"
-  common:
-    none: "无"
-    unknown: "未知"
-    yes: "是"
-    no: "否"
-    console: "控制台"
-  player:
-    online-mode: "正版验证"
-    offline-mode: "离线模式"
-  field:
-    toolbox-version: "<gray>工具箱版本"
-    proxy-version: "<gray>代理版本"
-    java-version: "<gray>Java"
-    loaded-plugins: "<gray>已加载插件"
-    pack-host: "<gray>资源包托管"
-    pack-origin: "<gray>下载来源"
-    pack-directory: "<gray>资源包目录"
-    hosted-packs: "<gray>托管资源包"
-    id: "<gray>ID"
-    name: "<gray>名称"
-    version: "<gray>版本"
-    authors: "<gray>作者"
-    description: "<gray>描述"
-    url: "<gray>主页"
-    jar: "<gray>源 JAR"
-    instance-class: "<gray>实例类"
-    source-state: "<gray>源文件可用"
-    instance-state: "<gray>实例可用"
-    required-dependencies: "<gray>必需依赖"
-    optional-dependencies: "<gray>可选依赖"
-    dependents: "<gray>硬依赖本插件"
-    provided-ids: "<gray>Provides ID"
-    commands: "<gray>命令"
-    tasks: "<gray>任务"
-    listeners: "<gray>监听器"
-    channels: "<gray>消息通道"
-    executor: "<gray>容器线程池"
-    risk: "<gray>风险等级"
-  usage: "<#FF6600>用法</#FF6600>  <#CCFFFF><usage>"
-  packs:
-    disabled: "<#FF6600>资源包托管未启用。"
-    empty: "<#FF6600>目录里没有 zip：<#CCFFFF><path>"
-    title: "<#FF6600>资源包 <#CCFFFF><count> 个"
-  vhosts:
-    title: "<#FF6600>入口统计：<#CCFFFF><entries>个入口 / 共在线<players>名玩家"
-    entry: "  <gray>入口域名</gray>：<aqua><domain></aqua>  <gray>人数</gray>：<green><count></green>  <gray>端口</gray>：<aqua><port></aqua>"
-    expand-hint: "<gray>点击展开该入口的玩家列表</gray>"
-    collapse-hint: "<gray>点击收起该入口的玩家列表</gray>"
-    player: "    <#FFB366><name></#FFB366>  <gray>延迟</gray>：<#CCFFFF><ping>"
-    player-hover-title: "<#FFB366>玩家详情：<name>"
-    player-uuid: "UUID"
-    player-ip: "来源 IP"
-    player-server: "当前所在子服 / 后端"
-    player-mode: "模式"
-    invalid-entry: "<#FF5555>入口序号 <index> 不存在。"
-    empty: "<#FF6600>当前没有在线玩家。"
-  pack-host:
-    enabled: "<green>开"
-    disabled: "<red>关"
-  reload:
-    ok: "<green>已重载语言、配置、子服版本限制和资源包托管。"
-    fail: "<#FF5555>重载失败，请看代理日志。"
-
-plugins:
-  inspect:
+      blocked: "不可卸载"
+    field:
+      id: "<gray>ID"
+      name: "<gray>名称"
+      version: "<gray>版本"
+      authors: "<gray>作者"
+      description: "<gray>描述"
+      url: "<gray>主页"
+      jar: "<gray>源 JAR"
+      instance-class: "<gray>实例类"
+      source-state: "<gray>源文件可用"
+      instance-state: "<gray>实例可用"
+      required-dependencies: "<gray>必需依赖"
+      optional-dependencies: "<gray>可选依赖"
+      dependents: "<gray>依赖此插件"
+      provided-ids: "<gray>附加插件 ID"
+      commands: "<gray>命令"
+      tasks: "<gray>任务"
+      listeners: "<gray>监听器"
+      channels: "<gray>消息通道"
+      executor: "<gray>容器线程池"
+      risk: "<gray>风险等级"
     not-loaded: "<#FF5555>插件 '<plugin>' 未加载。"
     issue:
-      not_loaded: "<#FF5555>目标当前未加载。"
+      not-loaded: "<#FF5555>目标当前未加载。"
       protected: "<#FF5555>Velocity 与 VelocityToolbox 属于受保护目标。"
-      required_by_others: "<#FF5555>其它已加载插件仍硬依赖该目标，真实卸载会被拒绝。"
-      no_source_jar: "<#FF9955>找不到源 JAR，无法可靠重新加载。"
-      no_instance: "<#FF9955>插件没有可用实例，生命周期和归属清理可能不完整。"
-      provided_ids: "<#FFFF55>插件声明了 provides ID，依赖关系比单一插件 ID 更复杂。"
-      custom_channels: "<#FFFF55>发现由目标类加载器定义的消息通道；API 标准通道无法可靠判断归属。"
-      executor: "<#FFFF55>插件容器线程池已创建，卸载时会执行 shutdownNow。"
-      standard_cleanup_only: "<#CCFFFF>当前只发现可追踪的标准资源。检查是只读快照，不代表绝对安全。"
+      required-by-others: "<#FF5555>其它插件依赖此插件，无法卸载。"
+      no-source-jar: "<#FF9955>找不到源 JAR，无法可靠重新加载。"
+      no-instance: "<#FF9955>找不到插件实例，可能无法完整执行关闭和清理。"
+      provided-ids: "<#FFFF55>插件注册了附加 ID，卸载时也需检查这些 ID 的依赖。"
+      custom-channels: "<#FFFF55>发现插件自定义消息通道；使用通用 API 标识的通道无法可靠判断归属。"
+      executor: "<#FFFF55>卸载时将关闭已创建的插件线程池。"
+      standard-cleanup-only: "<#CCFFFF>已登记资源可清理；插件自建资源仍需检查。"
   load:
-    need-jar: "<#FF5555>需要 <dir> 下的 .jar 文件名"
+    need-jar: "<#FF5555>请指定 <dir> 中的 .jar 文件名。"
     missing-file: "<#FF5555>插件 JAR 不存在：<file>"
     protected: "<#FF5555>拒绝加载受保护插件 '<plugin>'。"
     already: "<#FF5555>插件 '<plugin>' 已经加载。"
     id-taken: "<#FF5555>插件 ID '<plugin>' 已被占用。"
-    missing-dep: "<#FF5555>插件 <plugin> 缺少依赖 '<dependency>'"
+    missing-dep: "<#FF5555>插件 <plugin> 缺少依赖 '<dependency>'。"
     ok: "<green>已加载插件 <plugin>。"
     fail: "<#FF5555>加载失败。"
   unload:
@@ -129,66 +123,133 @@ plugins:
   cleanup:
     summary: "<#CCFFFF>清理：命令 <commands>，任务 <tasks>，额外监听器 <listeners>，消息通道 <channels>。"
   leftover:
-    still-loaded: "<#FF5555>卸载后 '<plugin>' 仍在 PluginManager 里，请看代理日志并考虑重启。"
+    still-loaded: "<#FF5555>卸载后 '<plugin>' 仍被代理登记，请检查日志并重启代理。"
     commands: "<#FF5555>仍有命令残留：<detail>"
     listeners: "<#FF5555>仍有事件监听残留 <count> 条，请看代理日志。"
-  shutdown-error: "<#FF5555>插件关闭事件抛了异常，仍继续做卸载清理。"
+  shutdown-error: "<#FF5555>插件关闭事件异常，已继续清理。"
   error:
     detail: "<#FF5555><type>：<message>"
-    see-log: "<#CCFFFF>完整堆栈已写入代理日志，把那段异常发出来就能继续查。"
-
-log:
-  console:
-    started: "<green>VelocityToolbox <version> 已启动。"
-    pack-host-enabled: "<green>资源包托管：已启用"
-    pack-host-disabled: "<yellow>资源包托管：已关闭"
-    plugins-dir: "<gray>插件目录：<aqua><dir>"
+    see-log: "<#CCFFFF>完整异常见代理日志。"
+  log:
     plugin-loaded: "<green>已加载插件 <plugin> <version>。"
     plugin-loaded-file: "<gray>来源：<aqua><file>"
     plugin-unloaded: "<green>已卸载插件 <plugin>。"
     commands-unregistered: "<aqua>已注销插件 <plugin> 的 <count> 条命令。"
-    leftover-handlers: "<yellow>按类加载器扫出插件 <plugin> 的残留监听器 <count> 条。"
+    leftover-handlers: "<yellow>已清理插件 <plugin> 的 <count> 条残留监听器。"
     leftover-channels: "<yellow>按类加载器注销插件 <plugin> 的 <count> 条消息通道。"
-    reloaded: "<green><source> 已重载配置、语言、子服版本限制和资源包托管。"
-  pack-fail: "资源包托管启动失败。插件管理命令仍可使用。"
-  reload-fail: "无法重载语言或资源包托管。"
-  list-jars: "无法列出 <dir> 里的插件 JAR。"
-  load-fail: "无法加载插件 <file>。"
-  unload-fail: "无法卸载插件 <plugin>。"
-  rollback-fail: "回滚失败的加载 <file> 时出错。"
-  pack:
-    warn-localhost: "<yellow>pack-host.public-url 使用了 localhost，只有本机客户端能下载。"
-    warn-wildcard: "<yellow>pack-host.public-url 不能使用 0.0.0.0，请改成玩家能访问的 IP 或域名。"
-    warn-fallback: "<yellow>没有找到局域网 IPv4，暂用 <origin>；其它机器加入时请设置 public-url。"
-    multiple-addresses: "<yellow>检测到多个局域网地址：<addresses>；当前使用 <selected>。"
-    listen: "<green>资源包托管已启动：<aqua><bind>:<port>"
-    origin: "<gray>客户端下载来源：<aqua><origin>"
-    directory: "<gray>资源包目录：<aqua><path>"
-    empty: "<yellow>没有找到资源包，请把 .zip 放入 <path>。"
-    item: "<green>资源包：<file>"
-    item-sha1: "<gray>  SHA-1：<aqua><sha1>"
-    item-url: "<gray>  URL：<aqua><url>"
-    snippet: "<gray>VelocityResourcepacks 片段：<aqua><path>"
-  cleanup-warn:
-    events: "无法注销插件 <plugin> 的事件监听器。"
-    tasks: "无法取消插件的调度任务。"
-    executor: "无法关闭插件 <plugin> 的线程池。"
-    classloader: "无法关闭插件类加载器。"
+    list-failed: "无法列出 <dir> 里的插件 JAR。"
+    load-failed: "无法加载插件 <file>。"
+    unload-failed: "无法卸载插件 <plugin>。"
+    rollback-failed: "清理加载失败的插件 <file> 时出错。"
+    cleanup:
+      events: "无法注销插件 <plugin> 的事件监听器。"
+      tasks: "无法取消插件的调度任务。"
+      executor: "无法关闭插件 <plugin> 的线程池。"
+      classloader: "无法关闭插件类加载器。"
 
-server-versions:
-  status:
-    enabled: "<green>子服版本限制：已启用，共 <count> 个子服规则"
-    rule: "  <aqua><server></aqua><gray>：<requirement>"
-    disabled: "<gray>子服版本限制：已关闭"
-    failed: "<red>子服版本限制：配置加载失败，暂时拒绝所有子服连接"
-  denied: "<red>无法进入 <server>。<newline><yellow>版本要求：<requirement><newline><gray>你的客户端：<version>。"
-  protocol-details: "<gray>协议号要求：<requirement>"
-  client-protocol: "<gray>客户端协议号：<protocol>"
-  unavailable: "<red>子服版本限制配置暂时不可用，请联系管理员。"
-  requirement:
-    range: "<min> 至 <max>"
-    allow: "；仅允许 <versions>"
-    deny: "；禁止 <versions>"
-  load-fail: "无法加载 config.yml 的 server-versions 配置，暂时拒绝所有子服连接。修复后执行 /vtoolbox reload，或设置 server-versions.enabled: false。"
-  reload-fail: "无法重载 config.yml 的 server-versions 配置，保留上次有效规则；若从未成功加载则继续拒绝子服连接。"
-  unknown-server: "config.yml 的 server-versions 配置中的子服 <server> 尚未注册，请核对 velocity.toml 的服务器名。规则会在同名子服注册后生效。"
+# 子服与入口：玩家分组、版本限制与日志
+server:
+  title: "<#FFB366>子服与入口"
+  help:
+    hosts: "<#CCFFFF>按入口分组显示域名、端口、人数和玩家信息"
+    summary: "<#CCFFFF>子服与入口查询"
+  info:
+    players: "<gray>在线玩家：<#CCFFFF><count>"
+  hosts:
+    title: "<#FF6600>入口统计：<#CCFFFF><entries> 个入口 / <players> 名在线玩家"
+    entry: "  <gray>入口域名</gray>：<aqua><domain></aqua>  <gray>人数</gray>：<green><count></green>  <gray>端口</gray>：<aqua><port></aqua>"
+    expand-hint: "<gray>点击展开该入口的玩家列表</gray>"
+    collapse-hint: "<gray>点击收起该入口的玩家列表</gray>"
+    player: "    <#FFB366><name></#FFB366>  <gray>延迟</gray>：<#CCFFFF><ping>"
+    player-hover-title: "<#FFB366>玩家详情：<name>"
+    player-uuid: "UUID"
+    player-ip: "连接 IP"
+    player-server: "当前子服"
+    player-mode: "模式"
+    invalid-entry: "<#FF5555>入口序号 <index> 不存在。"
+    empty: "<#FF6600>当前没有在线玩家。"
+  player:
+    online-mode: "正版验证"
+    offline-mode: "离线模式"
+  versions:
+    status:
+      enabled: "<green>子服版本限制：已启用，共 <count> 个子服规则"
+      rule: "    <aqua><server></aqua><gray>：<requirement>"
+      disabled: "<gray>子服版本限制：已关闭"
+      failed: "<red>子服版本限制：配置加载失败，暂时拒绝所有子服连接"
+    denied: "<red>无法进入 <server>。<newline><yellow>版本要求：<requirement><newline><gray>你的客户端：<version>。"
+    protocol-details: "<gray>协议号要求：<requirement>"
+    client-protocol: "<gray>客户端协议号：<protocol>"
+    unavailable: "<red>子服版本限制配置暂时不可用，请联系管理员。"
+    log:
+      load-failed: "子服版本配置加载失败，暂时拒绝子服连接。修复 config.yml 后重载，或关闭 server-versions。 / Version rules failed to load; backend connections are blocked."
+      reload-failed: "子服版本配置重载失败，继续使用上次有效规则；无有效规则时拒绝连接。"
+      unknown-server: "版本规则中的子服 <server> 尚未注册；请核对 velocity.toml。注册后规则生效。"
+
+# 资源包：共用说明、HTTP 托管与玩家下发
+pack:
+  title: "<#FFB366>资源包"
+  help:
+    summary: "<#CCFFFF>资源包托管、下发与玩家状态"
+    list: "<#CCFFFF>查看配置包与托管文件"
+    status: "<#CCFFFF>查看玩家资源包状态"
+    resend: "<#CCFFFF>重新下发玩家当前子服资源包"
+  info:
+    count: "<gray>配置包：<#CCFFFF><count>"
+    load-failed: "<yellow>最近一次资源包加载失败；以下为当前运行状态。"
+  source:
+    none: "不下发资源包"
+    local: "自托管"
+    external: "外部直链"
+  label:
+    permission: "；权限：<permission>"
+    required: "必需"
+    optional: "可选"
+  list:
+    variant: "    <#CCFFFF><pack> <gray>· <state> · <required> · <source><newline>      <url><newline>      <conditions>"
+  host:
+    disabled: "    <gray>已关闭"
+    files-title: "    <gray>托管文件：<#CCFFFF><count>"
+    log:
+      traffic: "<yellow>资源包请求统计：<detail>"
+      warn-localhost: "<yellow>pack-host.public-url 使用了 localhost，只有本机客户端能下载。"
+      warn-wildcard: "<yellow>pack-host.public-url 不能使用 0.0.0.0，请改成玩家能访问的 IP 或域名。"
+      warn-fallback: "<yellow>没有找到局域网 IPv4，暂用 <origin>；其它机器加入时请设置 public-url。"
+      multiple-addresses: "<yellow>检测到多个局域网地址：<addresses>；当前使用 <selected>。"
+      traffic-detail: "限频 <limited> 次，并发繁忙 <busy> 次，超时 <timeouts> 次"
+    stats: "    <gray>HTTP：<detail>"
+    file: "    <#CCFFFF><file><newline>      <gray><url><newline>      SHA-1: <sha1>"
+    title: "<#FFB366>  HTTP 托管"
+    status: "<gray>HTTP 托管：<#CCFFFF><state>"
+    count: "<gray>托管文件：<#CCFFFF><count>"
+    url: "<gray>下载地址：<#CCFFFF><url>"
+    directory: "<gray>文件目录：<#CCFFFF><path>"
+    stats-detail: "下载中 <downloads>，记录 IP <clients>，限频 <limited>，繁忙 <busy>，已发送 <bytes> 字节"
+  delivery:
+    retry: "<yellow>下载服务繁忙，已安排第 <attempt> 次重试。"
+    resend-empty: "<#CCFFFF>没有适用的资源包，未下发。"
+    unavailable: "<#FF6600>资源包下发未开启，或玩家尚未连接子服。"
+    offline: "<#FF5555>找不到在线玩家。"
+    resent: "<green>已安排重新下发当前子服的资源包。"
+    no-state: "<#CCFFFF><player> 尚无下发记录。"
+    player-title: "<#FF6600><player> 的资源包状态 <gray>· <server>"
+    backend: "<#CCFFFF>当前由后端资源包接管，等待下次切服或手动重发。"
+    waiting: "<#CCFFFF>等待下发资源包。"
+    empty: "<gray>当前没有 VTB 下发的包。"
+    item: "<#CCFFFF><pack> <gray>· <state> · <required>"
+    skipped: "<#FF6600>未匹配版本或权限：<packs>"
+    failure: "<#FF5555>资源包 <pack>：<reason>"
+    state:
+      busy: "下载服务繁忙"
+      ready: "可用"
+      waiting: "等待客户端响应"
+      accepted: "已接受，下载中"
+      downloaded: "下载完成，等待加载"
+      loaded: "加载成功"
+      failed: "加载失败"
+      declined: "玩家拒绝"
+      timeout: "加载超时"
+      unavailable: "资源包不可用"
+    status: "<gray>资源包下发：<#CCFFFF><state>"
+  log:
+    load-failed: "资源包初始化失败 / Resource pack initialization failed."

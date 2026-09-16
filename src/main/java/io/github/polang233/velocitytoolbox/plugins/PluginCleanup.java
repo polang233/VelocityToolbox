@@ -50,7 +50,7 @@ final class PluginCleanup {
         unregisterEvents(container, instance);
         report.addExtraListeners(PluginResources.removeHandlersLoadedBy(proxy.getEventManager(), loader));
         if (report.extraListeners() > 0) {
-            lang.send(proxy.getConsoleCommandSource(), "log.console.leftover-handlers",
+            lang.send(proxy.getConsoleCommandSource(), "plugin.log.leftover-handlers",
                     Lang.ph("plugin", container.getDescription().getId()),
                     Lang.ph("count", report.extraListeners()));
         }
@@ -61,7 +61,7 @@ final class PluginCleanup {
         int channels = PluginResources.unregisterChannelsLoadedBy(proxy.getChannelRegistrar(), loader);
         report.addChannels(channels);
         if (channels > 0) {
-            lang.send(proxy.getConsoleCommandSource(), "log.console.leftover-channels",
+            lang.send(proxy.getConsoleCommandSource(), "plugin.log.leftover-channels",
                     Lang.ph("plugin", container.getDescription().getId()),
                     Lang.ph("count", channels));
         }
@@ -92,21 +92,21 @@ final class PluginCleanup {
         String id = container.getDescription().getId();
         ClassLoader loader = classLoaderOf(instance, container);
         if (proxy.getPluginManager().isLoaded(id)) {
-            report.leftover("plugins.leftover.still-loaded", Map.of("plugin", id));
+            report.leftover("plugin.leftover.still-loaded", Map.of("plugin", id));
         }
         for (String provided : container.getDescription().getProvidedIds()) {
             if (proxy.getPluginManager().isLoaded(provided)
                     && proxy.getPluginManager().getPlugin(provided).orElse(null) == container) {
-                report.leftover("plugins.leftover.still-loaded", Map.of("plugin", provided));
+                report.leftover("plugin.leftover.still-loaded", Map.of("plugin", provided));
             }
         }
         List<String> leftoverCommands = PluginResources.leftoverCommandAliases(proxy.getCommandManager(), loader);
         if (!leftoverCommands.isEmpty()) {
-            report.leftover("plugins.leftover.commands", Map.of("detail", String.join(", ", leftoverCommands)));
+            report.leftover("plugin.leftover.commands", Map.of("detail", String.join(", ", leftoverCommands)));
         }
         int leftoverListeners = PluginResources.leftoverHandlerCount(proxy.getEventManager(), loader);
         if (leftoverListeners > 0) {
-            report.leftover("plugins.leftover.listeners", Map.of("count", String.valueOf(leftoverListeners)));
+            report.leftover("plugin.leftover.listeners", Map.of("count", String.valueOf(leftoverListeners)));
         }
     }
 
@@ -134,7 +134,7 @@ final class PluginCleanup {
             }
             return count;
         } catch (NoSuchMethodError | RuntimeException exception) {
-            logger.warn(lang.plain("log.cleanup-warn.tasks"), exception);
+            logger.warn(lang.plain("plugin.log.cleanup.tasks"), exception);
             return 0;
         }
     }
@@ -147,7 +147,7 @@ final class PluginCleanup {
                 proxy.getEventManager().unregisterListeners(container);
             }
         } catch (RuntimeException exception) {
-            logger.warn(lang.plain("log.cleanup-warn.events",
+            logger.warn(lang.plain("plugin.log.cleanup.events",
                     Lang.ph("plugin", container.getDescription().getId())), exception);
         }
     }
@@ -163,7 +163,7 @@ final class PluginCleanup {
         }
         int removed = owned.count();
         if (removed > 0) {
-            lang.send(proxy.getConsoleCommandSource(), "log.console.commands-unregistered",
+            lang.send(proxy.getConsoleCommandSource(), "plugin.log.commands-unregistered",
                     Lang.ph("plugin", container.getDescription().getId()),
                     Lang.ph("count", removed));
         }
@@ -226,7 +226,7 @@ final class PluginCleanup {
                 return true;
             }
         } catch (RuntimeException exception) {
-            logger.warn(lang.plain("log.cleanup-warn.executor",
+            logger.warn(lang.plain("plugin.log.cleanup.executor",
                     Lang.ph("plugin", container.getDescription().getId())), exception);
         }
         return false;
@@ -253,7 +253,7 @@ final class PluginCleanup {
             try {
                 closeable.close();
             } catch (Exception exception) {
-                logger.warn(lang.plain("log.cleanup-warn.classloader"), exception);
+                logger.warn(lang.plain("plugin.log.cleanup.classloader"), exception);
             }
         }
     }

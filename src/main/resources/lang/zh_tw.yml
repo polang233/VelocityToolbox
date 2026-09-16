@@ -1,0 +1,255 @@
+# MiniMessage 文字。請保留 <player> 等佔位符；開頭的空格用來對齊模組資訊。
+
+# 共用文字、標點與版本格式
+common:
+  prefix: "<bold><#FF6600>[VTB]</bold> "
+  separator: "："
+  none: "無"
+  unknown: "未知"
+  "yes": "是"
+  "no": "否"
+  console: "主控台"
+  enabled: "已啟用"
+  disabled: "已關閉"
+  usage: "<#FF6600>用法</#FF6600>  <#CCFFFF><usage>"
+  versions:
+    range: "<min> 至 <max>"
+    allow: "；僅允許 <versions>"
+    deny: "；排除 <versions>"
+
+# 共用指令、基本資訊與啟動訊息
+main:
+  language:
+    regenerate: "<yellow>語言檔 <file> 使用舊版結構，目前先採用內建語言。請先備份，再移走該檔案並執行 /vtb reload 重新產生；自訂語言可複製新版範本。"
+  help:
+    title: "<#FF6600>VelocityToolbox 指令"
+    info: "<#CCFFFF>查看外掛、代理、版本限制與資源包狀態"
+    reload: "<#CCFFFF>重新載入設定、語言、版本限制與資源包"
+  info:
+    title: "<#FF6600>VelocityToolbox 資訊"
+    field:
+      toolbox-version: "<gray>工具箱版本"
+      proxy-version: "<gray>代理版本"
+      java-version: "<gray>Java"
+    section: "<#FFB366>基本資訊"
+  reload:
+    ok: "<green>設定、語言、版本限制與資源包已重新載入。"
+    fail: "<#FF5555>重新載入失敗，請查看代理伺服器的記錄。"
+  log:
+    started: "<green>VelocityToolbox <version> 已啟動。"
+    reloaded: "<green><source> 已重新載入設定、語言、版本限制與資源包。"
+    reload-failed: "設定或資源包重新載入失敗 / Configuration or resource pack reload failed."
+
+# 外掛管理：說明、檢查、執行結果與記錄
+plugin:
+  title: "<#FFB366>外掛管理"
+  help:
+    list: "<#CCFFFF>列出外掛名稱、版本與作者；移上游標查看詳情"
+    inspect: "<#CCFFFF>檢查外掛的相依關係、使用中的資源與卸載風險"
+    load: "<#CCFFFF>載入 plugins/ 中的 JAR"
+    unload: "<#CCFFFF>卸載指定外掛並清理資源"
+    reload: "<#CCFFFF>卸載後重新載入指定外掛"
+    limit: "<#CCFFFF>更新權限、通訊協定或連線管理外掛時，建議重新啟動代理伺服器。"
+    summary: "<#CCFFFF>查看、檢查及管理代理伺服器的外掛"
+  info:
+    count: "<gray>已載入外掛：<#CCFFFF><count>"
+    directory: "<gray>外掛目錄：<#CCFFFF><path>"
+  list:
+    title: "<#FF6600>已載入外掛 <#CCFFFF><count> 個"
+    hover: "<gray>點擊將 /vtoolbox plugin inspect 填入指令列"
+  inspect:
+    title: "<#FF6600>外掛檢查"
+    section:
+      basic: "<#FFB366>基本資訊"
+      dependencies: "<#FFB366>相依關係"
+      runtime: "<#FFB366>使用中的資源"
+      risk: "<#FFB366>卸載風險"
+    risk:
+      low: "低"
+      medium: "中"
+      high: "高"
+      blocked: "無法卸載"
+    field:
+      id: "<gray>ID"
+      name: "<gray>名稱"
+      version: "<gray>版本"
+      authors: "<gray>作者"
+      description: "<gray>說明"
+      url: "<gray>網站"
+      jar: "<gray>來源 JAR"
+      instance-class: "<gray>實例類別"
+      source-state: "<gray>來源檔案可用"
+      instance-state: "<gray>實例可用"
+      required-dependencies: "<gray>必要相依外掛"
+      optional-dependencies: "<gray>選用相依外掛"
+      dependents: "<gray>依賴此外掛"
+      provided-ids: "<gray>額外外掛 ID"
+      commands: "<gray>指令"
+      tasks: "<gray>排程工作"
+      listeners: "<gray>監聽器"
+      channels: "<gray>訊息通道"
+      executor: "<gray>外掛執行緒池"
+      risk: "<gray>風險等級"
+    not-loaded: "<#FF5555>外掛 '<plugin>' 尚未載入。"
+    issue:
+      not-loaded: "<#FF5555>此外掛目前未載入。"
+      protected: "<#FF5555>Velocity 與 VelocityToolbox 受保護，無法卸載。"
+      required-by-others: "<#FF5555>還有其他外掛依賴此外掛，目前無法卸載。"
+      no-source-jar: "<#FF9955>找不到來源 JAR，卸載後可能無法重新載入。"
+      no-instance: "<#FF9955>找不到外掛實例，可能無法完整執行關閉與清理。"
+      provided-ids: "<#FFFF55>此外掛還提供額外 ID，卸載前也需確認是否有其他外掛依賴這些 ID。"
+      custom-channels: "<#FFFF55>發現外掛自訂的訊息通道；使用共用 API 識別碼的通道，無法可靠判斷所屬外掛。"
+      executor: "<#FFFF55>卸載時會關閉此外掛已建立的執行緒池。"
+      standard-cleanup-only: "<#CCFFFF>已登記的資源可清理；外掛自行建立的資源仍需另外確認。"
+  load:
+    need-jar: "<#FF5555>請指定 <dir> 內的 .jar 檔名。"
+    missing-file: "<#FF5555>找不到外掛 JAR：<file>"
+    protected: "<#FF5555>無法載入受保護的外掛 '<plugin>'。"
+    already: "<#FF5555>外掛 '<plugin>' 已經載入了。"
+    id-taken: "<#FF5555>外掛 ID '<plugin>' 已被使用。"
+    missing-dep: "<#FF5555>外掛 <plugin> 缺少必要的相依外掛 '<dependency>'。"
+    ok: "<green>已載入外掛 <plugin>。"
+    fail: "<#FF5555>載入失敗。"
+  unload:
+    protected: "<#FF5555>無法卸載受保護的外掛 '<plugin>'。"
+    not-loaded: "<#FF5555>外掛 '<plugin>' 尚未載入。"
+    depended: "<#FF5555>以下外掛仍依賴 '<plugin>'：<dependents>"
+    ok: "<green>已卸載外掛 <plugin>。"
+    fail: "<#FF5555>卸載失敗。"
+  reload:
+    no-jar: "<#FF5555>找不到外掛 '<plugin>' 的 JAR 路徑，無法重新載入。"
+    load-failed: "<#FF5555>已卸載 '<plugin>'，但重新載入時失敗了。"
+    ok: "<green>已重新載入外掛 <plugin>。"
+  cleanup:
+    summary: "<#CCFFFF>已清理：指令 <commands> 個、排程工作 <tasks> 個、額外監聽器 <listeners> 個、訊息通道 <channels> 個。"
+  leftover:
+    still-loaded: "<#FF5555>卸載後 '<plugin>' 仍留在代理的外掛清單中，請查看記錄並重新啟動代理。"
+    commands: "<#FF5555>以下指令仍未移除：<detail>"
+    listeners: "<#FF5555>仍有 <count> 個事件監聽器未移除，請查看代理記錄。"
+  shutdown-error: "<#FF5555>外掛關閉時發生錯誤，已繼續清理其他資源。"
+  error:
+    detail: "<#FF5555><type>：<message>"
+    see-log: "<#CCFFFF>完整錯誤資訊請見代理伺服器記錄。"
+  log:
+    plugin-loaded: "<green>已載入外掛 <plugin> <version>。"
+    plugin-loaded-file: "<gray>來源檔案：<aqua><file>"
+    plugin-unloaded: "<green>已卸載外掛 <plugin>。"
+    commands-unregistered: "<aqua>已移除外掛 <plugin> 的 <count> 個指令。"
+    leftover-handlers: "<yellow>已清理外掛 <plugin> 遺留的 <count> 個監聽器。"
+    leftover-channels: "<yellow>已依類別載入器識別並移除外掛 <plugin> 的 <count> 個訊息通道。"
+    list-failed: "無法列出 <dir> 內的外掛 JAR。"
+    load-failed: "無法載入外掛 <file>。"
+    unload-failed: "無法卸載外掛 <plugin>。"
+    rollback-failed: "清理載入失敗的外掛 <file> 時發生錯誤。"
+    cleanup:
+      events: "無法移除外掛 <plugin> 的事件監聽器。"
+      tasks: "無法取消外掛的排程工作。"
+      executor: "無法關閉外掛 <plugin> 的執行緒池。"
+      classloader: "無法關閉外掛的類別載入器。"
+
+# 子伺服器與連線入口
+server:
+  title: "<#FFB366>子伺服器與連線入口"
+  help:
+    hosts: "<#CCFFFF>依連線入口列出網域、連接埠、人數及玩家資訊"
+    summary: "<#CCFFFF>查看子伺服器與玩家的連線入口"
+  info:
+    players: "<gray>線上玩家：<#CCFFFF><count>"
+  hosts:
+    title: "<#FF6600>連線入口：<#CCFFFF><entries> 個 / <players> 位線上玩家"
+    entry: "  <gray>入口網域</gray>：<aqua><domain></aqua>  <gray>人數</gray>：<green><count></green>  <gray>連接埠</gray>：<aqua><port></aqua>"
+    expand-hint: "<gray>點擊查看這個入口的玩家</gray>"
+    collapse-hint: "<gray>點擊收起玩家清單</gray>"
+    player: "    <#FFB366><name></#FFB366>  <gray>延遲</gray>：<#CCFFFF><ping>"
+    player-hover-title: "<#FFB366>玩家資訊：<name>"
+    player-uuid: "UUID"
+    player-ip: "連線 IP"
+    player-server: "目前所在的子伺服器"
+    player-mode: "驗證模式"
+    invalid-entry: "<#FF5555>找不到編號 <index> 的連線入口。"
+    empty: "<#FF6600>目前沒有玩家在線上。"
+  player:
+    online-mode: "正版驗證"
+    offline-mode: "離線模式"
+  versions:
+    status:
+      enabled: "<green>客戶端版本限制：已啟用，共 <count> 組子伺服器規則"
+      rule: "    <aqua><server></aqua><gray>：<requirement>"
+      disabled: "<gray>客戶端版本限制：已關閉"
+      failed: "<red>版本設定載入失敗，暫時不接受連入子伺服器"
+    denied: "<red>目前無法進入 <server>。<newline><yellow>支援版本：<requirement><newline><gray>你的遊戲版本：<version>。"
+    protocol-details: "<gray>通訊協定編號限制：<requirement>"
+    client-protocol: "<gray>你的通訊協定編號：<protocol>"
+    unavailable: "<red>目前無法讀取版本限制設定，請聯絡管理員。"
+    log:
+      load-failed: "版本設定載入失敗，暫時不接受連入子伺服器。請修正 config.yml 後重新載入，或關閉 server-versions。 / Version rules failed to load; backend connections are blocked."
+      reload-failed: "版本設定重新載入失敗，繼續使用上次的有效規則；若尚無有效規則，則繼續阻擋連線。"
+      unknown-server: "版本規則中的子伺服器 <server> 尚未註冊，請核對 velocity.toml；註冊後規則才會生效。"
+
+# 資源包：來源、自行託管與傳送狀態
+pack:
+  title: "<#FFB366>資源包"
+  help:
+    summary: "<#CCFFFF>資源包託管、傳送及玩家載入狀態"
+    list: "<#CCFFFF>查看設定中的資源包與託管檔案"
+    status: "<#CCFFFF>查看玩家的資源包載入狀態"
+    resend: "<#CCFFFF>重新傳送玩家目前子伺服器的資源包請求"
+  info:
+    count: "<gray>已設定資源包：<#CCFFFF><count>"
+    load-failed: "<yellow>上次載入資源包設定時失敗；以下是目前的執行狀態。"
+  source:
+    none: "不傳送資源包"
+    local: "自行託管"
+    external: "外部下載連結"
+  label:
+    permission: "；所需權限：<permission>"
+    required: "必須載入"
+    optional: "可選擇載入"
+  list:
+    variant: "    <#CCFFFF><pack> <gray>· <state> · <required> · <source><newline>      <url><newline>      <conditions>"
+  host:
+    disabled: "    <gray>已關閉"
+    files-title: "    <gray>託管檔案：<#CCFFFF><count>"
+    log:
+      traffic: "<yellow>資源包請求統計：<detail>"
+      warn-localhost: "<yellow>pack-host.public-url 使用 localhost，只有與代理同一台電腦的客戶端能下載。"
+      warn-wildcard: "<yellow>pack-host.public-url 不能填 0.0.0.0，請改填玩家連得到的 IP 或網域。"
+      warn-fallback: "<yellow>找不到區域網路 IPv4，暫用 <origin>；其他電腦要下載時，請設定 public-url。"
+      multiple-addresses: "<yellow>找到多個區域網路位址：<addresses>；目前使用 <selected>。"
+      traffic-detail: "請求超過頻率限制 <limited> 次、服務忙碌 <busy> 次、逾時 <timeouts> 次"
+    stats: "    <gray>HTTP：<detail>"
+    file: "    <#CCFFFF><file><newline>      <gray><url><newline>      SHA-1: <sha1>"
+    title: "<#FFB366>  HTTP 託管"
+    status: "<gray>HTTP 託管：<#CCFFFF><state>"
+    count: "<gray>託管檔案：<#CCFFFF><count>"
+    url: "<gray>下載位址：<#CCFFFF><url>"
+    directory: "<gray>檔案目錄：<#CCFFFF><path>"
+    stats-detail: "下載中 <downloads>、記錄中的 IP <clients>、頻率受限 <limited>、服務忙碌 <busy>、已傳送 <bytes> 位元組"
+  delivery:
+    retry: "<yellow>下載服務忙碌，稍後進行第 <attempt> 次重試。"
+    resend-empty: "<#CCFFFF>目前沒有適用的資源包，不會傳送下載請求。"
+    unavailable: "<#FF6600>尚未啟用資源包傳送，或玩家還沒連上子伺服器。"
+    offline: "<#FF5555>找不到這位線上玩家。"
+    resent: "<green>已安排重新傳送目前子伺服器的資源包請求。"
+    no-state: "<#CCFFFF>目前沒有 <player> 的資源包傳送記錄。"
+    player-title: "<#FF6600><player> 的資源包狀態 <gray>· <server>"
+    backend: "<#CCFFFF>這位舊版玩家目前使用子伺服器提供的資源包，切換子伺服器或手動重送後才會重新選包。"
+    waiting: "<#CCFFFF>正在等待傳送資源包請求。"
+    empty: "<gray>目前沒有 VTB 傳送的資源包。"
+    item: "<#CCFFFF><pack> <gray>· <state> · <required>"
+    skipped: "<#FF6600>以下資源包沒有符合版本與權限的選項：<packs>"
+    failure: "<#FF5555>資源包 <pack>：<reason>"
+    state:
+      busy: "下載服務忙碌"
+      ready: "可用"
+      waiting: "等待客戶端回應"
+      accepted: "已接受，下載中"
+      downloaded: "下載完成，等待載入"
+      loaded: "載入成功"
+      failed: "載入失敗"
+      declined: "玩家已拒絕"
+      timeout: "載入逾時"
+      unavailable: "資源包無法使用"
+    status: "<gray>資源包傳送：<#CCFFFF><state>"
+  log:
+    load-failed: "資源包初始化失敗 / Resource pack initialization failed."

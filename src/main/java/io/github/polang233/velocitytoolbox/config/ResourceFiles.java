@@ -12,6 +12,8 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
+import java.util.Set;
 
 /**
  * 把随包默认文件写到数据目录（已存在则不覆盖）。
@@ -27,6 +29,7 @@ public final class ResourceFiles {
         Path langDirectory = dataDirectory.resolve("lang");
         Files.createDirectories(langDirectory);
         copyIfMissing("lang/zh_cn.yml", langDirectory.resolve("zh_cn.yml"));
+        copyIfMissing("lang/zh_tw.yml", langDirectory.resolve("zh_tw.yml"));
         copyIfMissing("lang/en_us.yml", langDirectory.resolve("en_us.yml"));
     }
 
@@ -42,7 +45,7 @@ public final class ResourceFiles {
         byte[] bytes;
         try (InputStream in = ResourceFiles.class.getClassLoader().getResourceAsStream(resourcePath)) {
             if (in == null) {
-                throw new IOException("缺少随包资源 " + resourcePath);
+                throw new IOException("Missing bundled resource: " + resourcePath);
             }
             bytes = in.readAllBytes();
         }
@@ -61,7 +64,7 @@ public final class ResourceFiles {
         Files.createDirectories(destination.getParent());
         try (InputStream in = ResourceFiles.class.getClassLoader().getResourceAsStream(resourcePath)) {
             if (in == null) {
-                throw new IOException("缺少随包资源 " + resourcePath);
+                throw new IOException("Missing bundled resource: " + resourcePath);
             }
             Files.copy(in, destination);
         }
@@ -76,20 +79,29 @@ public final class ResourceFiles {
             return systemLanguage();
         }
         String trimmed = language.trim();
-        return switch (trimmed.toLowerCase(java.util.Locale.ROOT).replace('-', '_')) {
-            case "zh", "zh_cn" -> "zh_cn";
+        String normalized = trimmed.toLowerCase(Locale.ROOT).replace('-', '_');
+        Locale locale = Locale.forLanguageTag(normalized.replace('_', '-'));
+        if ("zh".equals(locale.getLanguage())) {
+            if (traditionalChinese(locale)) return "zh_tw";
+            if ("Hans".equals(locale.getScript()) || Set.of("zh", "zh_cn", "zh_sg").contains(normalized)) return "zh_cn";
+        }
+        return switch (normalized) {
             case "en", "en_us" -> "en_us";
             default -> trimmed;
         };
     }
 
     private static String systemLanguage() {
-        String tag = java.util.Locale.getDefault().toLanguageTag()
-                .toLowerCase(java.util.Locale.ROOT).replace('-', '_');
-        return switch (tag.split("_", 2)[0]) {
-            case "zh" -> "zh_cn";
+        Locale locale = Locale.getDefault();
+        return switch (locale.getLanguage()) {
+            case "zh" -> traditionalChinese(locale) ? "zh_tw" : "zh_cn";
             case "en" -> "en_us";
-            default -> tag;
+            default -> locale.toLanguageTag().toLowerCase(Locale.ROOT).replace('-', '_');
         };
+    }
+
+    private static boolean traditionalChinese(Locale locale) {
+        if (!locale.getScript().isEmpty()) return locale.getScript().equals("Hant");
+        return Set.of("TW", "HK", "MO").contains(locale.getCountry());
     }
 }

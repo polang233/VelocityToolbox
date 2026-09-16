@@ -15,6 +15,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 玩家/控制台可见文案。默认跟随服务器系统语言，没有对应语言文件时回退中文；
@@ -34,8 +35,9 @@ public final class Lang {
     private static final PlainTextComponentSerializer PLAIN = PlainTextComponentSerializer.plainText();
 
     private final Path dataDirectory;
-    private volatile Map<String, String> messages = Map.of();
-    private volatile Component prefix = Component.text("[VTB] ", ACCENT);
+    private record State(Map<String, String> messages, Component prefix, Path outdatedFile) {}
+    private record UserMessages(Map<String, String> messages, Path outdatedFile) {}
+    private volatile State state = new State(Map.of(), Component.text("[VTB] ", ACCENT), null);
 
     public Lang(Path dataDirectory) {
         this.dataDirectory = dataDirectory;
@@ -48,20 +50,22 @@ public final class Lang {
         Map<String, String> bundled = "zh_cn".equals(language)
                 ? bundledZh
                 : loadBundled(language);
-        Map<String, String> user = loadUser(language);
+        UserMessages user = loadUser(language);
         Map<String, String> merged = new LinkedHashMap<>(bundledZh);
         merged.putAll(bundled);
-        merged.putAll(user);
-        this.messages = Map.copyOf(merged);
-        this.prefix = get("prefix");
+        merged.putAll(user.messages());
+        state = new State(Map.copyOf(merged), render(merged.getOrDefault("common.prefix", "[VTB] ")), user.outdatedFile());
     }
 
     public Component prefix() {
-        return prefix;
+        return state.prefix();
     }
 
     public Component get(String key, TagResolver... resolvers) {
-        String template = messages.getOrDefault(key, key);
+        return render(state.messages().getOrDefault(key, key), resolvers);
+    }
+
+    private static Component render(String template, TagResolver... resolvers) {
         try {
             return MINI.deserialize(template, TagResolver.resolver(resolvers));
         } catch (RuntimeException exception) {
@@ -74,11 +78,12 @@ public final class Lang {
     }
 
     public void send(CommandSource source, String key, TagResolver... resolvers) {
-        source.sendMessage(prefix.append(get(key, resolvers)));
+        State current = state;
+        source.sendMessage(current.prefix().append(render(current.messages().getOrDefault(key, key), resolvers)));
     }
 
     public void send(CommandSource source, Component message) {
-        source.sendMessage(prefix.append(message));
+        source.sendMessage(state.prefix().append(message));
     }
 
     public static TagResolver ph(String name, Object value) {
@@ -97,12 +102,24 @@ public final class Lang {
         return resolvers;
     }
 
-    private Map<String, String> loadUser(String language) throws IOException {
-        Path file = dataDirectory.resolve("lang").resolve(language + ".yml");
-        if (!Files.isRegularFile(file)) {
-            return Map.of();
+    public boolean needsRegeneration() { return state.outdatedFile() != null; }
+
+    public void sendRegenerationNotice(CommandSource source) {
+        State current = state;
+        if (current.outdatedFile() != null) {
+            source.sendMessage(current.prefix().append(render(current.messages().get("main.language.regenerate"),
+                    ph("file", current.outdatedFile()))));
         }
-        return flatten(ResourceFiles.loadYaml(file));
+    }
+
+    /** 旧结构只提示重新生成，不翻译键名，也不覆盖用户文件。 */
+    private UserMessages loadUser(String language) throws IOException {
+        Path file = dataDirectory.resolve("lang").resolve(language + ".yml");
+        if (!Files.isRegularFile(file)) return new UserMessages(Map.of(), null);
+        ConfigurationNode root = ResourceFiles.loadYaml(file);
+        Set<String> oldRoots = Set.of("prefix", "command", "plugins", "log", "delivery", "server-versions", "modules", "status");
+        boolean outdated = root.childrenMap().keySet().stream().anyMatch(key -> oldRoots.contains(String.valueOf(key)));
+        return outdated ? new UserMessages(Map.of(), file) : new UserMessages(flatten(root), null);
     }
 
     private static Map<String, String> loadBundled(String language) {
