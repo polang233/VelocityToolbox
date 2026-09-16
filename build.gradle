@@ -120,3 +120,12 @@ tasks.register('pluginAccessTest', JavaExec) {
     mainClass = 'io.github.polang233.velocitytoolbox.plugins.internal.PluginAccessTest'
 }
 tasks.named('check') { dependsOn 'pluginAccessTest' }
+
+tasks.register('httpSecurityTest', JavaExec) {
+    group = 'verification'
+    description = 'Checks HTTP limits, file access, trusted proxies and transfer cleanup.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + configurations.compileClasspath
+    mainClass = 'io.github.polang233.velocitytoolbox.pack.http.HttpSecurityTest'
+}
+tasks.named('check') { dependsOn 'httpSecurityTest' }
