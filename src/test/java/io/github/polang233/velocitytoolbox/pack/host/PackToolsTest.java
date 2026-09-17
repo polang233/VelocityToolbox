@@ -52,7 +52,9 @@ public final class PackToolsTest {
             urlsAndReasons();
             readOnlyCheck();
             automaticAddress();
-            System.out.println("Pack tools tests passed: archives, urlsAndReasons, readOnlyCheck, automaticAddress.");
+            commands();
+            bulkResend();
+            System.out.println("Pack tools tests passed: archives, diagnostics, read-only checks, permissions and batched resends.");
         } finally {
             try (var paths = Files.walk(root)) {
                 for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) Files.deleteIfExists(path);
@@ -198,7 +200,82 @@ public final class PackToolsTest {
         check(h.messages.size() == before, "read-only automatic origin scan does not emit reload warnings");
     }
 
+    private static void commands() throws Exception {
+        Path directory = root.resolve("commands");
+        var h = new PackDeliveryTest.Harness(directory);
+        try (var sender = h.sender()) {
+            var dispatcher = new CommandDispatcher<CommandSource>();
+            var node = new VelocityToolboxCommand(null, h.proxy, null, h.host, h.lang, sender).build().getNode();
+            dispatcher.getRoot().addChild(node);
+            h.permissions.addAll(Set.of("velocitytoolbox.command", "velocitytoolbox.command.pack", "velocitytoolbox.command.pack.resend"));
+            check(!node.getChild("pack").getChild("check").canUse(h.player), "check action permission");
+            check(!node.getChild("pack").getChild("resend").getChild("all").canUse(h.player), "bulk action permission");
+            try {
+                dispatcher.execute("vtoolbox pack resend all", h.player);
+                throw new AssertionError("bulk command accepted without its permission");
+            } catch (CommandSyntaxException expected) {
+                check(h.sent.isEmpty(), "denied bulk command has no offers");
+            }
+            check(dispatcher.getCompletionSuggestions(dispatcher.parse("vtoolbox pack resend ", h.player)).get()
+                    .getList().stream().noneMatch(s -> s.getText().equals("all")), "bulk completion is permission filtered");
+            h.permissions.addAll(Set.of("velocitytoolbox.command.pack.check", "velocitytoolbox.command.pack.status", "velocitytoolbox.command.pack.resend.all"));
+            check(node.getChild("pack").getChild("resend").getChild("all").canUse(h.player), "bulk permission accepted");
+            check(dispatcher.execute("vtoolbox pack check", h.player) == 1, "check disabled default config");
+            check(text(h.messages).contains("not checked"), "disabled check scope shown");
+            Files.writeString(directory.resolve("config.yml"), "resource-packs:\n" + RULES.replace(HASH, "bad").indent(2));
+            check(dispatcher.execute("vtoolbox pack check", h.player) == 0, "failed check command result");
+            check(text(h.consoleMessages).contains("resource-packs.packs.main[0].hash"), "check failure logged with path");
+            sender.apply(rules(RULES.replace("hash: " + HASH, "hash: " + HASH + "\n      conditions:\n        permission: example.vip")));
+            h.run(0);
+            h.messages.clear();
+            dispatcher.execute("vtoolbox pack status Tester", h.player);
+            String status = text(h.messages);
+            check(status.contains("resource-packs.servers.default.packs") && status.contains("missing required permission")
+                    && status.contains("example.vip") && status.contains("variant 1"), "status explains source, variant and permission");
+            dispatcher.execute("vtoolbox pack resend all", h.player);
+            h.run(0);
+            check(text(h.messages).contains("with no applicable pack"), "bulk command reports scheduling result");
+        }
+    }
 
+    private static void bulkResend() throws Exception {
+        var h = new PackDeliveryTest.Harness(root.resolve("bulk"));
+        List<PackDeliveryTest.Harness> players = new ArrayList<>();
+        players.add(h);
+        for (int i = 1; i < 12; i++) players.add(new PackDeliveryTest.Harness(root.resolve("bulk-" + i)));
+        h.online.clear();
+        try (var sender = h.sender()) {
+            check(!sender.resendAll(h.player), "disabled delivery rejects bulk resend");
+            sender.apply(rules(RULES));
+            check(!sender.resendAll(h.player), "empty online list does not start a bulk task");
+            players.forEach(p -> h.online.add(p.player));
+            check(sender.resendAll(h.player), "bulk starts");
+            check(!sender.resendAll(h.player), "duplicate bulk request rejected");
+            h.run(0);
+            check(sent(players) == 5, "first batch limited to five players");
+            h.run(999);
+            check(sent(players) == 5, "batch waits one second");
+            players.get(6).kicked = Component.text("offline");
+            players.get(7).server = "empty";
+            h.run(1);
+            check(sent(players) == 8, "offline and empty players skipped independently");
+            h.run(1000);
+            check(sent(players) == 10 && text(h.messages).contains("10 scheduled, 1 with no applicable pack, 1 offline"), "bulk completion counts");
+
+            sender.resendAll(h.player);
+            var cancelled = h.jobs.getLast();
+            sender.apply(rules(RULES));
+            cancelled.run.run();
+            h.run(0);
+            check(sent(players) == 10 && text(h.messages).contains("Bulk resend cancelled"), "reload cancels batch and late callback");
+            sender.resendAll(h.player);
+            var closed = h.jobs.getLast();
+            sender.close();
+            closed.run.run();
+            h.run(5000);
+            check(sent(players) == 10, "close cancels bulk tasks");
+        }
+    }
 
     private static int sent(List<PackDeliveryTest.Harness> players) {
         return players.stream().mapToInt(p -> p.sent.size()).sum();

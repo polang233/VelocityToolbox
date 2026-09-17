@@ -191,6 +191,7 @@ pack:
   title: "<#FFB366>Resource packs"
   help:
     check: "Check pack configuration and local files without applying changes."
+    resend-all: "Resend packs to all online players in batches."
     summary: "<#CCFFFF>Host packs, send download requests and track player loading"
     list: "<#CCFFFF>List configured packs and hosted files"
     status: "<#CCFFFF>Show a player's pack status"
@@ -255,6 +256,20 @@ pack:
     status: "<gray>Pack delivery: <#CCFFFF><state>"
   log:
     load-failed: "Resource pack initialization failed."
+  check:
+    ok: "<green>Pack configuration check passed. No changes were applied."
+    summary: "<gray>Hosting: <host>; delivery: <delivery>; <files> hosted files, <packs> pack definitions."
+    disabled: "<gray>Delivery is disabled; its example rules and referenced files were not checked."
+    auto-url: "<yellow>public-url is empty, so a local address was selected. Check reachability from the players' network."
+    scope: "<gray>Port availability, public reachability and external URL contents were not tested. The listener and player offers are unchanged."
+    failed: "<#FF5555>Pack check failed: <detail>"
+    log-failed: "<#FF5555>Pack check failed for <source>: <detail>"
+  batch:
+    started: "<#CCFFFF>Queued <count> players for resending, up to 5 players per second."
+    busy: "<yellow>A bulk resend is already running. Wait for it to finish."
+    empty: "<#CCFFFF>No players are online."
+    finished: "<green>Resend scheduling finished: <scheduled> scheduled, <empty> with no applicable pack, <skipped> offline or unavailable."
+    cancelled: "<yellow>Bulk resend cancelled with <remaining> players still queued."
   explain:
     title: "<#FFB366>Current rule matches (recalculated on resend)"
     assignment: "<gray>Assignment: <path>"
@@ -267,11 +282,3 @@ pack:
       version: "client version does not match"
       permission: "missing required permission"
       version-permission: "version does not match and permission is missing"
-  check:
-    ok: "<green>Pack configuration check passed. No changes were applied."
-    summary: "<gray>Hosting: <host>; delivery: <delivery>; <files> hosted files, <packs> pack definitions."
-    disabled: "<gray>Delivery is disabled; its example rules and referenced files were not checked."
-    auto-url: "<yellow>public-url is empty, so a local address was selected. Check reachability from the players' network."
-    scope: "<gray>Port availability, public reachability and external URL contents were not tested. The listener and player offers are unchanged."
-    failed: "<#FF5555>Pack check failed: <detail>"
-    log-failed: "<#FF5555>Pack check failed for <source>: <detail>"

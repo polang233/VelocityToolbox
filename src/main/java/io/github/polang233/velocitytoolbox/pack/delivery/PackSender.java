@@ -1,6 +1,7 @@
 package io.github.polang233.velocitytoolbox.pack.delivery;
 
 import com.velocitypowered.api.event.Subscribe;
+import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
 import com.velocitypowered.api.event.player.*;
 import com.velocitypowered.api.network.ProtocolVersion;
@@ -14,6 +15,7 @@ import io.github.polang233.velocitytoolbox.pack.http.DownloadTickets;
 import org.slf4j.Logger;
 
 import java.util.ArrayList;
+import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
@@ -33,6 +35,21 @@ public final class PackSender implements AutoCloseable {
     private final Logger logger;
     private PackRules rules = PackRules.disabled();
     private final Map<UUID, Session> sessions = new HashMap<>();
+    private Batch batch;
+
+    private static final class Batch {
+        final CommandSource source;
+        final ArrayDeque<Player> players;
+        int scheduled;
+        int empty;
+        int skipped;
+        ScheduledTask task;
+
+        Batch(CommandSource source, java.util.Collection<Player> players) {
+            this.source = source;
+            this.players = new ArrayDeque<>(players);
+        }
+    }
 
     private static final class Offer {
         final PackRules.Choice choice;
@@ -84,6 +101,7 @@ public final class PackSender implements AutoCloseable {
     }
 
     public synchronized void apply(PackRules next) {
+        cancelBatch();
         rules = next;
         if (!next.enabled()) {
             for (Session session : sessions.values()) clear(session, true);
@@ -129,7 +147,64 @@ public final class PackSender implements AutoCloseable {
         if (!rules.enabled() || !player.isActive() || player.getCurrentServer().isEmpty()) return ResendResult.DISABLED;
         refresh(player, true);
         Session session = sessions.get(player.getUniqueId());
+        if (session == null || session.player != player || session.selection == null) return ResendResult.DISABLED;
         return session.selection.packs().isEmpty() ? ResendResult.EMPTY : ResendResult.SCHEDULED;
+    }
+
+    /** 全部玩家使用一个分批任务；重载或停用会取消剩余队列。 */
+    public synchronized boolean resendAll(CommandSource source) {
+        if (!rules.enabled()) {
+            lang.send(source, "pack.delivery.unavailable");
+            return false;
+        }
+        if (batch != null) {
+            lang.send(source, "pack.batch.busy");
+            return false;
+        }
+        Batch next = new Batch(source, proxy.getAllPlayers());
+        if (next.players.isEmpty()) {
+            lang.send(source, "pack.batch.empty");
+            return false;
+        }
+        batch = next;
+        lang.send(source, "pack.batch.started", Lang.ph("count", next.players.size()));
+        scheduleBatch(next, 0);
+        return true;
+    }
+
+    private void scheduleBatch(Batch next, long delay) {
+        next.task = proxy.getScheduler().buildTask(plugin, () -> runBatch(next))
+                .delay(delay, TimeUnit.MILLISECONDS).schedule();
+    }
+
+    private synchronized void runBatch(Batch next) {
+        if (batch != next) return;
+        next.task = null;
+        for (int i = 0; i < 5 && !next.players.isEmpty(); i++) {
+            Player player = next.players.removeFirst();
+            try {
+                switch (resend(player)) {
+                    case SCHEDULED -> next.scheduled++;
+                    case EMPTY -> next.empty++;
+                    case DISABLED -> next.skipped++;
+                }
+            } catch (RuntimeException error) {
+                next.skipped++;
+                logger.warn("Could not resend resource packs to {}", player.getUsername(), error);
+            }
+        }
+        if (next.players.isEmpty()) {
+            batch = null;
+            lang.send(next.source, "pack.batch.finished", Lang.ph("scheduled", next.scheduled),
+                    Lang.ph("empty", next.empty), Lang.ph("skipped", next.skipped));
+        } else scheduleBatch(next, 1000);
+    }
+
+    private void cancelBatch() {
+        if (batch == null) return;
+        if (batch.task != null) batch.task.cancel();
+        lang.send(batch.source, "pack.batch.cancelled", Lang.ph("remaining", batch.players.size()));
+        batch = null;
     }
 
     private void refresh(Player player, boolean force) {
@@ -339,6 +414,7 @@ public final class PackSender implements AutoCloseable {
 
     @Override
     public synchronized void close() {
+        cancelBatch();
         for (Session session : sessions.values()) clear(session, true);
         sessions.clear();
         rules = PackRules.disabled();

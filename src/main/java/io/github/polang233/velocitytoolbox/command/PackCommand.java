@@ -3,6 +3,7 @@ package io.github.polang233.velocitytoolbox.command;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
@@ -16,8 +17,9 @@ import io.github.polang233.velocitytoolbox.pack.host.PackService;
 import io.github.polang233.velocitytoolbox.version.VersionText;
 
 import java.util.List;
-import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Locale;
+import java.io.IOException;
 
 final class PackCommand extends CommandView {
     private final PackService host;
@@ -36,15 +38,28 @@ final class PackCommand extends CommandView {
                 .requires(source -> action(source, "pack", "list")).executes(this::list));
         node.then(literal("check")
                 .requires(source -> action(source, "pack", "check")).executes(this::check));
-        for (String action : List.of("status", "resend"))
-            node.then(literal(action)
+        for (String action : List.of("status", "resend")) {
+            var command = literal(action)
                     .requires(source -> action(source, "pack", action))
-                    .executes(ctx -> usage(ctx, "/vtb pack " + action + " <player>"))
+                    .executes(ctx -> usage(ctx, "/vtb pack " + action + (action.equals("resend") ? " <player|all>" : " <player>")))
                     .then(BrigadierCommand.requiredArgumentBuilder("player", StringArgumentType.word())
-                            .suggests((ctx, builder) -> suggest(builder,
-                                    proxy.getAllPlayers().stream().map(Player::getUsername).sorted().toList()))
-                            .executes(ctx -> player(ctx, action))));
+                            .suggests((ctx, builder) -> {
+                                List<String> names = new ArrayList<>(proxy.getAllPlayers().stream().map(Player::getUsername).sorted().toList());
+                                if (action.equals("resend") && bulk(ctx.getSource())) names.add("all");
+                                return suggest(builder, names);
+                            })
+                            .executes(ctx -> player(ctx, action)));
+            if (action.equals("resend"))
+                command.then(literal("all").requires(this::bulk)
+                        .executes(ctx -> sender.resendAll(ctx.getSource()) ? 1 : 0));
+            node.then(command);
+        }
         return node;
+    }
+
+    private boolean bulk(CommandSource source) {
+        return action(source, "pack", "resend") && (source.hasPermission(PERMISSION)
+                || source.hasPermission("velocitytoolbox.command.pack.resend.all"));
     }
 
     private int help(CommandContext<CommandSource> ctx) {
@@ -53,6 +68,7 @@ final class PackCommand extends CommandView {
             if (action(ctx.getSource(), "pack", action))
                 helpLine(ctx.getSource(), "/vtb pack " + action + (List.of("list", "check").contains(action) ? "" : " <player>"),
                         "pack.help." + action);
+        if (bulk(ctx.getSource())) helpLine(ctx.getSource(), "/vtb pack resend all", "pack.help.resend-all");
         return 1;
     }
 
@@ -82,8 +98,14 @@ final class PackCommand extends CommandView {
         }
     }
 
-    private int player(CommandContext<CommandSource> ctx, String action) {
-        Player player = proxy.getPlayer(StringArgumentType.getString(ctx, "player")).orElse(null);
+    private int player(CommandContext<CommandSource> ctx, String action) throws CommandSyntaxException {
+        String name = StringArgumentType.getString(ctx, "player");
+        // all 是批量操作关键字，不得在权限不足时回落为玩家名。
+        if (action.equals("resend") && name.equalsIgnoreCase("all")) {
+            if (!bulk(ctx.getSource())) throw CommandSyntaxException.BUILT_IN_EXCEPTIONS.dispatcherUnknownCommand().create();
+            return sender.resendAll(ctx.getSource()) ? 1 : 0;
+        }
+        Player player = proxy.getPlayer(name).orElse(null);
         if (player == null) {
             lang.send(ctx.getSource(), "pack.delivery.offline");
             return 0;
