@@ -2,6 +2,7 @@ package io.github.polang233.velocitytoolbox.pack.config;
 
 import io.github.polang233.velocitytoolbox.pack.host.HostedPack;
 import io.github.polang233.velocitytoolbox.pack.host.PackScanner;
+import io.github.polang233.velocitytoolbox.pack.host.PackArchive;
 import io.github.polang233.velocitytoolbox.version.VersionRule;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -10,19 +11,16 @@ import org.spongepowered.configurate.ConfigurationNode;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import static io.github.polang233.velocitytoolbox.pack.config.PackRules.*;
 
-/** 读取配置并校验文件、哈希和分配引用；全部有效后才交给下发器。 */
+/**
+ * 读取配置并校验文件、哈希和分配引用；全部有效后才交给下发器。
+ */
 final class PackParser {
-    private PackParser() {}
+    private PackParser() {
+    }
 
     static PackRules read(ConfigurationNode root, List<HostedPack> hosted, Path directory, boolean hostEnabled) throws IOException {
         if (root.virtual()) return disabled();
@@ -37,6 +35,7 @@ final class PackParser {
         Map<String, HostedPack> files = new HashMap<>();
         for (HostedPack pack : hosted) files.put(pack.fileName(), pack);
         Map<String, Pack> packs = new LinkedHashMap<>();
+        Set<Path> checkedArchives = new HashSet<>();
         ConfigurationNode entries = root.node("packs");
         if (!entries.isMap()) throw error("packs", "expected a map of named variant lists");
         for (var entry : entries.childrenMap().entrySet()) {
@@ -49,7 +48,7 @@ final class PackParser {
             List<Variant> variants = new ArrayList<>();
             int i = 0;
             for (ConfigurationNode variant : node.childrenList())
-                variants.add(variant(variant, files, path + "[" + i++ + "]", required, prompt, directory, hostEnabled));
+                variants.add(variant(variant, files, path + "[" + i++ + "]", required, prompt, directory, hostEnabled, checkedArchives));
             packs.put(name, new Pack(variants));
         }
         Map<String, Assignment> servers = new LinkedHashMap<>();
@@ -71,7 +70,7 @@ final class PackParser {
     }
 
     private static Variant variant(ConfigurationNode node, Map<String, HostedPack> files, String path,
-                                   boolean required, Component prompt, Path directory, boolean hostEnabled) throws IOException {
+                                   boolean required, Component prompt, Path directory, boolean hostEnabled, Set<Path> checkedArchives) throws IOException {
         keys(node, path, "url", "hash", "conditions", "required", "prompt");
         String url = string(node.node("url"), "", path + ".url");
         String hash = string(node.node("hash"), "", path + ".hash").toLowerCase(Locale.ROOT);
@@ -84,13 +83,20 @@ final class PackParser {
             String file = url.substring(1);
             if (!hostEnabled) throw error(path + ".url",
                     "self-hosting is disabled; enable pack-host.enabled to use " + url);
-            if (!PackScanner.isSafeZipFileName(file)) throw error(path + ".url", "expected @ or @filename.zip without a directory");
+            if (!PackScanner.isSafeZipFileName(file))
+                throw error(path + ".url", "expected @ or @filename.zip without a directory");
             HostedPack hosted = files.get(file);
             if (hosted == null) throw error(path + ".url", "hosted file not found: " + file
                     + "; check filename and packs-directory: " + (directory == null ? "(not supplied)" : directory));
+            if (checkedArchives.add(hosted.path())) {
+                try { PackArchive.validate(hosted.path()); }
+                catch (IOException invalid) { throw error(path + ".url", invalid.getMessage()); }
+            }
             if (!(node.node("hash").virtual() || hash.equals("@"))) {
-                if (!hash.matches("[0-9a-f]{40}")) throw error(path + ".hash", "expected @ or 40 hexadecimal characters");
-                if (!hash.equalsIgnoreCase(hosted.sha1())) throw error(path + ".hash", "hash does not match hosted file: " + file);
+                if (!hash.matches("[0-9a-f]{40}"))
+                    throw error(path + ".hash", "expected @ or 40 hexadecimal characters");
+                if (!hash.equalsIgnoreCase(hosted.sha1()))
+                    throw error(path + ".hash", "hash does not match hosted file: " + file);
             }
             source = new File(hosted.url(), hosted.sha1(), true);
         } else {
@@ -101,10 +107,11 @@ final class PackParser {
         try {
             URI uri = source.empty() ? null : URI.create(source.url());
             if (uri != null && (uri.getScheme() == null || !Set.of("http", "https").contains(uri.getScheme().toLowerCase(Locale.ROOT))
-                    || uri.getHost() == null || uri.getUserInfo() != null))
+                    || uri.getHost() == null || uri.getUserInfo() != null || uri.getRawFragment() != null
+                    || uri.getPort() == 0 || uri.getPort() > 65535))
                 throw new IllegalArgumentException();
         } catch (IllegalArgumentException e) {
-            throw error(path + ".url", "expected an http/https download URL");
+            throw error(path + ".url", "expected an HTTP(S) download URL with port 1-65535 and no credentials or fragment");
         }
         ConfigurationNode conditions = node.node("conditions");
         if (!conditions.virtual()) keys(conditions, path + ".conditions", "versions", "permission");
@@ -134,7 +141,8 @@ final class PackParser {
             if (allowed.contains(key)) continue;
             String hint = switch (key) {
                 case "delay", "timeout" -> "move this option to settings";
-                case "required", "prompt" -> path.isEmpty() ? "move this option to settings" : "set this option on a pack variant";
+                case "required", "prompt" ->
+                        path.isEmpty() ? "move this option to settings" : "set this option on a pack variant";
                 case "required-prompt" -> "use prompt";
                 case "file" -> "use url: '@filename.zip'";
                 case "sha1" -> "use hash";

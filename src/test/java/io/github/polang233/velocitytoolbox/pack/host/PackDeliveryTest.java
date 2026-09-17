@@ -194,7 +194,8 @@ public final class PackDeliveryTest {
             try { rules(bad); throw new AssertionError("invalid new schema accepted"); }
             catch (IOException expected) { }
         }
-        Path directory = dir.resolve("hash-check");
+        Path directory = Files.createDirectories(dir.resolve("hash-check"));
+        zip(directory.resolve("base.zip"), "hash-check");
         var hosted = new HostedPack("base.zip", directory.resolve("base.zip"), HASH, "https://example.com/base.zip");
         String local = "enabled: true\npacks:\n  base:\n    - url: \"@base.zip\"\n";
         for (String suffix : List.of("", "      hash: \"@\"\n", "      hash: " + HASH + "\n"))
@@ -342,7 +343,7 @@ public final class PackDeliveryTest {
     private static void zip(Path file, String value) throws IOException {
         try (var out = new ZipOutputStream(Files.newOutputStream(file))) {
             out.putNextEntry(new ZipEntry("pack.mcmeta"));
-            out.write(value.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            out.write(("{\"pack\":{\"pack_format\":15,\"description\":\"" + value + "\"}}").getBytes(java.nio.charset.StandardCharsets.UTF_8));
             out.closeEntry();
         }
     }
@@ -705,7 +706,7 @@ public final class PackDeliveryTest {
                 || message.children().stream().anyMatch(PackDeliveryTest::hostClick);
     }
 
-    private static final class Job {
+    static final class Job {
         final Runnable run;
         final long due;
         boolean cancelled;
@@ -716,7 +717,7 @@ public final class PackDeliveryTest {
         }
     }
 
-    private static final class Harness {
+    static final class Harness {
         long now;
         String throwUrl = "";
         String server = "lobby";
@@ -727,6 +728,7 @@ public final class PackDeliveryTest {
         final List<ResourcePackInfo> sent = new ArrayList<>();
         final List<UUID> removed = new ArrayList<>();
         final List<Component> messages = new ArrayList<>();
+        final List<Component> consoleMessages = new ArrayList<>();
         final List<Job> jobs = new ArrayList<>();
         final List<Player> online = new ArrayList<>();
         final Lang lang;
@@ -810,6 +812,11 @@ public final class PackDeliveryTest {
                 case "getEventManager" -> events;
                 case "getScheduler" -> scheduler;
                 case "getAllPlayers" -> List.copyOf(online);
+                case "getConsoleCommandSource" -> stub(ConsoleCommandSource.class, (source, method, args) -> {
+                    if (method.getName().equals("sendMessage")) { consoleMessages.add((Component) args[0]); return null; }
+                    if (method.getName().equals("hasPermission")) return true;
+                    throw unexpected(method);
+                });
                 case "getPlayer" -> Optional.of(player);
                 case "getPluginManager" -> stub(com.velocitypowered.api.plugin.PluginManager.class, (pm, method, args) -> {
                     if (method.getName().equals("getPlugins")) return List.of();

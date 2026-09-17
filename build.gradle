@@ -25,6 +25,7 @@ dependencies {
     compileOnly 'com.velocitypowered:velocity-api:4.1.0-SNAPSHOT'
     annotationProcessor 'com.velocitypowered:velocity-api:4.1.0-SNAPSHOT'
     compileOnly 'org.spongepowered:configurate-yaml:4.2.0'
+    compileOnly 'com.google.code.gson:gson:2.10.1'
     compileOnly 'com.google.inject:guice:7.0.0'
     compileOnly 'net.kyori:adventure-text-minimessage:4.21.0'
     compileOnly 'net.kyori:adventure-text-serializer-plain:4.21.0'
@@ -129,3 +130,12 @@ tasks.register('httpSecurityTest', JavaExec) {
     mainClass = 'io.github.polang233.velocitytoolbox.pack.http.HttpSecurityTest'
 }
 tasks.named('check') { dependsOn 'httpSecurityTest' }
+
+tasks.register('packToolsTest', JavaExec) {
+    group = 'verification'
+    description = 'Checks pack diagnostics, archive validation, read-only checks and bulk resend lifecycle.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + configurations.compileClasspath
+    mainClass = 'io.github.polang233.velocitytoolbox.pack.host.PackToolsTest'
+}
+tasks.named('check') { dependsOn 'packToolsTest' }

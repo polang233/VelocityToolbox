@@ -62,6 +62,7 @@ pack-host:
 resource-packs:
   # false 时不校验下列资源文件，也不下发。
   # 开启时会校验全部包定义，需准备示例文件或删除不用的定义和分配。
+  # 用于下发的本地 ZIP 须在根目录包含合法 pack.mcmeta，元数据上限 64 KiB。
   enabled: false
   # 各变体的默认下发设置。
   settings:

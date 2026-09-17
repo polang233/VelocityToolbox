@@ -6,6 +6,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 LANG = ROOT / "src/main/resources/lang"
 GROUPS = {"common", "main", "plugin", "server", "pack"}
+NON_MESSAGE_LITERALS = {"pack.mcmeta"}  # ZIP metadata filename, not a language key.
 TAGS = set("black dark_blue dark_green dark_aqua dark_red dark_purple gold gray dark_gray blue green aqua red light_purple yellow white bold italic underlined strikethrough obfuscated reset newline".split())
 
 class UniqueLoader(yaml.BaseLoader):
@@ -52,6 +53,8 @@ def main():
         text = file.read_text(encoding="utf-8")
         for literal in re.findall(r'"(?:\\.|[^"\\])*"', text):
             key = literal[1:-1]
+            if key in NON_MESSAGE_LITERALS:
+                continue
             if re.fullmatch(r"(common|main|plugin|server|pack)(\.[a-z0-9-]+)+\.?", key):
                 assert key in zh or (key.endswith(".") and any(k.startswith(key) for k in zh)), f"{file.name}: missing {key}"
     config = (ROOT / "src/main/resources/config.yml").read_text(encoding="utf-8")
