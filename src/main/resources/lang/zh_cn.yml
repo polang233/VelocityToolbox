@@ -190,6 +190,7 @@ server:
 pack:
   title: "<#FFB366>资源包"
   help:
+    check: "检查资源包配置和本地文件，不应用改动。"
     summary: "<#CCFFFF>资源包托管、下发与玩家状态"
     list: "<#CCFFFF>查看配置包与托管文件"
     status: "<#CCFFFF>查看玩家资源包状态"
@@ -265,3 +266,11 @@ pack:
       version: "客户端版本不符"
       permission: "缺少所需权限"
       version-permission: "版本不符且缺少权限"
+  check:
+    ok: "<green>资源包配置检查通过，尚未应用。"
+    summary: "<gray>托管：<host>；下发：<delivery>；托管文件 <files> 个，包定义 <packs> 个。"
+    disabled: "<gray>下发未开启，未检查其中的示例规则和引用文件。"
+    auto-url: "<yellow>public-url 留空，使用自动选择的本机地址；请从玩家网络确认是否可访问。"
+    scope: "<gray>未测试端口占用、公网连通或外链内容；当前监听和玩家下发均未改变。"
+    failed: "<#FF5555>资源包检查失败：<detail>"
+    log-failed: "<#FF5555>资源包检查失败 / Resource pack check failed：<source> · <detail>"

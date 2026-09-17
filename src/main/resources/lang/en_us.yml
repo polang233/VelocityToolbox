@@ -190,6 +190,7 @@ server:
 pack:
   title: "<#FFB366>Resource packs"
   help:
+    check: "Check pack configuration and local files without applying changes."
     summary: "<#CCFFFF>Host packs, send download requests and track player loading"
     list: "<#CCFFFF>List configured packs and hosted files"
     status: "<#CCFFFF>Show a player's pack status"
@@ -265,3 +266,11 @@ pack:
       version: "client version does not match"
       permission: "missing required permission"
       version-permission: "version does not match and permission is missing"
+  check:
+    ok: "<green>Pack configuration check passed. No changes were applied."
+    summary: "<gray>Hosting: <host>; delivery: <delivery>; <files> hosted files, <packs> pack definitions."
+    disabled: "<gray>Delivery is disabled; its example rules and referenced files were not checked."
+    auto-url: "<yellow>public-url is empty, so a local address was selected. Check reachability from the players' network."
+    scope: "<gray>Port availability, public reachability and external URL contents were not tested. The listener and player offers are unchanged."
+    failed: "<#FF5555>Pack check failed: <detail>"
+    log-failed: "<#FF5555>Pack check failed for <source>: <detail>"

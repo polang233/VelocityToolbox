@@ -190,6 +190,7 @@ server:
 pack:
   title: "<#FFB366>資源包"
   help:
+    check: "檢查資源包設定與本機檔案，不套用變更。"
     summary: "<#CCFFFF>資源包託管、傳送及玩家載入狀態"
     list: "<#CCFFFF>查看設定中的資源包與託管檔案"
     status: "<#CCFFFF>查看玩家的資源包載入狀態"
@@ -265,3 +266,11 @@ pack:
       version: "用戶端版本不符"
       permission: "缺少所需權限"
       version-permission: "版本不符且缺少權限"
+  check:
+    ok: "<green>資源包設定檢查通過，尚未套用。"
+    summary: "<gray>託管：<host>；傳送：<delivery>；託管檔案 <files> 個，資源包設定 <packs> 個。"
+    disabled: "<gray>尚未開啟資源包傳送，未檢查其中的範例規則與引用檔案。"
+    auto-url: "<yellow>public-url 留空，目前使用自動選取的本機位址；請從玩家的網路確認能否存取。"
+    scope: "<gray>未測試連接埠占用、外網連線或外部連結內容；目前的監聽與資源包傳送都未變更。"
+    failed: "<#FF5555>資源包檢查失敗：<detail>"
+    log-failed: "<#FF5555>資源包檢查失敗 / Resource pack check failed：<source> · <detail>"

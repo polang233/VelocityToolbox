@@ -50,7 +50,8 @@ public final class PackToolsTest {
         try {
             archives();
             urlsAndReasons();
-            System.out.println("Pack tools tests passed: archives, urlsAndReasons.");
+            readOnlyCheck();
+            System.out.println("Pack tools tests passed: archives, urlsAndReasons, readOnlyCheck.");
         } finally {
             try (var paths = Files.walk(root)) {
                 for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) Files.deleteIfExists(path);
@@ -133,6 +134,53 @@ public final class PackToolsTest {
         check(none.matches().getFirst().reason() == PackRules.Reason.NONE && none.selection().packs().isEmpty(), "@ diagnostic");
     }
 
+    private static void readOnlyCheck() throws Exception {
+        Path directory = root.resolve("check");
+        var h = new PackDeliveryTest.Harness(directory);
+        int port;
+        try (ServerSocket socket = new ServerSocket(0)) { port = socket.getLocalPort(); }
+        String host = "enabled: true\nbind: 127.0.0.1\nport: " + port + "\npublic-url: http://127.0.0.1:" + port + "\npacks-directory: live\n";
+        zip(directory.resolve("live/live.zip"), "pack.mcmeta", METADATA);
+        try (var service = h.host; PackSender sender = h.sender()) {
+            service.start(PackConfig.from(yaml(host)));
+            sender.apply(rules(RULES));
+            h.run(0);
+            var liveRules = sender.rules();
+            var liveFiles = service.packs();
+            String liveOrigin = service.publicOrigin();
+            zip(directory.resolve("candidate/candidate.zip"), "pack.mcmeta", METADATA);
+            String localRules = RULES.replace("url: https://example.com/pack.zip\n      hash: " + HASH, "url: '@candidate.zip'");
+            String file = "pack-host:\n" + host.replace("packs-directory: live", "packs-directory: candidate").indent(2)
+                    + "resource-packs:\n" + localRules.indent(2);
+            Files.writeString(directory.resolve("config.yml"), file);
+            List<Path> before;
+            try (var paths = Files.walk(directory)) { before = paths.sorted().toList(); }
+            int messages = h.messages.size();
+            var result = service.check();
+            check(result.rules().enabled() && result.host().packs().containsKey("candidate.zip"), "candidate configuration checked");
+            check(service.enabled() && service.publicOrigin().equals(liveOrigin) && service.packs().equals(liveFiles), "check preserves listener and live catalog");
+            check(sender.rules() == liveRules && h.sent.size() == 1 && h.messages.size() == messages, "check does not apply or log quietly scanned state");
+            try (var paths = Files.walk(directory)) { check(paths.sorted().toList().equals(before), "check creates no files"); }
+            check(Files.readString(directory.resolve("config.yml")).equals(file), "check preserves config bytes");
+
+            zip(directory.resolve("candidate/candidate.zip"), "pack.mcmeta", "bad json");
+            try { service.check(); throw new AssertionError("invalid candidate ZIP accepted"); }
+            catch (IOException expected) {
+                check(expected.getMessage().contains("resource-packs.packs.main[0].url")
+                        && expected.getMessage().contains("candidate.zip"), "invalid ZIP reports config and file paths");
+            }
+            check(service.packs().equals(liveFiles) && sender.rules() == liveRules, "failed check preserves active state");
+
+            Files.writeString(directory.resolve("config.yml"), file.replace("packs-directory: candidate", "packs-directory: absent"));
+            try { service.check(); throw new AssertionError("missing directory accepted"); }
+            catch (IOException expected) { check(!Files.exists(directory.resolve("absent")), "check does not create missing directory"); }
+            Files.writeString(directory.resolve("config.yml"), "pack-host:\n  enabled: false\nresource-packs:\n  enabled: false\n  packs:\n    demo:\n      - url: '@missing.zip'\n");
+            check(!service.check().rules().enabled(), "disabled example rules are left inactive");
+            Files.delete(directory.resolve("config.yml"));
+            try { service.check(); throw new AssertionError("missing config accepted"); }
+            catch (IOException expected) { check(!Files.exists(directory.resolve("config.yml")), "check does not regenerate missing config"); }
+        }
+    }
 
 
 

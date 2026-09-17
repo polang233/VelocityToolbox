@@ -16,6 +16,7 @@ import io.github.polang233.velocitytoolbox.pack.host.PackService;
 import io.github.polang233.velocitytoolbox.version.VersionText;
 
 import java.util.List;
+import java.io.IOException;
 import java.util.Locale;
 
 final class PackCommand extends CommandView {
@@ -33,6 +34,8 @@ final class PackCommand extends CommandView {
                 .requires(source -> module(source, "pack")).executes(this::help);
         node.then(literal("list")
                 .requires(source -> action(source, "pack", "list")).executes(this::list));
+        node.then(literal("check")
+                .requires(source -> action(source, "pack", "check")).executes(this::check));
         for (String action : List.of("status", "resend"))
             node.then(literal(action)
                     .requires(source -> action(source, "pack", action))
@@ -46,11 +49,37 @@ final class PackCommand extends CommandView {
 
     private int help(CommandContext<CommandSource> ctx) {
         sectionLine(ctx.getSource(), "pack.title");
-        for (String action : List.of("list", "status", "resend"))
+        for (String action : List.of("list", "check", "status", "resend"))
             if (action(ctx.getSource(), "pack", action))
-                helpLine(ctx.getSource(), "/vtb pack " + action + (action.equals("list") ? "" : " <player>"),
+                helpLine(ctx.getSource(), "/vtb pack " + action + (List.of("list", "check").contains(action) ? "" : " <player>"),
                         "pack.help." + action);
         return 1;
+    }
+
+    private int check(CommandContext<CommandSource> ctx) {
+        CommandSource source = ctx.getSource();
+        try {
+            var result = host.check();
+            lang.send(source, "pack.check.ok");
+            lang.send(source, "pack.check.summary",
+                    Lang.ph("host", lang.plain(result.host().config().enabled() ? "common.enabled" : "common.disabled")),
+                    Lang.ph("delivery", lang.plain(result.rules().enabled() ? "common.enabled" : "common.disabled")),
+                    Lang.ph("files", result.host().packs().size()), Lang.ph("packs", result.rules().packs().size()));
+            if (!result.rules().enabled()) lang.send(source, "pack.check.disabled");
+            if (result.host().config().enabled()) {
+                lang.send(source, "pack.host.url", Lang.ph("url", result.host().origin()));
+                if (result.host().config().publicUrl().isEmpty()) lang.send(source, "pack.check.auto-url");
+            }
+            lang.send(source, "pack.check.scope");
+            return 1;
+        } catch (IOException | RuntimeException error) {
+            String detail = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
+            lang.send(source, "pack.check.failed", Lang.ph("detail", detail));
+            if (source != proxy.getConsoleCommandSource())
+                lang.send(proxy.getConsoleCommandSource(), "pack.check.log-failed",
+                        Lang.ph("source", sourceName(source)), Lang.ph("detail", detail));
+            return 0;
+        }
     }
 
     private int player(CommandContext<CommandSource> ctx, String action) {

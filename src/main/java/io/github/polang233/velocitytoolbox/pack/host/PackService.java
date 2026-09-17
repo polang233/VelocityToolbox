@@ -7,6 +7,8 @@ import io.github.polang233.velocitytoolbox.pack.http.LanIpv4Addresses;
 import io.github.polang233.velocitytoolbox.pack.http.PackHttpServer;
 import io.github.polang233.velocitytoolbox.pack.http.DownloadTickets;
 import io.github.polang233.velocitytoolbox.pack.config.HostLimits;
+import io.github.polang233.velocitytoolbox.pack.config.PackRules;
+import io.github.polang233.velocitytoolbox.config.ResourceFiles;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 
 import java.io.IOException;
@@ -51,12 +53,32 @@ public final class PackService implements AutoCloseable {
 
     /** 生成待应用的托管快照，不修改当前监听器。 */
     public synchronized Prepared prepare(PackConfig next) throws IOException {
+        return prepare(next, false);
+    }
+
+    public record CheckResult(Prepared host, PackRules rules) {
+    }
+
+    /** 读取磁盘上的候选配置，不创建目录、不改监听器，也不触发玩家更新。 */
+    public CheckResult check() throws IOException {
+        Path file = dataDirectory.resolve("config.yml");
+        if (!Files.isRegularFile(file)) throw new IOException("configuration file not found: " + file);
+        var root = ResourceFiles.loadYaml(file);
+        PackConfig config = PackConfig.from(root.node("pack-host"));
+        Prepared prepared = prepare(config, true);
+        PackRules rules = PackRules.read(root.node("resource-packs"), prepared.list(), prepared.directory(), config.enabled());
+        return new CheckResult(prepared, rules);
+    }
+
+    private Prepared prepare(PackConfig next, boolean checking) throws IOException {
         Path dir = Path.of(next.packsDirectory());
         dir = (dir.isAbsolute() ? dir : dataDirectory.resolve(dir)).toAbsolutePath().normalize();
         if (!next.enabled()) return new Prepared(next, dir, null, Map.of());
         if (next.port() < 1 || next.port() > 65535) throw new IOException("Invalid pack-host.port");
-        Files.createDirectories(dir);
-        String origin = resolvePublicOrigin(next);
+        if (checking) {
+            if (!Files.isDirectory(dir)) throw new IOException("pack-host.packs-directory: directory not found: " + dir);
+        } else Files.createDirectories(dir);
+        String origin = resolvePublicOrigin(next, checking);
         return new Prepared(next, dir, origin, PackScanner.scan(dir, origin));
     }
 
@@ -163,14 +185,14 @@ public final class PackService implements AutoCloseable {
         publicOrigin = null;
     }
 
-    private String resolvePublicOrigin(PackConfig next) throws IOException {
+    private String resolvePublicOrigin(PackConfig next, boolean quiet) throws IOException {
         String configured = next.publicUrl();
         if (!configured.isEmpty()) {
             String origin = trimSlash(configured);
-            if (origin.contains("127.0.0.1") || origin.contains("localhost")) {
+            if (!quiet && (origin.contains("127.0.0.1") || origin.contains("localhost"))) {
                 console("pack.host.log.warn-localhost");
             }
-            if (origin.contains("0.0.0.0")) {
+            if (!quiet && origin.contains("0.0.0.0")) {
                 console("pack.host.log.warn-wildcard");
             }
             return origin;
@@ -179,15 +201,16 @@ public final class PackService implements AutoCloseable {
         List<String> candidates = LanIpv4Addresses.detect();
         if (candidates.isEmpty()) {
             String fallback = "http://127.0.0.1:" + next.port();
-            console("pack.host.log.warn-fallback", Lang.ph("origin", fallback));
+            if (!quiet) console("pack.host.log.warn-fallback", Lang.ph("origin", fallback));
             return fallback;
         }
-        if (candidates.size() > 1) {
+        if (!quiet && candidates.size() > 1) {
             console("pack.host.log.multiple-addresses",
                     Lang.ph("addresses", String.join(", ", candidates)),
                     Lang.ph("selected", candidates.getFirst()));
         }
-        return "http://" + candidates.getFirst() + ":" + next.port();
+        String origin = "http://" + candidates.getFirst() + ":" + next.port();
+        return origin;
     }
 
     private void console(String key, TagResolver... resolvers) {
