@@ -19,7 +19,7 @@ Saved client preferences can accept or decline automatically, so an offer does n
 - Protocol version, pack.mcmeta format and resource compatibility are separate. conditions.versions selects a file; it does not convert resources, merge ZIPs or repair models or fonts. Supply variants for the target clients.
 - Download size limits, resource formats and loading capacity vary by client version. Large packs can fail due to networking, client memory or format errors. Test target clients; increasing a timeout cannot fix an invalid pack.
 
-External required packs use the native flag. VTB enforces required itself for hosted packs to allow overload retries: declines still disconnect; failures explicitly recorded as locally rate-limited retry twice at five-second intervals, then follow required.
+External required packs use the native flag on 1.17+; the client may disconnect immediately when declining them. On older clients, VTB enforces required against the current request, so late responses to cancelled requests do not disconnect the player. VTB also enforces required for hosted packs to allow overload retries: declines still disconnect; failures explicitly recorded as locally rate-limited retry twice at five-second intervals, then follow required.
 
 ## Hosting, URLs and delivery
 

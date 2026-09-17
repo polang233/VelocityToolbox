@@ -193,8 +193,11 @@ public final class PackSender implements AutoCloseable {
                     }
                     url = offer.ticket.url();
                 }
-                // 自托管重试由 VTB 执行必需校验，避免客户端在 HTTP 限流时自行断开。
-                boolean nativeForce = offer.choice.required() && (!offer.choice.file().local() || host.limits().retries() == 0);
+                // 旧客户端由 VTB 按当前请求校验，避免代理因已取消的必需包回执误踢。
+                // 自托管重试也由 VTB 校验，避免客户端在 HTTP 限流时自行断开。
+                boolean nativeForce = offer.choice.required()
+                        && player.getProtocolVersion().compareTo(ProtocolVersion.MINECRAFT_1_17) >= 0
+                        && (!offer.choice.file().local() || host.limits().retries() == 0);
                 var info = proxy.createResourcePackBuilder(url)
                         .setHash(HexFormat.of().parseHex(offer.choice.file().sha1()))
                         .setId(offer.id).setPrompt(offer.choice.prompt()).setShouldForce(nativeForce).build();

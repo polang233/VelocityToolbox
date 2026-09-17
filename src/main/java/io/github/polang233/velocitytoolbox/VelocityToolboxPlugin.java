@@ -17,7 +17,7 @@ import io.github.polang233.velocitytoolbox.command.ModuleStatus;
 import io.github.polang233.velocitytoolbox.config.PluginConfig;
 import io.github.polang233.velocitytoolbox.config.ResourceFiles;
 import io.github.polang233.velocitytoolbox.lang.Lang;
-import io.github.polang233.velocitytoolbox.metrics.Metrics;
+import io.github.polang233.velocitytoolbox.hook.Metrics;
 import io.github.polang233.velocitytoolbox.pack.config.PackConfig;
 import io.github.polang233.velocitytoolbox.pack.config.PackRules;
 import io.github.polang233.velocitytoolbox.pack.delivery.PackSender;

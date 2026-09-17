@@ -91,6 +91,8 @@ public final class PackDeliveryTest {
             limitedRetry();
             http();
             events();
+            globalAssignments();
+            legacyRequiredReplies();
             mixedOffers();
             commands();
             System.out.println("Pack delivery tests passed: config, selection, real HTTP, reload, events, stale replies, timeout, commands.");
@@ -512,6 +514,125 @@ public final class PackDeliveryTest {
         sender.close();
     }
 
+    /** 全局规则同时更新多个玩家；各子服分配、客户端版本和回执互不影响。 */
+    private static void globalAssignments() throws Exception {
+        Harness modern = new Harness(dir.resolve("global-modern"));
+        Harness legacy = new Harness(dir.resolve("global-legacy"));
+        Harness custom = new Harness(dir.resolve("global-custom"));
+        modern.server = "unlisted-a";
+        legacy.server = "unlisted-b";
+        legacy.version = ProtocolVersion.MINECRAFT_1_15;
+        custom.server = "vip";
+        modern.online.addAll(List.of(legacy.player, custom.player));
+        String config = YAML.replace("packs: [base]", "packs: [base, extra]");
+        try (PackSender sender = modern.sender()) {
+            sender.apply(rules(config));
+            modern.run(0);
+            check(modern.sent.size() == 2, "global stack reaches modern online player");
+            check(legacy.sent.size() == 1 && legacy.sent.getFirst().getUrl().endsWith("base.zip"),
+                    "global stack gives legacy player the first complete pack");
+            check(custom.sent.isEmpty() && custom.kicked == null,
+                    "unmatched custom assignment does not fall back to global packs or kick");
+
+            sender.status(reply(modern, legacy.sent.getFirst(), "SUCCESSFUL"));
+            check(!modern.status(sender).contains(" · loaded") && !legacy.status(sender).contains(" · loaded"),
+                    "a reply cannot update another player's offers");
+            for (ResourcePackInfo offer : modern.sent) sender.status(reply(modern, offer, "SUCCESSFUL"));
+            sender.status(reply(legacy, legacy.sent.getFirst(), "SUCCESSFUL"));
+
+            List<UUID> original = modern.sent.stream().map(ResourcePackInfo::getId).toList();
+            sender.apply(rules(config));
+            modern.server = "unlisted-c";
+            legacy.server = "unlisted-d";
+            sender.connected(new ServerPostConnectEvent(modern.player, null));
+            sender.connected(new ServerPostConnectEvent(legacy.player, null));
+            modern.run(0);
+            check(modern.sent.size() == 2 && legacy.sent.size() == 1 && modern.removed.isEmpty(),
+                    "reload and switches between default servers retain unchanged packs");
+
+            custom.permissions.add("pack.vip");
+            check(sender.resend(custom.player) == PackSender.ResendResult.SCHEDULED, "permission change can be resent");
+            modern.run(0);
+            check(custom.sent.size() == 1 && custom.sent.getFirst().getUrl().endsWith("vip.zip"),
+                    "custom assignment replaces the entire global list");
+            ResourcePackInfo required = custom.sent.getFirst();
+            custom.server = "empty";
+            sender.connected(new ServerPostConnectEvent(custom.player, null));
+            sender.status(reply(custom, required, "FAILED_DOWNLOAD"));
+            modern.run(3000);
+            check(custom.removed.contains(required.getId()) && custom.kicked == null && custom.sent.size() == 1,
+                    "empty assignment removes owned packs and cancels old required deadlines");
+
+            String reordered = config.replace("default:\n    packs: [base, extra]", "default:\n    packs: [extra, base]");
+            sender.apply(rules(reordered));
+            modern.run(0);
+            check(modern.sent.size() == 4 && modern.sent.get(2).getUrl().endsWith("new.zip")
+                    && modern.sent.get(3).getUrl().endsWith("base.zip") && modern.removed.containsAll(original),
+                    "global reordering updates stack order on existing players");
+            check(legacy.sent.size() == 2 && legacy.sent.getLast().getUrl().endsWith("old.zip")
+                    && legacy.removed.isEmpty(), "global reordering respects legacy version selection");
+            check(custom.sent.size() == 1, "global reload leaves explicitly empty servers empty");
+
+            String withoutDefault = reordered.replace("  default:\n    packs: [extra, base]\n", "");
+            ResourcePackInfo last = modern.sent.getLast();
+            sender.apply(rules(withoutDefault));
+            modern.run(3000);
+            check(modern.removed.contains(last.getId()) && modern.sent.size() == 4 && legacy.sent.size() == 2,
+                    "removing default stops allocation and removes modern owned packs");
+            check(sender.resend(modern.player) == PackSender.ResendResult.EMPTY
+                    && sender.resend(legacy.player) == PackSender.ResendResult.EMPTY,
+                    "missing global assignment reports no packs for both client types");
+        }
+    }
+
+    private static void legacyRequiredReplies() throws Exception {
+        String requiredConfig = YAML.replace("settings:", "settings:\n  required: true");
+        for (String change : List.of("switch", "resend", "backend", "disable")) {
+            Harness h = new Harness(dir.resolve("legacy-required-" + change));
+            h.version = ProtocolVersion.MINECRAFT_1_15;
+            try (PackSender sender = h.sender()) {
+                sender.apply(rules(requiredConfig));
+                h.run(0);
+                ResourcePackInfo old = h.sent.getFirst();
+                switch (change) {
+                    case "switch" -> {
+                        h.server = "empty";
+                        sender.connected(new ServerPostConnectEvent(h.player, null));
+                    }
+                    case "resend" -> sender.resend(h.player);
+                    case "backend" -> sender.backend(new ServerResourcePackSendEvent(old, h.connection));
+                    case "disable" -> sender.apply(PackRules.disabled());
+                }
+                sender.status(reply(h, old, "DECLINED"));
+                // 代理还会在事件结束后处理必需标记，不能只检查 VTB 的事件处理结果。
+                if (old.getShouldForce()) h.player.disconnect(Component.text("Required pack declined"));
+                check(h.kicked == null, "legacy stale required decline must not disconnect after " + change);
+            }
+        }
+        for (String failure : List.of("DECLINED", "FAILED_DOWNLOAD", "TIMEOUT")) {
+            Harness h = new Harness(dir.resolve("legacy-active-required-" + failure));
+            h.version = ProtocolVersion.MINECRAFT_1_15;
+            try (PackSender sender = h.sender()) {
+                sender.apply(rules(requiredConfig));
+                h.run(0);
+                ResourcePackInfo active = h.sent.getFirst();
+                check(!active.getShouldForce(), "legacy enforcement belongs to the active VTB selection");
+                if (failure.equals("TIMEOUT")) h.run(3000);
+                else sender.status(reply(h, active, failure));
+                check(h.kicked != null, "legacy active required pack still enforced on " + failure);
+            }
+        }
+        for (ProtocolVersion version : List.of(ProtocolVersion.MINECRAFT_1_17, ProtocolVersion.MINECRAFT_1_20_3)) {
+            Harness h = new Harness(dir.resolve("native-required-" + version.getProtocol()));
+            h.version = version;
+            try (PackSender sender = h.sender()) {
+                sender.apply(rules(requiredConfig));
+                h.run(0);
+                check(h.sent.getFirst().getShouldForce(), "supported external packs keep the native required flag");
+            }
+        }
+    }
+
     private static PlayerResourcePackStatusEvent reply(Harness h, ResourcePackInfo info, String name) {
         return new PlayerResourcePackStatusEvent(h.player, info.getId(), PlayerResourcePackStatusEvent.Status.valueOf(name), info);
     }
@@ -607,6 +728,7 @@ public final class PackDeliveryTest {
         final List<UUID> removed = new ArrayList<>();
         final List<Component> messages = new ArrayList<>();
         final List<Job> jobs = new ArrayList<>();
+        final List<Player> online = new ArrayList<>();
         final Lang lang;
         final Player player;
         final ServerConnection connection;
@@ -656,6 +778,7 @@ public final class PackDeliveryTest {
                 }
                 default -> throw unexpected(m);
             });
+            online.add(player);
             Scheduler scheduler = stub(Scheduler.class, (o, m, a) -> {
                 if (!m.getName().equals("buildTask")) throw unexpected(m);
                 Runnable runnable = (Runnable) a[1];
@@ -686,7 +809,7 @@ public final class PackDeliveryTest {
             proxy = stub(ProxyServer.class, (o, m, a) -> switch (m.getName()) {
                 case "getEventManager" -> events;
                 case "getScheduler" -> scheduler;
-                case "getAllPlayers" -> List.of(player);
+                case "getAllPlayers" -> List.copyOf(online);
                 case "getPlayer" -> Optional.of(player);
                 case "getPluginManager" -> stub(com.velocitypowered.api.plugin.PluginManager.class, (pm, method, args) -> {
                     if (method.getName().equals("getPlugins")) return List.of();
