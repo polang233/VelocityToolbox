@@ -7,6 +7,7 @@ DIRECTORY = ROOT / "docs/publishing"
 SOURCES = {
     "FORUM.zh.md": "FORUM.zh.bbcode.txt",
     "RELEASE-1.3.0.md": "RELEASE-1.3.0.bbcode.txt",
+    "RELEASE-1.3.5.md": "RELEASE-1.3.5.bbcode.txt",
 }
 
 

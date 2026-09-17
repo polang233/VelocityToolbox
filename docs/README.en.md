@@ -37,7 +37,7 @@ When updating, replace the JAR and restart the proxy. Existing configuration sti
 
 For hosted files, `public-url` is the client's download address prefix. An empty value selects a local network address. Public servers need a reachable IP/domain with port forwarding or a reverse proxy.
 
-Clients on 1.20.3+ can stack packs. Older clients receive the first matching complete pack. A selected required pack disconnects on rejection, failure or timeout. Use `/vtb pack list`, `status player` and `resend player` to inspect or resend packs.
+Clients on 1.20.3+ can stack packs. Older clients receive the first matching complete pack. A selected required pack disconnects on rejection, failure or timeout. Use `/vtb pack list`, `status player` and `resend player` to inspect or resend packs. From 1.3.5, `/vtb pack check` checks configuration without applying it, and `/vtb pack resend all` resends in batches.
 
 <p align="center">
   <img src="../assets/screenshot-packs.png" alt="Client resource pack prompt" width="720">

@@ -52,7 +52,7 @@
 自托管的 `public-url` 是玩家下载地址前缀。留空自动选本机局域网地址；公网服请填可访问的 IP 或域名，自行配置端口映射或反代。
 
 1.20.3+ 支持多包叠加；旧客户端只接收首个匹配的完整包。已选中的必需包被拒绝、失败或超时会断开玩家。
-用 `/vtb pack list`、`status 玩家`、`resend 玩家` 查看或重新下发。
+用 `/vtb pack list`、`status 玩家`、`resend 玩家` 查看或重新下发。1.3.5 起支持 `/vtb pack check` 只检查配置，以及 `/vtb pack resend all` 分批重发。
 
 <p align="center">
   <img src="assets/screenshot-packs.png" alt="客户端资源包下载提示" width="720">

@@ -65,11 +65,13 @@ Common commands:
 
 - `/vtb plugin list`, `inspect plugin-id`, `load file.jar`, `unload plugin-id` and `reload plugin-id`: inspect or manage plugins.
 - `/vtb pack list`: list pack sources, conditions, hosted files and HTTP statistics.
-- `/vtb pack status player` and `/vtb pack resend player`: check loading or resend packs.
+- `/vtb pack check` (1.3.5+): check configuration, hashes and local pack metadata without applying changes; errors identify the configuration path and file.
+- `/vtb pack status player` and `/vtb pack resend player`: check loading, assignment sources and variant match reasons, or resend packs.
+- `/vtb pack resend all` (1.3.5+): schedule up to five online players per second; reload cancels the remaining queue.
 - `/vtb server hosts`: inspect player entry domains.
 - `/vtb info` and `/vtb reload`: show module status or reload configuration, language and rules.
 
-`velocitytoolbox.admin` grants all commands. For narrower access, grant `velocitytoolbox.command` plus the module and action permissions. For example, pack status also needs `velocitytoolbox.command.pack` and `velocitytoolbox.command.pack.status`. General commands use `velocitytoolbox.command.info` or `velocitytoolbox.command.reload`.
+`velocitytoolbox.admin` grants all commands. For narrower access, grant `velocitytoolbox.command` plus the module and action permissions. For example, pack status also needs `velocitytoolbox.command.pack` and `velocitytoolbox.command.pack.status`. Configuration checks need `velocitytoolbox.command.pack.check`; bulk resend additionally needs `velocitytoolbox.command.pack.resend.all` alongside resend access. General commands use `velocitytoolbox.command.info` or `velocitytoolbox.command.reload`.
 
 [All commands and permissions](https://github.com/polang233/VelocityToolbox/wiki/Modules-English)
 

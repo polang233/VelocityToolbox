@@ -104,10 +104,12 @@ VTB 只管理自己的包。旧客户端收到后端包后，以后端为准，�
 
 - /vtb reload：重新读取配置和哈希，更新在线玩家；无变化的包不重复下发。
 - /vtb pack list：查看来源、版本、权限和托管文件。
-- /vtb pack status 玩家：查看选择、加载状态和强制要求。
+- /vtb pack status 玩家：查看加载状态和强制要求，再按当前条件展示分配来源、匹配变体、版本或权限不符的原因。
 - /vtb pack resend 玩家：按当前规则重新下发，没有匹配包时说明原因。
+- /vtb pack check（1.3.5+）：读取磁盘配置并检查启用的模块，不应用配置、不创建文件或目录、不启动监听，也不发包。下发关闭时跳过其规则和资源包元数据检查。它不测试端口占用、公网连通或外链内容。
+- /vtb pack resend all（1.3.5+）：将当前在线玩家加入队列，每秒最多处理 5 人，各玩家仍使用配置的 delay。重复执行不会叠加队列；重载或停用取消剩余队列。结束时区分已安排、无适用包和离线等跳过情况，实际加载结果用 status 查看。
 
-命令需 velocitytoolbox.admin，或 velocitytoolbox.command、velocitytoolbox.command.pack 及对应的 velocitytoolbox.command.pack.list/status/resend 动作权限。
+命令需 velocitytoolbox.admin，或 velocitytoolbox.command、velocitytoolbox.command.pack 及对应的 velocitytoolbox.command.pack.list/check/status/resend 动作权限。resend all 另需 velocitytoolbox.command.pack.resend.all。
 
 重载校验失败保留旧规则；首次加载失败则关闭下发。ZIP 建议先写临时文件再替换。public-url 留空选择局域网地址，公网玩家需要可访问的公网地址或反代。
 
@@ -115,9 +117,11 @@ VTB 只管理自己的包。旧客户端收到后端包后，以后端为准，�
 
 ## 自托管能力与局限
 
+1.3.5 起，重载与 pack check 会检查被下发规则引用的本地 ZIP：能否打开、根目录是否有 pack.mcmeta、JSON 和必要字段是否有效。元数据限制为 64 KiB、最多 64 层嵌套，支持旧 pack_format 和新版 min_format/max_format。错误带配置路径与文件名，重载失败保留旧规则。此检查不验证全部资源内容，也不代替客户端兼容性测试；外链只检查 URL 与显式哈希，不下载文件。
+
 VTB 读取本机 ZIP，提供 GET/HEAD 下载、文件哈希、限频和并发控制；它适合将已有资源包目录直接提供给玩家。外部直链由外部服务器提供，VTB 的托管限流不约束那个服务器。
 
-public-url 留空仍自动选择本机局域网地址。该设置只生成客户端链接，不自动探测公网、不配置端口映射、域名、HTTPS 或 CDN。填入的域名需指向可用下载服务；确认公网可达应从外部网络访问实际文件链接。
+public-url 留空仍自动选择本机地址，选到局域网地址时会输出简短提醒。该设置只生成客户端链接，不自动探测公网、不配置端口映射、域名、HTTPS 或 CDN。填入的域名需指向可用下载服务；确认公网可达应从外部网络访问实际文件链接。
 
 文件边界检查、请求大小限制、IP 记录回收、目录隐藏和本机过载重试由插件自动处理。下载链接可被分享，选包权限并不是 HTTP 下载鉴权；大规模流量攻击、TLS 和慢请求头防护需要反代或专门的下载服务。应用层限制在请求头解析后生效。[JDK HTTP 服务边界](https://docs.oracle.com/en/java/javase/25/docs/api/jdk.httpserver/module-summary.html)
 

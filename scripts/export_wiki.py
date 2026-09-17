@@ -77,7 +77,7 @@ Velocity 4.0+ 运维工具箱，需要 Java 25+。
     ]) + "\n"
     config = (ROOT / "src/main/resources/config.yml").read_text(encoding="utf-8")
     result["Configuration"] = ("# 完整默认配置\n\n"
-        f"适用于 1.3.0。[配置源文件]({REPO}/blob/main/src/main/resources/config.yml)\n\n"
+        f"适用于 1.3.5。[配置源文件]({REPO}/blob/main/src/main/resources/config.yml)\n\n"
         "已有配置不会自动覆盖，也不必整份替换。需要下发时再补充 resource-packs，不加这段也不会启用下发。启用前替换样例文件及子服名，删除不用的定义。\n\n"
         f"```yaml\n{config.rstrip()}\n```\n")
     return result

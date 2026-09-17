@@ -102,7 +102,14 @@ VTB manages only its own packs. On older clients, backend offers take precedence
 
 ## Commands and updates
 
-Use /vtb reload, /vtb pack list, /vtb pack status player and /vtb pack resend player. Grant velocitytoolbox.admin, or the base command permission, pack module permission and matching action permission.
+Use /vtb reload, /vtb pack list, /vtb pack status player and /vtb pack resend player. Status separates recorded loading state from matches calculated using the current rules, client version and permissions, including the assignment source and variant number.
+
+From 1.3.5:
+
+- /vtb pack check reads disk configuration and checks enabled modules without applying it, creating files or directories, opening a listener or sending packs. Disabled delivery rules and their pack metadata are skipped. The check does not test port availability, public reachability or external URL contents.
+- /vtb pack resend all queues the currently online players, processing at most five per second. Each player still uses the configured delay. Duplicate runs are rejected; reload or shutdown cancels the remaining queue. The summary counts scheduled, empty and skipped players. Check status for actual loading results.
+
+Grant velocitytoolbox.admin, or velocitytoolbox.command plus velocitytoolbox.command.pack and the matching list/check/status/resend action permission. Bulk resend also requires velocitytoolbox.command.pack.resend.all.
 
 Invalid reloads retain previous rules; invalid initial loading disables delivery. Unchanged packs are not resent. Publish ZIPs by replacing completed temporary files. Set public-url for Internet access; leaving it empty selects a LAN address.
 
@@ -110,9 +117,11 @@ Migration and validation notes are in the [maintainer guide](maintainer/README.m
 
 ## Hosting capabilities and limits
 
+From 1.3.5, reload and pack check validate local ZIPs referenced by delivery rules: the archive must open, pack.mcmeta must be at the root, and its JSON and required fields must be valid. Metadata is limited to 64 KiB and 64 nesting levels. Both pack_format and newer min_format/max_format declarations are supported. Errors identify the configuration path and file; failed reloads retain previous rules. This does not validate every resource or client compatibility. External URLs receive syntax and explicit hash checks only; no files are downloaded.
+
 VTB serves local ZIPs over GET/HEAD with hashes, request limits and download concurrency controls. It can expose an existing resource directory directly. External URLs are served by their own hosts and are not subject to VTB's HTTP limits.
 
-Empty public-url still selects a local network address. It generates client links but does not discover a public IP, configure port forwarding, DNS, HTTPS or a CDN. Verify a public download from an external network.
+Empty public-url still selects a local address and logs a short warning when it selects a LAN address. It generates client links but does not discover a public IP, configure port forwarding, DNS, HTTPS or a CDN. Verify a public download from an external network.
 
 File boundary checks, request size limits, IP record expiry, hidden directory listings and overload retries are handled internally. URLs can be shared; pack-selection permissions are not HTTP download authorization. Use a reverse proxy or dedicated file service for TLS, large traffic attacks and slow-header protection. Application limits begin after header parsing. [JDK HTTP limitations](https://docs.oracle.com/en/java/javase/25/docs/api/jdk.httpserver/module-summary.html)
 

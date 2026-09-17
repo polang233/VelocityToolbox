@@ -19,8 +19,10 @@
 - `pack-host`：HTTP 下载、SHA-1 扫描、限频、并发和带宽控制。它不负责决定哪个玩家使用哪个包。
 - `resource-packs`：按子服、协议版本和权限选择变体，发送下载链接并处理回执。可使用托管文件或外部直链。
 - `/vtb pack list`：配置来源与条件、托管文件、HTTP 统计。
-- `/vtb pack status 玩家`：当前子服、选包和加载状态。
+- `/vtb pack status 玩家`：当前子服、加载状态，以及按当前版本和权限计算的分配来源、变体与不匹配原因。
 - `/vtb pack resend 玩家`：重新计算并下发，没有匹配包时说明原因。
+- `/vtb pack check`（1.3.5+）：检查磁盘配置、哈希和本地包元数据，不应用配置或发包；失败会向执行者和后台说明具体位置。
+- `/vtb pack resend all`（1.3.5+）：对执行时在线的玩家每秒最多安排 5 人重发，执行前重新选包；重复调用不叠加队列，重载或停用会取消剩余队列。完成提示是安排结果，加载结果仍看 status。
 
 托管成功启动不代表公网可达，也不代表客户端已加载。详见 [资源包原理与配置](RESOURCE_PACKS.md)。
 
@@ -43,7 +45,7 @@
 - 基础：`velocitytoolbox.command`。
 - 公共动作：`velocitytoolbox.command.info`、`velocitytoolbox.command.reload`。
 - 插件模块：`velocitytoolbox.command.plugin`，加 `velocitytoolbox.command.plugin.<动作>`；动作为 list、inspect、load、unload、reload。
-- 资源包模块：`velocitytoolbox.command.pack`，加 `velocitytoolbox.command.pack.<动作>`；动作为 list、status、resend。
+- 资源包模块：`velocitytoolbox.command.pack`，加 `velocitytoolbox.command.pack.<动作>`；动作为 list、check、status、resend。批量重发还需 `velocitytoolbox.command.pack.resend.all`，管理员权限已包含。
 - 入口模块：`velocitytoolbox.command.server`，加 `velocitytoolbox.command.server.hosts`。
 
 例如只查看资源包状态，需要 `velocitytoolbox.command`、`velocitytoolbox.command.pack` 和 `velocitytoolbox.command.pack.status`。资源包变体里的 permission 控制选包，与管理命令权限分开。

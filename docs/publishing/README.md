@@ -14,13 +14,15 @@
 
 ## 版本更新日志
 
-版本名可用 `VelocityToolbox 1.3.0`，版本号为 `1.3.0`。
+版本名使用 `VelocityToolbox 1.3.5`，版本号为 `1.3.5`。
 
-- [中文 Markdown 更新日志](RELEASE-1.3.0.md)
-- [中文 BBCode 更新日志](RELEASE-1.3.0.bbcode.txt)
-- [英文更新日志](RELEASE-1.3.0.en.md)：用于 Modrinth Changelog。
+- [中文 Markdown 更新日志](RELEASE-1.3.5.md)
+- [中文 BBCode 更新日志](RELEASE-1.3.5.bbcode.txt)
+- [英文更新日志](RELEASE-1.3.5.en.md)
 
-上传文件为构建目录中的 `VelocityToolbox-1.3.0.jar`，也可从 [GitHub Release](https://github.com/polang233/VelocityToolbox/releases/tag/v1.3.0) 下载。平台分类选择 Velocity，运行环境为 Velocity 4.0+、Java 25+；客户端资源包兼容范围取决于实际 ZIP 内容，按测试结果填写。
+上传 `VelocityToolbox-1.3.5.jar`，也可从 [GitHub Release](https://github.com/polang233/VelocityToolbox/releases/tag/v1.3.5) 下载。运行环境为 Velocity 4.0+、Java 25+；客户端资源包兼容范围按实际 ZIP 与测试结果填写。
+
+历史稿：[1.3.0 中文](RELEASE-1.3.0.md) · [BBCode](RELEASE-1.3.0.bbcode.txt) · [English](RELEASE-1.3.0.en.md)。
 
 ## 维护文案
 

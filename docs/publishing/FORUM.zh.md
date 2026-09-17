@@ -65,11 +65,13 @@ Velocity 运维工具箱：插件热管理、自定义资源包下发与托管�
 
 - `/vtb plugin list`、`inspect 插件ID`、`load 文件.jar`、`unload 插件ID`、`reload 插件ID`：查看或管理插件。
 - `/vtb pack list`：查看包来源、匹配条件、托管文件和 HTTP 统计。
-- `/vtb pack status 玩家`、`/vtb pack resend 玩家`：查看加载状态或重新下发。
+- `/vtb pack check`（1.3.5+）：检查配置、哈希和本地包元数据，不应用改动；出错时提示配置位置与文件名。
+- `/vtb pack status 玩家`、`/vtb pack resend 玩家`：查看加载状态、分配来源与变体匹配原因，或重新下发。
+- `/vtb pack resend all`（1.3.5+）：每秒最多安排 5 名在线玩家重发，重载会取消剩余队列。
 - `/vtb server hosts`：查看玩家入口。
 - `/vtb info`、`/vtb reload`：查看模块状态或重载配置、语言和规则。
 
-管理员权限为 `velocitytoolbox.admin`。细分授权需要基础权限 `velocitytoolbox.command`，再加模块与动作权限。例如查看资源包状态还需 `velocitytoolbox.command.pack` 和 `velocitytoolbox.command.pack.status`。公共命令使用 `velocitytoolbox.command.info` 或 `velocitytoolbox.command.reload`。
+管理员权限为 `velocitytoolbox.admin`。细分授权需要基础权限 `velocitytoolbox.command`，再加模块与动作权限。例如查看资源包状态还需 `velocitytoolbox.command.pack` 和 `velocitytoolbox.command.pack.status`。检查配置需要 `velocitytoolbox.command.pack.check`；批量重发在 resend 权限外还需 `velocitytoolbox.command.pack.resend.all`。公共命令使用 `velocitytoolbox.command.info` 或 `velocitytoolbox.command.reload`。
 
 [完整命令与权限](https://github.com/polang233/VelocityToolbox/wiki/Modules)
 

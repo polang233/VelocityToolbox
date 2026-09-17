@@ -11,14 +11,14 @@
 - pack.config：PackParser 解析和校验，PackRules 保存规则并选包，PackConfig 读取托管配置。
 - pack.host：PackService 管理托管快照和监听器，PackScanner 扫描 ZIP，HostedPack 记录文件和哈希。
 - pack.http：HTTP GET/HEAD、IP 限频、并发名额、带宽与期限控制，以及自托管下载重试关联。
-- pack.delivery：PackSender 管理每次连接的资源包请求、回执、延迟和超时。
+- pack.delivery：PackSender 管理每次连接的资源包请求、回执、延迟、超时和批量重发队列。
 - plugins：PluginLoadService 执行加载/卸载，PluginInspector 负责检查，PluginCleanup 清理资源；PluginInspection 和 CleanupReport 保存结果。
 - plugins.internal：PluginAccess 访问 Velocity 加载器及生命周期，PluginResources 查找资源归属，Reflection 提供反射工具。
-- metrics：bStats 统计代码。
+- hook：bStats 统计接入。
 
 ## 资源包
 
-配置通过全部校验后才应用。每个选中变体保存有效的 required/prompt；失败处理按单个请求执行。重载或切服保留未变化的包前缀，后续包按原顺序更新。
+配置通过全部校验后才应用。PackService.check 使用只读准备流程；PackArchive 检查被下发规则引用的 ZIP 元数据。PackRules.explain 与实际选包共用逻辑，诊断结果不参与已发送包的变化比较。每个选中变体保存有效的 required/prompt；失败处理按单个请求执行。重载或切服保留未变化的包前缀，后续包按原顺序更新。
 
 每次下发使用独立 UUID，过期回执和已取消任务不能修改新会话。现代客户端只撤下 VTB 自己的包。HTTP 托管开关和下发开关独立，具体行为见 [资源包配置](../RESOURCE_PACKS.md)。
 

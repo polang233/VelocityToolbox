@@ -12,7 +12,9 @@ Required dependencies block unloading. VTB cleans registered commands, listeners
 
 `pack-host` serves ZIPs and computes SHA-1, with request, concurrency and bandwidth limits. `resource-packs` chooses variants by server, client version and permission, then sends URLs and tracks responses. The modules have independent switches; delivery supports local files and external URLs.
 
-Use `/vtb pack list`, `status player` and `resend player`. A running HTTP listener does not prove public reachability or successful client loading. See [resource packs](RESOURCE_PACKS.en.md).
+Use `/vtb pack list`, `status player` and `resend player`. Status includes the current assignment and variant matches, with version and permission mismatch reasons.
+
+From 1.3.5, `/vtb pack check` checks the disk configuration, hashes and local pack metadata without applying changes. Failures identify the location in chat and the console. `/vtb pack resend all` schedules up to five online players per second, recalculating their packs before scheduling. Duplicate runs are rejected; reload or shutdown cancels the remaining queue. Completion reports scheduling, not successful client loading. A running HTTP listener does not prove public reachability or successful client loading. See [resource packs](RESOURCE_PACKS.en.md).
 
 ## Servers and entries
 
@@ -32,7 +34,7 @@ Use `/vtb pack list`, `status player` and `resend player`. A running HTTP listen
 
 - `velocitytoolbox.command.info` or `velocitytoolbox.command.reload` for general actions.
 - `velocitytoolbox.command.plugin` and `velocitytoolbox.command.plugin.<action>` for list, inspect, load, unload or reload.
-- `velocitytoolbox.command.pack` and `velocitytoolbox.command.pack.<action>` for list, status or resend.
+- `velocitytoolbox.command.pack` and `velocitytoolbox.command.pack.<action>` for list, check, status or resend. Bulk resend also needs `velocitytoolbox.command.pack.resend.all`; administrator access includes it.
 - `velocitytoolbox.command.server` and `velocitytoolbox.command.server.hosts` for entries.
 
 Variant permissions affect pack selection, not command access. The old packs/vhosts commands became pack list/server hosts; update scripts and permissions accordingly.
