@@ -215,6 +215,7 @@ pack:
       traffic: "<yellow>Pack request summary: <detail>"
       warn-localhost: "<yellow>pack-host.public-url uses localhost. Only clients on the proxy machine can download these packs."
       warn-wildcard: "<yellow>0.0.0.0 is not a download address. Set pack-host.public-url to an IP or domain players can reach."
+      warn-lan: "<yellow>The automatic download URL <url> uses a LAN address. Public players usually cannot reach it; set public-url for public access."
       warn-fallback: "<yellow>No local IPv4 address was found. Using <origin>; set public-url for players on other machines."
       multiple-addresses: "<yellow>Found multiple local addresses: <addresses>. Using <selected>."
       traffic-detail: "rate-limited requests: <limited>, busy responses: <busy>, timed-out transfers: <timeouts>"

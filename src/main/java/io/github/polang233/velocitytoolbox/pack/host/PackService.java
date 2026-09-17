@@ -210,6 +210,8 @@ public final class PackService implements AutoCloseable {
                     Lang.ph("selected", candidates.getFirst()));
         }
         String origin = "http://" + candidates.getFirst() + ":" + next.port();
+        if (!quiet && java.net.InetAddress.getByName(candidates.getFirst()).isSiteLocalAddress())
+            console("pack.host.log.warn-lan", Lang.ph("url", origin));
         return origin;
     }
 

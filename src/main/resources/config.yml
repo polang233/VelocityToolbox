@@ -33,7 +33,7 @@ pack-host:
   # 本机 HTTP 端口，1–65535；公网访问需配置防火墙或端口映射。
   port: 8765
   # 玩家下载地址前缀，如 http://公网IP:8765 或 https://packs.example.com；不带查询参数或片段。
-  # 留空自动选本机局域网地址；公网服请填写可访问的地址。
+  # 留空自动选本机局域网地址；选到内网地址时会提示，公网服请填写可访问的地址。
   # @survival.zip 对应 <public-url>/packs/survival.zip；HTTPS 需自行配置反代。
   public-url: ""
   # ZIP 目录：相对插件数据目录，也可填绝对路径。

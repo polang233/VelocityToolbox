@@ -51,7 +51,8 @@ public final class PackToolsTest {
             archives();
             urlsAndReasons();
             readOnlyCheck();
-            System.out.println("Pack tools tests passed: archives, urlsAndReasons, readOnlyCheck.");
+            automaticAddress();
+            System.out.println("Pack tools tests passed: archives, urlsAndReasons, readOnlyCheck, automaticAddress.");
         } finally {
             try (var paths = Files.walk(root)) {
                 for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) Files.deleteIfExists(path);
@@ -182,6 +183,20 @@ public final class PackToolsTest {
         }
     }
 
+    private static void automaticAddress() throws Exception {
+        Path directory = root.resolve("automatic-address");
+        var h = new PackDeliveryTest.Harness(directory);
+        String config = "pack-host:\n  enabled: true\n  public-url: ''\n  packs-directory: packs\nresource-packs:\n  enabled: false\n";
+        Files.writeString(directory.resolve("config.yml"), config);
+        var prepared = h.host.prepare(PackConfig.from(yaml(config).node("pack-host")));
+        check(prepared.config().publicUrl().isEmpty() && !h.host.enabled(), "automatic URL does not change configured origin or start listening");
+        if (java.net.InetAddress.getByName(java.net.URI.create(prepared.origin()).getHost()).isSiteLocalAddress())
+            check(text(h.messages).contains(h.lang.plain("pack.host.log.warn-lan",
+                    io.github.polang233.velocitytoolbox.lang.Lang.ph("url", prepared.origin()))), "LAN origin warning");
+        int before = h.messages.size();
+        h.host.check();
+        check(h.messages.size() == before, "read-only automatic origin scan does not emit reload warnings");
+    }
 
 
 

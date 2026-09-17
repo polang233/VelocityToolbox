@@ -215,6 +215,7 @@ pack:
       traffic: "<yellow>资源包请求统计：<detail>"
       warn-localhost: "<yellow>pack-host.public-url 使用了 localhost，只有本机客户端能下载。"
       warn-wildcard: "<yellow>pack-host.public-url 不能使用 0.0.0.0，请改成玩家能访问的 IP 或域名。"
+      warn-lan: "<yellow>自动下载地址 <url> 是局域网地址，公网玩家通常无法访问；外网使用请设置 public-url。"
       warn-fallback: "<yellow>没有找到局域网 IPv4，暂用 <origin>；其它机器加入时请设置 public-url。"
       multiple-addresses: "<yellow>检测到多个局域网地址：<addresses>；当前使用 <selected>。"
       traffic-detail: "限频 <limited> 次，并发繁忙 <busy> 次，超时 <timeouts> 次"

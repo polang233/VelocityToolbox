@@ -215,6 +215,7 @@ pack:
       traffic: "<yellow>資源包請求統計：<detail>"
       warn-localhost: "<yellow>pack-host.public-url 使用 localhost，只有與代理同一台電腦的客戶端能下載。"
       warn-wildcard: "<yellow>pack-host.public-url 不能填 0.0.0.0，請改填玩家連得到的 IP 或網域。"
+      warn-lan: "<yellow>自動下載位址 <url> 是區域網路位址，外網玩家通常連不上；對外開服請設定 public-url。"
       warn-fallback: "<yellow>找不到區域網路 IPv4，暫用 <origin>；其他電腦要下載時，請設定 public-url。"
       multiple-addresses: "<yellow>找到多個區域網路位址：<addresses>；目前使用 <selected>。"
       traffic-detail: "請求超過頻率限制 <limited> 次、服務忙碌 <busy> 次、逾時 <timeouts> 次"
