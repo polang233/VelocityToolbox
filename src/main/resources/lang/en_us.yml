@@ -253,3 +253,15 @@ pack:
     status: "<gray>Pack delivery: <#CCFFFF><state>"
   log:
     load-failed: "Resource pack initialization failed."
+  explain:
+    title: "<#FFB366>Current rule matches (recalculated on resend)"
+    assignment: "<gray>Assignment: <path>"
+    empty: "<gray>This assignment is empty; no packs are sent."
+    variant: "<#CCFFFF><pack> variant <index> <gray>· <reason><newline>  <conditions>"
+    legacy: "<gray>Older clients use only the first matching complete pack in the assignment."
+    reason:
+      selected: "selected"
+      none: "matched @; sends nothing"
+      version: "client version does not match"
+      permission: "missing required permission"
+      version-permission: "version does not match and permission is missing"

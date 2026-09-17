@@ -253,3 +253,15 @@ pack:
     status: "<gray>資源包傳送：<#CCFFFF><state>"
   log:
     load-failed: "資源包初始化失敗 / Resource pack initialization failed."
+  explain:
+    title: "<#FFB366>目前規則比對結果（重新傳送時會再計算）"
+    assignment: "<gray>分配來源：<path>"
+    empty: "<gray>這份分配是空的，不傳送資源包。"
+    variant: "<#CCFFFF><pack> 第 <index> 項 <gray>· <reason><newline>  <conditions>"
+    legacy: "<gray>舊版用戶端只使用分配清單中第一個符合條件的完整資源包。"
+    reason:
+      selected: "已選取"
+      none: "符合 @，不傳送"
+      version: "用戶端版本不符"
+      permission: "缺少所需權限"
+      version-permission: "版本不符且缺少權限"

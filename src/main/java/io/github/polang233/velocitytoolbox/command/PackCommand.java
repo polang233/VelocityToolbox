@@ -16,6 +16,7 @@ import io.github.polang233.velocitytoolbox.pack.host.PackService;
 import io.github.polang233.velocitytoolbox.version.VersionText;
 
 import java.util.List;
+import java.util.Locale;
 
 final class PackCommand extends CommandView {
     private final PackService host;
@@ -58,7 +59,10 @@ final class PackCommand extends CommandView {
             lang.send(ctx.getSource(), "pack.delivery.offline");
             return 0;
         }
-        if (action.equals("status")) sender.show(player, ctx.getSource());
+        if (action.equals("status")) {
+            sender.show(player, ctx.getSource());
+            explain(player, ctx.getSource());
+        }
         else {
             var result = sender.resend(player);
             lang.send(ctx.getSource(), switch (result) {
@@ -66,10 +70,30 @@ final class PackCommand extends CommandView {
                 case EMPTY -> "pack.delivery.resend-empty";
                 case DISABLED -> "pack.delivery.unavailable";
             });
-            if (result == PackSender.ResendResult.EMPTY) sender.show(player, ctx.getSource());
+            if (result == PackSender.ResendResult.EMPTY) {
+                sender.show(player, ctx.getSource());
+                explain(player, ctx.getSource());
+            }
             return result == PackSender.ResendResult.SCHEDULED ? 1 : 0;
         }
         return 1;
+    }
+
+    private void explain(Player player, CommandSource source) {
+        PackRules rules = sender.rules();
+        if (!rules.enabled() || player.getCurrentServer().isEmpty()) return;
+        String server = player.getCurrentServer().orElseThrow().getServerInfo().getName();
+        var explanation = rules.explain(server, player.getProtocolVersion(), player::hasPermission);
+        lang.send(source, "pack.explain.title");
+        lang.send(source, "pack.explain.assignment", Lang.ph("path", "resource-packs.servers." + explanation.assignment() + ".packs"));
+        if (explanation.matches().isEmpty()) lang.send(source, "pack.explain.empty");
+        for (var match : explanation.matches()) {
+            String reason = "pack.explain.reason." + match.reason().name().toLowerCase(Locale.ROOT).replace('_', '-');
+            lang.send(source, "pack.explain.variant", Lang.ph("pack", match.pack()), Lang.ph("index", match.index()),
+                    Lang.ph("reason", lang.plain(reason)), Lang.ph("conditions", conditions(match.variant())));
+        }
+        if (player.getProtocolVersion().compareTo(com.velocitypowered.api.network.ProtocolVersion.MINECRAFT_1_20_3) < 0)
+            lang.send(source, "pack.explain.legacy");
     }
 
     private String conditions(PackRules.Variant variant) {

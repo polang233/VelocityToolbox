@@ -51,6 +51,8 @@ public final class LanguageResourceSmokeTest {
             require(chinese.containsKey("plugin.inspect.risk." + risk.name().toLowerCase(java.util.Locale.ROOT)), "risk key");
         for (String state : List.of("busy", "ready", "waiting", "accepted", "downloaded", "loaded", "failed", "declined", "timeout", "unavailable"))
             require(chinese.containsKey("pack.delivery.state." + state), "pack state key");
+        for (var reason : io.github.polang233.velocitytoolbox.pack.config.PackRules.Reason.values())
+            require(chinese.containsKey("pack.explain.reason." + reason.name().toLowerCase(Locale.ROOT).replace('_', '-')), "pack reason key");
         for (String module : List.of("plugin", "server", "pack"))
             require(chinese.containsKey(module + ".title") && chinese.containsKey(module + ".help.summary"), "module help key");
 

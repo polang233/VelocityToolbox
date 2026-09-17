@@ -253,3 +253,15 @@ pack:
     status: "<gray>资源包下发：<#CCFFFF><state>"
   log:
     load-failed: "资源包初始化失败 / Resource pack initialization failed."
+  explain:
+    title: "<#FFB366>当前规则匹配（重发时重新计算）"
+    assignment: "<gray>分配来源：<path>"
+    empty: "<gray>该分配为空，不下发资源包。"
+    variant: "<#CCFFFF><pack> 第 <index> 项 <gray>· <reason><newline>  <conditions>"
+    legacy: "<gray>旧客户端只使用分配列表中首个匹配的完整包。"
+    reason:
+      selected: "选中"
+      none: "命中 @，不下发"
+      version: "客户端版本不符"
+      permission: "缺少所需权限"
+      version-permission: "版本不符且缺少权限"

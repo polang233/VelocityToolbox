@@ -49,7 +49,8 @@ public final class PackToolsTest {
         root = Files.createTempDirectory("vtb-pack-tools-");
         try {
             archives();
-            System.out.println("Pack tools tests passed: archives.");
+            urlsAndReasons();
+            System.out.println("Pack tools tests passed: archives, urlsAndReasons.");
         } finally {
             try (var paths = Files.walk(root)) {
                 for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) Files.deleteIfExists(path);
@@ -103,6 +104,34 @@ public final class PackToolsTest {
         catch (IOException expected) { check(expected.getMessage().contains(file.toString()), "archive errors include the file path"); }
     }
 
+    private static void urlsAndReasons() throws Exception {
+        for (String url : List.of("https://example.com:0/pack.zip", "https://example.com:65536/pack.zip",
+                "https://example.com/pack.zip#fragment", "https://user:secret@example.com/pack.zip")) {
+            try { rules(RULES.replace("https://example.com/pack.zip", url)); throw new AssertionError("invalid URL accepted"); }
+            catch (IOException expected) { check(expected.getMessage().contains("packs.main[0].url"), "URL configuration path"); }
+        }
+        rules(RULES.replace("https://example.com/pack.zip", "https://example.com:443/pack.zip?token=example"));
+        String conditional = RULES.replace("  main:\n", "  main:\n    - url: https://example.com/modern.zip\n"
+                + "      hash: " + HASH + "\n      conditions:\n        versions:\n          min: '1.20.3'\n        permission: pack.vip\n");
+        PackRules config = rules(conditional);
+        for (var version : List.of(ProtocolVersion.MINECRAFT_1_15, ProtocolVersion.MINECRAFT_1_20_3)) {
+            for (boolean permission : List.of(false, true)) {
+                var explanation = config.explain("lobby", version, ignored -> permission);
+                check(explanation.selection().equals(config.select("lobby", version, ignored -> permission)), "explanation uses actual selection");
+                check(explanation.assignment().equals("default"), "default assignment source");
+                PackRules.Reason expected = version == ProtocolVersion.MINECRAFT_1_15
+                        ? permission ? PackRules.Reason.VERSION : PackRules.Reason.VERSION_PERMISSION
+                        : permission ? PackRules.Reason.SELECTED : PackRules.Reason.PERMISSION;
+                check(explanation.matches().getFirst().reason() == expected, "distinct mismatch reasons");
+                check(explanation.matches().getLast().reason() == PackRules.Reason.SELECTED, "fallback selection is visible");
+            }
+        }
+        check(config.explain("EMPTY", ProtocolVersion.MINECRAFT_1_20_3, p -> true).assignment().equals("empty"), "server source");
+        check(config.explain("empty", ProtocolVersion.MINECRAFT_1_20_3, p -> true).matches().isEmpty(), "empty assignment diagnostic");
+        var none = rules(RULES.replace("url: https://example.com/pack.zip\n      hash: " + HASH, "url: '@'"))
+                .explain("lobby", ProtocolVersion.MINECRAFT_1_20_3, p -> true);
+        check(none.matches().getFirst().reason() == PackRules.Reason.NONE && none.selection().packs().isEmpty(), "@ diagnostic");
+    }
 
 
 
