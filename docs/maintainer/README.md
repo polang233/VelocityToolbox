@@ -1,6 +1,6 @@
 # 维护记录
 
-[文档分类](../README.md) · [源码结构](ARCHITECTURE.md) · [自用部署](DEPLOYMENT.md)
+[文档分类](../README.md) · [源码结构](ARCHITECTURE.md)
 
 本目录记录实现边界和验证状态，供作者与维护者查阅。公开行为在使用指南中说明。
 

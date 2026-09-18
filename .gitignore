@@ -6,3 +6,6 @@ out/
 
 __pycache__/
 *.pyc
+
+# Local private deploy notes — do not publish
+docs/maintainer/DEPLOYMENT.md
