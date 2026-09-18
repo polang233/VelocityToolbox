@@ -22,11 +22,11 @@ main:
   language:
     regenerate: "<yellow>語言檔 <file> 使用舊版結構，目前先採用內建語言。請先備份，再移走該檔案並執行 /vtb reload 重新產生；自訂語言可複製新版範本。"
   help:
-    title: "<#FF6600>VelocityToolbox 指令"
+    title: "<#FF6600>VToolBox 指令"
     info: "<#CCFFFF>查看外掛、代理、版本限制與資源包狀態"
     reload: "<#CCFFFF>重新載入設定、語言、版本限制與資源包"
   info:
-    title: "<#FF6600>VelocityToolbox 資訊"
+    title: "<#FF6600>VToolBox 資訊"
     field:
       toolbox-version: "<gray>工具箱版本"
       proxy-version: "<gray>代理版本"
@@ -36,7 +36,7 @@ main:
     ok: "<green>設定、語言、版本限制與資源包已重新載入。"
     fail: "<#FF5555>重新載入失敗，請查看代理伺服器的記錄。"
   log:
-    started: "<green>VelocityToolbox <version> 已啟動。"
+    started: "<green>VelocityToolBox <version> 已啟動。"
     reloaded: "<green><source> 已重新載入設定、語言、版本限制與資源包。"
     reload-failed: "設定或資源包重新載入失敗 / Configuration or resource pack reload failed."
 
@@ -93,7 +93,7 @@ plugin:
     not-loaded: "<#FF5555>外掛 '<plugin>' 尚未載入。"
     issue:
       not-loaded: "<#FF5555>此外掛目前未載入。"
-      protected: "<#FF5555>Velocity 與 VelocityToolbox 受保護，無法卸載。"
+      protected: "<#FF5555>Velocity 與 VelocityToolBox 受保護，無法卸載。"
       required-by-others: "<#FF5555>還有其他外掛依賴此外掛，目前無法卸載。"
       no-source-jar: "<#FF9955>找不到來源 JAR，卸載後可能無法重新載入。"
       no-instance: "<#FF9955>找不到外掛實例，可能無法完整執行關閉與清理。"

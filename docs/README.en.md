@@ -1,14 +1,16 @@
-<p align="center"><img src="../assets/logo.png" alt="VelocityToolbox" width="168"></p>
+<p align="center"><img src="../assets/logo.png" alt="VelocityToolBox" width="168"></p>
 
-# VelocityToolbox
+# VelocityToolBox
 
 Hot plugin management, custom resource pack delivery and hosting, entry-domain diagnostics, and server version rules for Velocity.
+
+Hosting and delivery have separate switches. Hosted `@file.zip` URLs get an automatic SHA-1. `/vtb pack check` reports configuration problems, status shows match reasons, and `resend all` works in batches. The pack host rate-limits public HTTP downloads.
 
 [中文](../README.md) · [Wiki](https://github.com/polang233/VelocityToolbox/wiki/English) · [Releases](https://github.com/polang233/VelocityToolbox/releases) · [Hangar](https://hangar.papermc.io/polang/VelocityToolBox) · [Modrinth](https://modrinth.com/plugin/velocitytoolbox)
 
 ## Install
 
-Requires **Velocity 4.0+ and Java 25+**. Put the JAR in the proxy's plugins/ directory and start the proxy. Grant `velocitytoolbox.admin` and run `/vtb help`. The full command name is `/vtoolbox`.
+Put the JAR in the proxy's plugins/ directory and start the proxy. Current build target is Velocity 4 and Java 25. Grant `velocitytoolbox.admin` and run `/vtb help`. The full command name is `/vtoolbox`.
 
 Version rules, HTTP hosting and pack delivery default to disabled. Replace example files and server names before enabling them. Apply configuration changes with `/vtb reload`.
 
@@ -37,7 +39,9 @@ When updating, replace the JAR and restart the proxy. Existing configuration sti
 
 For hosted files, `public-url` is the client's download address prefix. An empty value selects a local network address. Public servers need a reachable IP/domain with port forwarding or a reverse proxy.
 
-Clients on 1.20.3+ can stack packs. Older clients receive the first matching complete pack. A selected required pack disconnects on rejection, failure or timeout. Use `/vtb pack list`, `status player` and `resend player` to inspect or resend packs. From 1.3.5, `/vtb pack check` checks configuration without applying it, and `/vtb pack resend all` resends in batches.
+pack-host is public HTTP with rate limits. Anyone who knows the full URL can download the ZIP. The ticket query parameter only correlates overload retries; it is not authentication.
+
+Clients on 1.20.3+ can stack packs. Older clients receive the first matching complete pack. A selected required pack disconnects on rejection, failure or timeout. Use `/vtb pack list`, `status player` and `resend player|all` to inspect or resend packs. `/vtb pack check` checks configuration without applying it.
 
 <p align="center">
   <img src="../assets/screenshot-packs.png" alt="Client resource pack prompt" width="720">

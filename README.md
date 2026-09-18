@@ -1,15 +1,14 @@
 <p align="center">
-  <img src="assets/logo.png" alt="VelocityToolbox" width="168">
+  <img src="assets/logo.png" alt="VelocityToolBox" width="168">
 </p>
 
-# VelocityToolbox
+# VelocityToolBox
 
 **Velocity 运维工具箱：插件热管理、自定义资源包下发与托管、入口域名排查、子服客户端版本限制。**
 
-[English](docs/README.en.md) · [Wiki 使用文档](https://github.com/polang233/VelocityToolbox/wiki) · [问题与建议](https://github.com/polang233/VelocityToolbox/issues)
+资源包托管与下发分开开关；`@文件.zip` 自动计算哈希。可用 `/vtb pack check` 检查配置、用 status 查看匹配原因，并用 `resend all` 分批重发。自托管带请求与下载限流。
 
-![Velocity](https://img.shields.io/badge/Velocity-4.0%2B-654FF0)
-![Java](https://img.shields.io/badge/Java-25%2B-E76F00)
+[English](docs/README.en.md) · [Wiki 使用文档](https://github.com/polang233/VelocityToolbox/wiki) · [问题与建议](https://github.com/polang233/VelocityToolbox/issues)
 
 ## 下载与发布平台
 
@@ -21,7 +20,7 @@
 
 ## 安装
 
-需要 **Velocity 4.0+、Java 25+**。将 JAR 放入代理的 plugins/ 后完整启动一次，生成 config.yml。
+将 JAR 放入代理的 plugins/ 后完整启动一次，生成 config.yml。当前构建目标为 Velocity 4 与 Java 25。
 管理员权限为 `velocitytoolbox.admin`，入口为 `/vtb help`，也可使用 `/vtoolbox`。
 
 子服版本限制、HTTP 托管和资源包下发默认关闭。配置中提供完整样例，启用前替换文件及子服名，删除不用的样例。修改后执行 `/vtb reload`。
@@ -51,8 +50,10 @@
 
 自托管的 `public-url` 是玩家下载地址前缀。留空自动选本机局域网地址；公网服请填可访问的 IP 或域名，自行配置端口映射或反代。
 
+pack-host 是带限流的公开 HTTP 下载：知道完整 URL 的人都可以下载。查询参数里的票据只用来关联过载重试，不是登录或鉴权。
+
 1.20.3+ 支持多包叠加；旧客户端只接收首个匹配的完整包。已选中的必需包被拒绝、失败或超时会断开玩家。
-用 `/vtb pack list`、`status 玩家`、`resend 玩家` 查看或重新下发。1.3.5 起支持 `/vtb pack check` 只检查配置，以及 `/vtb pack resend all` 分批重发。
+用 `/vtb pack list`、`status 玩家`、`resend 玩家|all` 查看或重新下发。`/vtb pack check` 只检查配置，不应用改动。
 
 <p align="center">
   <img src="assets/screenshot-packs.png" alt="客户端资源包下载提示" width="720">

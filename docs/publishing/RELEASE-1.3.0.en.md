@@ -6,4 +6,4 @@ You can now send custom resource packs across the network, with defaults for all
 - Added Traditional Chinese and revised the Simplified Chinese and English text and language file layout. Guides are available on the [Wiki](https://github.com/polang233/VelocityToolbox/wiki/English).
 - Fixed plugin lifecycle handlers running twice after an exception and incorrect registry changes after a failed unload.
 
-Replace the JAR and restart the proxy to update. Requirements remain Velocity 4.0+ and Java 25+. Existing configuration still works: add `resource-packs` when you want delivery; leaving it out keeps delivery disabled. If you made few language changes, back up and move the old language files, then run `/vtb reload` to generate fresh copies. Reapply custom text using the new keys.
+Replace the JAR and restart the proxy to update. Existing configuration still works: add `resource-packs` when you want delivery; leaving it out keeps delivery disabled. If you made few language changes, back up and move the old language files, then run `/vtb reload` to generate fresh copies. Reapply custom text using the new keys.

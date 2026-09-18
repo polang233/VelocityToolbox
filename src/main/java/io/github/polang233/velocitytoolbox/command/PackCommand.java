@@ -66,7 +66,8 @@ final class PackCommand extends CommandView {
         sectionLine(ctx.getSource(), "pack.title");
         for (String action : List.of("list", "check", "status", "resend"))
             if (action(ctx.getSource(), "pack", action))
-                helpLine(ctx.getSource(), "/vtb pack " + action + (List.of("list", "check").contains(action) ? "" : " <player>"),
+                helpLine(ctx.getSource(), "/vtb pack " + action + (List.of("list", "check").contains(action) ? ""
+                        : action.equals("resend") ? " <player|all>" : " <player>"),
                         "pack.help." + action);
         if (bulk(ctx.getSource())) helpLine(ctx.getSource(), "/vtb pack resend all", "pack.help.resend-all");
         return 1;

@@ -39,6 +39,8 @@ Minecraft 客户端始终通过 HTTP/HTTPS 链接下载 ZIP。三个配置各管
 
 `public-url` 不会自动映射端口或配置 HTTPS。地址可带反代路径前缀，但不能包含账号口令、查询参数或片段。当前版本留空会选本机局域网地址，例如 `192.168.1.10`，公网玩家通常无法访问。公网服请填写实际可访问的 IP 或域名，并配置端口映射或反代。用 `/vtb pack list` 查看生成的链接，再从外部网络验证下载。
 
+pack-host 提供的是带限流的公开 HTTP 下载。知道完整 URL 的人都可以下载 ZIP；查询参数里的票据只用来关联过载重试，不是登录或鉴权。选包权限也不会变成 HTTP 下载口令。
+
 ## 示例
 
 随包配置已展开默认、生存、RPG、界面叠加、权限包和外部活动包样例。模块开关默认关闭；启用前准备或替换示例资源，并删除不用的定义与分配。
@@ -123,11 +125,11 @@ VTB 读取本机 ZIP，提供 GET/HEAD 下载、文件哈希、限频和并发�
 
 public-url 留空仍自动选择本机地址，选到局域网地址时会输出简短提醒。该设置只生成客户端链接，不自动探测公网、不配置端口映射、域名、HTTPS 或 CDN。填入的域名需指向可用下载服务；确认公网可达应从外部网络访问实际文件链接。
 
-文件边界检查、请求大小限制、IP 记录回收、目录隐藏和本机过载重试由插件自动处理。下载链接可被分享，选包权限并不是 HTTP 下载鉴权；大规模流量攻击、TLS 和慢请求头防护需要反代或专门的下载服务。应用层限制在请求头解析后生效。[JDK HTTP 服务边界](https://docs.oracle.com/en/java/javase/25/docs/api/jdk.httpserver/module-summary.html)
+文件边界检查、请求大小限制、IP 记录回收、目录隐藏和本机过载重试由插件自动处理。pack-host 是公开 HTTP：链接可被分享，选包权限并不是下载鉴权，票据查询参数也不是。大规模流量攻击、TLS 和慢请求头防护需要反代或专门的下载服务。应用层限制在请求头解析后生效。[JDK HTTP 服务边界](https://docs.oracle.com/en/java/javase/25/docs/api/jdk.httpserver/module-summary.html)
 
 ### 服主可调整的保护
 
-pack-host.security 保留以下选项，通常先用默认值：
+pack-host.security 只保留实际生效的选项，通常先用默认值。出现旧版内部键名（如 show-index、burst-per-ip）时重载会失败并指出键名，删除即可。
 
 - max-downloads / max-downloads-per-ip：总/单 IP 同时下载数。共用公网 IP 的多名玩家共用额度。
 - requests-per-minute-per-ip：单 IP 请求补充速率；HEAD 和错误路径也计入，允许短时突发。

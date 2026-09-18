@@ -4,11 +4,11 @@ plugins {
 
 group = 'io.github.polang233.velocitytoolbox'
 version = '1.3.5'
-description = 'Plugin management, virtual-host diagnostics, per-server client version rules, and resource pack hosting and delivery for Velocity 4.0+'
+description = 'Plugin management, virtual-host diagnostics, per-server client version rules, and resource pack hosting and delivery for Velocity'
 
 ext {
     pluginId = 'velocitytoolbox'
-    pluginName = 'VelocityToolbox'
+    pluginName = 'VelocityToolBox'
     pluginUrl = 'https://github.com/polang233/VelocityToolbox'
     pluginAuthor = 'Polang'
 }
@@ -48,7 +48,7 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 tasks.named('jar', Jar) {
-    archiveBaseName = pluginName
+    archiveBaseName = 'VelocityToolbox'
     from(rootProject.file('LICENSE')) {
         into 'META-INF'
     }

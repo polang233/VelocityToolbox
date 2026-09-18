@@ -1,6 +1,8 @@
 package io.github.polang233.velocitytoolbox.pack.http;
 
 import java.net.URI;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -42,9 +44,18 @@ public final class DownloadTickets {
                 ticket.limited = true;
         }
     }
+    /** 签发 URL 与请求 URI 可能分别是解码/百分号编码路径，统一成文件名再比较。 */
     private static String fileName(URI uri) {
         String path = uri.getPath();
-        return path == null ? "" : path.substring(path.lastIndexOf('/') + 1);
+        if (path == null || path.isEmpty()) path = uri.getRawPath();
+        if (path == null) return "";
+        String name = path.substring(path.lastIndexOf('/') + 1);
+        if (name.indexOf('%') < 0) return name;
+        try {
+            return URLDecoder.decode(name.replace("+", "%2B"), StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException invalid) {
+            return name;
+        }
     }
     public synchronized void clear() { tickets.clear(); }
 }

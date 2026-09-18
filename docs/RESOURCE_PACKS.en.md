@@ -39,6 +39,8 @@ For example, `public-url: "https://packs.example.com"` and `@survival.zip` produ
 
 `public-url` does not configure port forwarding or HTTPS. A reverse-proxy path prefix is allowed; credentials, queries and fragments are not. In the current version, leaving it empty selects a LAN address such as `192.168.1.10`, which Internet players usually cannot reach. For public servers, set a reachable IP or domain and configure port forwarding or a reverse proxy. Inspect generated URLs with `/vtb pack list` and test downloads from an external network.
 
+pack-host is public HTTP with rate limits. Anyone who knows the full URL can download the ZIP. The ticket query parameter only correlates overload retries; it is not a login or download password. Pack-selection permissions are not HTTP authorization either.
+
 ## Example
 
 The bundled configuration includes active examples for default, survival, RPG, UI layers, permission-based packs and external event packs. Modules default to disabled. Prepare or replace the example resources and remove unused definitions and assignments before enabling.
@@ -123,11 +125,11 @@ VTB serves local ZIPs over GET/HEAD with hashes, request limits and download con
 
 Empty public-url still selects a local address and logs a short warning when it selects a LAN address. It generates client links but does not discover a public IP, configure port forwarding, DNS, HTTPS or a CDN. Verify a public download from an external network.
 
-File boundary checks, request size limits, IP record expiry, hidden directory listings and overload retries are handled internally. URLs can be shared; pack-selection permissions are not HTTP download authorization. Use a reverse proxy or dedicated file service for TLS, large traffic attacks and slow-header protection. Application limits begin after header parsing. [JDK HTTP limitations](https://docs.oracle.com/en/java/javase/25/docs/api/jdk.httpserver/module-summary.html)
+File boundary checks, request size limits, IP record expiry, hidden directory listings and overload retries are handled internally. pack-host is public HTTP: URLs can be shared, pack-selection permissions are not download authorization, and ticket query parameters are not either. Use a reverse proxy or dedicated file service for TLS, large traffic attacks and slow-header protection. Application limits begin after header parsing. [JDK HTTP limitations](https://docs.oracle.com/en/java/javase/25/docs/api/jdk.httpserver/module-summary.html)
 
 ### Owner settings
 
-pack-host.security exposes seven options:
+pack-host.security exposes only the options that take effect. Start with the defaults. Obsolete internal keys such as show-index or burst-per-ip fail reload and name the key; remove them.
 
 - max-downloads / max-downloads-per-ip: global and per-IP concurrent downloads; players sharing a public IP share limits.
 - requests-per-minute-per-ip: per-IP refill rate, including HEAD and invalid paths, with a short burst allowance.

@@ -1,12 +1,12 @@
-# VelocityToolbox
+# VelocityToolBox
 
 Manage proxy plugins at runtime, send custom resource packs across your network, inspect entry domains, and set client version rules for each backend.
 
-![VelocityToolbox](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/logo-256.png)
+Hosting and delivery have separate switches. Hosted `@file.zip` URLs get an automatic SHA-1. `/vtb pack check` reports configuration problems, status shows match reasons, and `resend all` works in batches. The pack host rate-limits public HTTP downloads.
+
+![VelocityToolBox](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/logo-256.png)
 
 [Wiki](https://github.com/polang233/VelocityToolbox/wiki/English) · [Source code](https://github.com/polang233/VelocityToolbox) · [Report an issue](https://github.com/polang233/VelocityToolbox/issues)
-
-Requires **Velocity 4.0+ and Java 25+**. No required plugin dependencies.
 
 ## Plugin management
 
@@ -32,9 +32,11 @@ Clients on 1.20.3+ can stack packs. Older clients receive the first matching com
 
 ![Client resource pack prompt](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-packs.png)
 
-`pack-host` serves local ZIPs over HTTP. Hosting and delivery have separate switches and both default to disabled. Adjust request rates, concurrent downloads, transfer deadlines, bandwidth and trusted proxies under `pack-host.security`.
+`pack-host` serves local ZIPs over HTTP. Hosting and delivery have separate switches and both default to disabled. Adjust concurrent downloads, per-minute request budget, transfer deadlines, bandwidth and trusted proxies under `pack-host.security`.
 
-`public-url` is the client download address prefix. Leaving it empty selects a LAN address, which public players usually cannot reach. Set a reachable IP or domain and configure port forwarding or a reverse proxy as needed. VTB does not set up public access, HTTPS or download authentication.
+`public-url` is the client download address prefix. Leaving it empty selects a LAN address, which public players usually cannot reach. Set a reachable IP or domain and configure port forwarding or a reverse proxy as needed. VTB does not set up public access or HTTPS.
+
+pack-host is public HTTP with rate limits. Anyone who knows the full URL can download the ZIP. The ticket query parameter only correlates overload retries; it is not authentication.
 
 [Resource pack guide](https://github.com/polang233/VelocityToolbox/wiki/Resource-Packs-English) · [Default configuration with Chinese comments](https://github.com/polang233/VelocityToolbox/wiki/Configuration)
 
@@ -54,7 +56,7 @@ A denied backend switch keeps the player on the current server. A denied initial
 
 ## Install and use
 
-1. Download the JAR from the Versions tab, place it in the proxy's `plugins/` directory, and start the proxy.
+1. Download the JAR from the Versions tab, place it in the proxy's `plugins/` directory, and start the proxy. Current build target is Velocity 4 and Java 25.
 2. Grant administrators `velocitytoolbox.admin`. Run `/vtb help`; `/vtoolbox` also works.
 3. Edit `config.yml` in the plugin's data directory. Replace example files and backend names, and remove unused examples before enabling modules.
 4. Run `/vtb reload` to apply changes and `/vtb info` to check module status.
@@ -66,7 +68,7 @@ Common commands:
 - `/vtb plugin list`, `inspect plugin-id`, `load file.jar`, `unload plugin-id` and `reload plugin-id`: inspect or manage plugins.
 - `/vtb pack list`: list pack sources, conditions, hosted files and HTTP statistics.
 - `/vtb pack check` (1.3.5+): check configuration, hashes and local pack metadata without applying changes; errors identify the configuration path and file.
-- `/vtb pack status player` and `/vtb pack resend player`: check loading, assignment sources and variant match reasons, or resend packs.
+- `/vtb pack status player` and `/vtb pack resend player|all`: check loading, assignment sources and variant match reasons, or resend packs.
 - `/vtb pack resend all` (1.3.5+): schedule up to five online players per second; reload cancels the remaining queue.
 - `/vtb server hosts`: inspect player entry domains.
 - `/vtb info` and `/vtb reload`: show module status or reload configuration, language and rules.
