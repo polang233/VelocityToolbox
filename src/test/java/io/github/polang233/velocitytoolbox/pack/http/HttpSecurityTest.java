@@ -33,6 +33,7 @@ public final class HttpSecurityTest {
         try {
             limits();
             addresses();
+            tickets();
             http();
             transfers();
             bandwidth();
@@ -75,9 +76,16 @@ public final class HttpSecurityTest {
         second.close();
         check(guard.active() == 0, "all slots released");
         for (String invalid : List.of("max-downloads: 0", "bandwidth-mib: 1.5",
-                "trusted-proxies: invalid", "unknown: true")) {
+                "trusted-proxies: invalid", "unknown: true", "show-index: true",
+                "burst-per-ip: 1", "requests-per-second: 50", "download-retries: 0")) {
             try { config(invalid); throw new AssertionError("invalid security config: " + invalid); }
             catch (java.io.IOException expected) { }
+        }
+        try {
+            config("show-index: true\nmax-request-bytes: 999999\ndownload-retries: 0\n");
+            throw new AssertionError("obsolete security keys must fail load");
+        } catch (java.io.IOException expected) {
+            check(expected.getMessage().contains("obsolete"), "obsolete keys named in load error");
         }
     }
 
@@ -113,6 +121,36 @@ public final class HttpSecurityTest {
         return client.send(request, HttpResponse.BodyHandlers.discarding()).statusCode();
     }
 
+    private static String encodeName(String name) {
+        return java.net.URLEncoder.encode(name, java.nio.charset.StandardCharsets.UTF_8).replace("+", "%20");
+    }
+
+    private static String ticketId(DownloadTickets.Ticket ticket) {
+        int index = ticket.url().indexOf("vtb=");
+        return ticket.url().substring(index + 4);
+    }
+
+    /** 签发侧 URI.create 会解码路径；部分请求 URI 仍带着百分号编码，两边都要归一成文件名。 */
+    private static void tickets() throws Exception {
+        var tickets = new DownloadTickets();
+        String name = "测试 pack.zip";
+        String encoded = "http://127.0.0.1/packs/" + encodeName(name);
+        try (var ticket = tickets.issue(encoded, 60000)) {
+            URI request = new URI(null, null, "/packs/" + encodeName(name), "vtb=" + ticketId(ticket), null);
+            tickets.limited(request);
+            check(ticket.limited(), "percent-encoded request path matches issued Unicode/space zip");
+        }
+        String spaced = "http://127.0.0.1/packs/" + encodeName("my pack.zip");
+        try (var ticket = tickets.issue(spaced, 60000)) {
+            tickets.limited(URI.create(ticket.url()));
+            check(ticket.limited(), "decoded issued URL still matches itself");
+        }
+        try (var ticket = tickets.issue(encoded, 60000)) {
+            tickets.limited(URI.create("http://127.0.0.1/packs/" + encodeName("other.zip") + "?vtb=" + ticketId(ticket)));
+            check(!ticket.limited(), "different filename does not mark the ticket");
+        }
+    }
+
     private static void http() throws Exception {
         Path root = Files.createDirectories(directory.resolve("files")).toRealPath();
         Path file = root.resolve("sample.zip");
@@ -120,7 +158,7 @@ public final class HttpSecurityTest {
         String origin = "http://127.0.0.1:" + port();
         String url = origin + "/packs/sample.zip";
         HostedPack original = pack(file, url);
-        HostLimits limits = config("burst-per-ip: 100\nrequests-per-minute-per-ip: 600\n");
+        HostLimits limits = config("requests-per-minute-per-ip: 600\n");
         var tickets = new DownloadTickets();
         try (HttpClient client = HttpClient.newHttpClient();
              var server = new PackHttpServer(root, Map.of("sample.zip", original), limits, tickets, message -> {})) {
@@ -154,15 +192,27 @@ public final class HttpSecurityTest {
             check(status(client, HttpRequest.newBuilder(URI.create(url)).header("If-None-Match", etag).build()) == 409, "changed file rejects old hash");
             server.update(root, Map.of("sample.zip", pack(file, url)), limits);
             check(client.send(request(url), HttpResponse.BodyHandlers.ofString()).body().equals(Files.readString(file)), "reload applies file snapshot");
-            HostLimits fixed = config("show-index: true\nmax-request-bytes: 999999\ndownload-retries: 0\n");
-            check(!fixed.index() && fixed.requestBytes() == 16384 && fixed.retries() == 2, "internal protection cannot be disabled by old options");
-            server.update(root, Map.of("sample.zip", pack(file, url)), fixed);
-            check(status(client, request(origin + "/")) == 404, "index always hidden");
-            server.update(root, Map.of("sample.zip", pack(file, url)), config("burst-per-ip: 1\nrequests-per-minute-per-ip: 1\n"));
+            Path unicodeFile = root.resolve("测试 pack.zip");
+            Files.writeString(unicodeFile, "unicode zip bytes");
+            String unicodeName = unicodeFile.getFileName().toString();
+            String unicodeUrl = origin + "/packs/" + encodeName(unicodeName);
+            HostedPack unicodePack = pack(unicodeFile, unicodeUrl);
+            server.update(root, Map.of("sample.zip", pack(file, url),
+                    unicodeName.toLowerCase(java.util.Locale.ROOT), unicodePack), limits);
+            check(client.send(request(unicodeUrl), HttpResponse.BodyHandlers.ofString()).body().equals("unicode zip bytes"),
+                    "unicode and space zip names download");
+            server.update(root, Map.of("sample.zip", pack(file, url)), config("requests-per-minute-per-ip: 1\n"));
             try (var ticket = tickets.issue(url, 60000)) {
                 HttpRequest limited = request(ticket.url());
                 for (int i = 0; i < 21; i++) status(client, limited);
                 check(status(client, limited) == 429 && ticket.limited(), "ticket sees real rate limit");
+            }
+            server.update(root, Map.of(unicodeName.toLowerCase(java.util.Locale.ROOT), unicodePack),
+                    config("requests-per-minute-per-ip: 1\n"));
+            try (var ticket = tickets.issue(unicodeUrl, 60000)) {
+                HttpRequest limited = request(ticket.url());
+                for (int i = 0; i < 21; i++) status(client, limited);
+                check(status(client, limited) == 429 && ticket.limited(), "unicode zip ticket sees real rate limit");
             }
         }
         check(PackHttpServer.matchesTag("W/\"abc\", \"def\"", "\"abc\""), "weak ETag");
@@ -176,7 +226,7 @@ public final class HttpSecurityTest {
         int port = port();
         String url = "http://127.0.0.1:" + port + "/packs/large.zip";
         HostLimits limits = config("max-downloads: 1\nmax-downloads-per-ip: 1\nper-download-mib: 1\n"
-                + "max-download-seconds: 1\nburst-per-ip: 100\n");
+                + "max-download-seconds: 1\n");
         try (HttpClient client = HttpClient.newHttpClient();
              var server = new PackHttpServer(root, Map.of("large.zip", pack(file, url)), limits, new DownloadTickets(), message -> {})) {
             server.bind("127.0.0.1", port);
@@ -191,13 +241,13 @@ public final class HttpSecurityTest {
             until = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
             while (server.stats().downloads() != 0 && System.nanoTime() < until) Thread.sleep(10);
             check(server.stats().downloads() == 0, "timeout releases slot");
-            server.update(root, Map.of("large.zip", pack(file, url)), config("per-download-mib: 1\nmax-download-seconds: 10\nburst-per-ip: 100\n"));
+            server.update(root, Map.of("large.zip", pack(file, url)), config("per-download-mib: 1\nmax-download-seconds: 10\n"));
             var aborted = client.send(request(url), HttpResponse.BodyHandlers.ofInputStream());
             aborted.body().close();
             until = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
             while (server.stats().downloads() != 0 && System.nanoTime() < until) Thread.sleep(10);
             check(server.stats().downloads() == 0, "client abort releases slot");
-            server.update(root, Map.of("large.zip", pack(file, url)), config("burst-per-ip: 100\n"));
+            server.update(root, Map.of("large.zip", pack(file, url)), config("requests-per-minute-per-ip: 600\n"));
             check(status(client, request(url)) == 200, "service recovers after timeout");
         }
     }

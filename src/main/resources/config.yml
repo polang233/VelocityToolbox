@@ -40,6 +40,7 @@ pack-host:
   # 例如 packs、../OtherPlugin/packs、D:/resourcepacks、/var/www/resourcepacks。
   packs-directory: packs
   # 下载保护，按在线人数、共用公网 IP 的人数和出口带宽调整。
+  # 只保留下列实际生效的选项；其它键名（含旧版内部项）会加载失败。
   security:
     # 全服同时下载上限，正整数。
     max-downloads: 64

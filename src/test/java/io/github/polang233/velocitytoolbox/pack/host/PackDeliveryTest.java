@@ -246,7 +246,7 @@ public final class PackDeliveryTest {
         int port = freePort();
         PackConfig config = PackConfig.from((org.spongepowered.configurate.CommentedConfigurationNode) yaml(
                 "enabled: true\nbind: 127.0.0.1\nport: " + port + "\npublic-url: http://127.0.0.1:" + port
-                + "\npacks-directory: packs\nsecurity:\n  burst-per-ip: 1\n  requests-per-minute-per-ip: 1\n"));
+                + "\npacks-directory: packs\nsecurity:\n  requests-per-minute-per-ip: 1\n"));
         try (PackService host = h.host; HttpClient client = HttpClient.newHttpClient(); PackSender sender = h.sender()) {
             host.apply(host.prepare(config));
             sender.apply(PackRules.read(yaml("enabled: true\nsettings:\n  delay: 0\n  timeout: 60\npacks:\n  local:\n"

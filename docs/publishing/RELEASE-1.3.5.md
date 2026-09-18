@@ -6,4 +6,4 @@
 - 加强资源包元数据和下载地址校验；自动选到内网地址时提醒，默认行为不变。
 - 修复旧客户端切服后的资源包回执误踢，整理 bStats 接入并同步三语提示。
 
-替换 JAR 后完整重启代理，原配置可继续使用。新增命令的细分权限见 [Wiki](https://github.com/polang233/VelocityToolbox/wiki/Modules)。实服多版本验证尚未完成。
+替换 JAR 后完整重启代理，原配置可继续使用。新增命令的细分权限见 [Wiki](https://github.com/polang233/VelocityToolbox/wiki/Modules)。代理侧已完成联调；建议服主用目标客户端再确认一遍。

@@ -6,4 +6,4 @@ Adds resource pack checks, selection diagnostics and bulk resending.
 - Adds stricter pack metadata and download URL checks, plus a warning for automatically selected LAN addresses.
 - Fixes stale pack responses disconnecting older clients after server switches, moves bStats integration into the hook package, and updates all three languages.
 
-Replace the JAR and restart the proxy. Existing configuration still works. See the [Wiki](https://github.com/polang233/VelocityToolbox/wiki/Modules-English) for granular permissions. Live client testing across versions is still pending.
+Replace the JAR and restart the proxy. Existing configuration still works. See the [Wiki](https://github.com/polang233/VelocityToolbox/wiki/Modules-English) for granular permissions. Proxy-side integration checks are done; please re-check with your target clients.

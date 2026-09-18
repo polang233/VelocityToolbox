@@ -50,9 +50,9 @@ def render(source):
 
 def pages():
     result = {name: render(ROOT / source) for source, name in PAGES.items()}
-    result["Home"] = f"""# VelocityToolbox 使用文档
+    result["Home"] = f"""# VelocityToolBox 使用文档
 
-Velocity 4.0+ 运维工具箱，需要 Java 25+。
+Velocity 运维工具箱。
 
 - [安装、功能与截图]({REPO}#安装)
 - [模块、命令与权限]({WIKI}/Modules)

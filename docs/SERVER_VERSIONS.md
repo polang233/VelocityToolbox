@@ -1,6 +1,6 @@
 # 子服客户端版本限制
 
-VelocityToolbox 在玩家连接目标子服前检查客户端协议。模块直接使用 Velocity 的 `Player.getProtocolVersion()`，代理端和子服都不需要为这项检查安装 ViaVersion。跨版本进入子服所需的协议转换仍由 ViaVersion 等兼容插件负责。
+VelocityToolBox 在玩家连接目标子服前检查客户端协议。模块直接使用 Velocity 的 `Player.getProtocolVersion()`，代理端和子服都不需要为这项检查安装 ViaVersion。跨版本进入子服所需的协议转换仍由 ViaVersion 等兼容插件负责。
 
 ## 启用与配置
 

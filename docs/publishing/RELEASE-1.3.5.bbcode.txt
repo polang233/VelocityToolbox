@@ -8,4 +8,4 @@
 [*]修复旧客户端切服后的资源包回执误踢，整理 bStats 接入并同步三语提示。
 [/list]
 
-替换 JAR 后完整重启代理，原配置可继续使用。新增命令的细分权限见 [url=https://github.com/polang233/VelocityToolbox/wiki/Modules]Wiki[/url]。实服多版本验证尚未完成。
+替换 JAR 后完整重启代理，原配置可继续使用。新增命令的细分权限见 [url=https://github.com/polang233/VelocityToolbox/wiki/Modules]Wiki[/url]。代理侧已完成联调；建议服主用目标客户端再确认一遍。

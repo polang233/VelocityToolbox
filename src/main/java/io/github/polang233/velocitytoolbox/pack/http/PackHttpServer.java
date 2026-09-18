@@ -102,7 +102,7 @@ public final class PackHttpServer implements AutoCloseable {
                 String path = exchange.getRequestURI().getPath();
                 if ("/".equals(path)) {
                     if (!current.limits().index()) { respond(exchange, 404, "Not found\n"); return; }
-                    StringBuilder body = new StringBuilder("VelocityToolbox packs\n");
+                    StringBuilder body = new StringBuilder("VelocityToolBox packs\n");
                     current.packs().values().stream().sorted(Comparator.comparing(HostedPack::fileName))
                             .forEach(pack -> body.append(pack.fileName()).append('\n'));
                     respond(exchange, 200, body.toString()); return;

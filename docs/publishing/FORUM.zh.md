@@ -1,12 +1,12 @@
-# VelocityToolbox
+# VelocityToolBox
 
 Velocity 运维工具箱：插件热管理、自定义资源包下发与托管、入口域名排查、子服客户端版本限制。
 
-![VelocityToolbox](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/logo-256.png)
+托管与下发分开开关；`@文件.zip` 自动计算哈希。可用 `/vtb pack check` 检查配置、用 status 查看匹配原因，并用 `resend all` 分批重发。自托管带请求与下载限流。
+
+![VelocityToolBox](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/logo-256.png)
 
 [下载插件](https://github.com/polang233/VelocityToolbox/releases/latest) · [Wiki 使用文档](https://github.com/polang233/VelocityToolbox/wiki) · [项目源码](https://github.com/polang233/VelocityToolbox) · [问题与建议](https://github.com/polang233/VelocityToolbox/issues)
-
-需要 **Velocity 4.0+、Java 25+**，无硬前置。
 
 ## 插件热管理
 
@@ -32,9 +32,11 @@ Velocity 运维工具箱：插件热管理、自定义资源包下发与托管�
 
 ![客户端资源包提示](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-packs.png)
 
-`pack-host` 提供本地 ZIP 的 HTTP 下载，与下发分别开关，两者默认关闭。可在 `pack-host.security` 中调整限频、并发、下载期限、带宽和可信反代。
+`pack-host` 提供本地 ZIP 的 HTTP 下载，与下发分别开关，两者默认关闭。可在 `pack-host.security` 中调整并发、每分钟请求额度、下载期限、带宽和可信反代。
 
-`public-url` 是玩家下载地址的前缀，留空自动选择本机局域网地址，公网玩家通常无法访问。公网服需填写可访问的 IP 或域名，并自行配置端口映射或反代。插件不会自动配置公网入口或 HTTPS，也不提供下载鉴权。
+`public-url` 是玩家下载地址的前缀，留空自动选择本机局域网地址，公网玩家通常无法访问。公网服需填写可访问的 IP 或域名，并自行配置端口映射或反代。插件不会自动配置公网入口或 HTTPS。
+
+pack-host 是带限流的公开 HTTP 下载：知道完整 URL 的人都可以下载。查询参数里的票据只用来关联过载重试，不是登录或鉴权。
 
 [资源包配置与原理](https://github.com/polang233/VelocityToolbox/wiki/Resource-Packs) · [带注释的默认配置](https://github.com/polang233/VelocityToolbox/wiki/Configuration)
 
@@ -54,7 +56,7 @@ Velocity 运维工具箱：插件热管理、自定义资源包下发与托管�
 
 ## 安装与使用
 
-1. 下载 JAR，放入代理的 `plugins/` 目录，完整启动代理一次。
+1. 下载 JAR，放入代理的 `plugins/` 目录，完整启动代理一次。当前构建目标为 Velocity 4 与 Java 25。
 2. 给管理员授予 `velocitytoolbox.admin`，用 `/vtb help` 查看命令，也可使用 `/vtoolbox`。
 3. 按需编辑插件数据目录中的 `config.yml`，替换示例文件和子服名，删除不用的样例后再启用模块。
 4. 执行 `/vtb reload` 应用配置，用 `/vtb info` 查看各模块状态。
@@ -66,7 +68,7 @@ Velocity 运维工具箱：插件热管理、自定义资源包下发与托管�
 - `/vtb plugin list`、`inspect 插件ID`、`load 文件.jar`、`unload 插件ID`、`reload 插件ID`：查看或管理插件。
 - `/vtb pack list`：查看包来源、匹配条件、托管文件和 HTTP 统计。
 - `/vtb pack check`（1.3.5+）：检查配置、哈希和本地包元数据，不应用改动；出错时提示配置位置与文件名。
-- `/vtb pack status 玩家`、`/vtb pack resend 玩家`：查看加载状态、分配来源与变体匹配原因，或重新下发。
+- `/vtb pack status 玩家`、`/vtb pack resend 玩家|all`：查看加载状态、分配来源与变体匹配原因，或重新下发。
 - `/vtb pack resend all`（1.3.5+）：每秒最多安排 5 名在线玩家重发，重载会取消剩余队列。
 - `/vtb server hosts`：查看玩家入口。
 - `/vtb info`、`/vtb reload`：查看模块状态或重载配置、语言和规则。
@@ -81,6 +83,5 @@ Velocity 运维工具箱：插件热管理、自定义资源包下发与托管�
 
 [语言文件说明](https://github.com/polang233/VelocityToolbox/wiki/Language) · [提交问题与建议](https://github.com/polang233/VelocityToolbox/issues)
 
-插件使用 bStats 统计，可在 `plugins/bStats/config.txt` 中关闭。
 
 [![bStats](https://bstats.org/signatures/velocity/VelocityToolbox.svg)](https://bstats.org/plugin/velocity/VelocityToolbox/33451)

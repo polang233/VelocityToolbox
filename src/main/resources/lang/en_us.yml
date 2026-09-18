@@ -22,11 +22,11 @@ main:
   language:
     regenerate: "<yellow>Language file <file> uses an old format. Bundled text is active. Back up and move the file, then run /vtb reload to generate a fresh copy. For custom languages, copy the new template."
   help:
-    title: "<#FF6600>VelocityToolbox commands"
+    title: "<#FF6600>VToolBox commands"
     info: "<#CCFFFF>Show plugin, proxy, version rule and resource pack status"
     reload: "<#CCFFFF>Reload configuration, language, version rules and resource packs"
   info:
-    title: "<#FF6600>VelocityToolbox status"
+    title: "<#FF6600>VToolBox status"
     field:
       toolbox-version: "<gray>Toolbox version"
       proxy-version: "<gray>Proxy version"
@@ -36,7 +36,7 @@ main:
     ok: "<green>Configuration, language, version rules and resource packs reloaded."
     fail: "<#FF5555>Reload failed. Check the proxy log."
   log:
-    started: "<green>VelocityToolbox <version> started."
+    started: "<green>VelocityToolBox <version> started."
     reloaded: "<green><source> reloaded configuration, language, version rules and resource packs."
     reload-failed: "Configuration or resource pack reload failed."
 
@@ -93,7 +93,7 @@ plugin:
     not-loaded: "<#FF5555>Plugin '<plugin>' is not loaded."
     issue:
       not-loaded: "<#FF5555>The target is not loaded."
-      protected: "<#FF5555>Velocity and VelocityToolbox are protected and cannot be unloaded."
+      protected: "<#FF5555>Velocity and VelocityToolBox are protected and cannot be unloaded."
       required-by-others: "<#FF5555>Other loaded plugins depend on this plugin; unload is blocked."
       no-source-jar: "<#FF9955>The JAR is missing. Reloading the plugin may fail after it is unloaded."
       no-instance: "<#FF9955>The plugin instance is unavailable; shutdown and cleanup may be incomplete."

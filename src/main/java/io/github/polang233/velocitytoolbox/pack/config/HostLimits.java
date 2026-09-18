@@ -6,12 +6,19 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-/** 托管防护配置；带宽为每秒字节数，时间为秒。 */
+/** 托管防护配置；带宽为每秒字节数，时间为秒。仅下列选项可调，其余限额写死。 */
 public record HostLimits(int downloads, int downloadsPerIp, int requestsPerSecond,
                          int requestsPerMinute, int burst, int clients, int idleSeconds,
                          int requestBytes, int downloadSeconds, long bandwidth, long perDownloadBandwidth,
                          boolean index, List<String> trustedProxies, int retries, int retrySeconds) {
     public HostLimits { trustedProxies = List.copyOf(trustedProxies); }
+
+    private static final Set<String> OPTIONS = Set.of(
+            "max-downloads", "max-downloads-per-ip", "requests-per-minute-per-ip",
+            "max-download-seconds", "bandwidth-mib", "per-download-mib", "trusted-proxies");
+    private static final Set<String> OBSOLETE = Set.of(
+            "requests-per-second", "burst-per-ip", "max-clients", "client-idle-seconds",
+            "max-request-bytes", "show-index", "download-retries", "retry-delay");
 
     public static HostLimits defaults() {
         return new HostLimits(64, 8, 200, 120, 20, 10000, 300, 16384, 60, 0, 0, false, List.of(), 2, 5);
@@ -19,14 +26,13 @@ public record HostLimits(int downloads, int downloadsPerIp, int requestsPerSecon
 
     public static HostLimits read(ConfigurationNode node) throws IOException {
         if (node.virtual()) return defaults();
-        // 已有预发布配置中的内部选项允许保留，但统一使用内置值。
-        Set<String> keys = Set.of("max-downloads", "max-downloads-per-ip", "requests-per-second",
-                "requests-per-minute-per-ip", "burst-per-ip", "max-clients", "client-idle-seconds",
-                "max-request-bytes", "max-download-seconds", "bandwidth-mib", "per-download-mib",
-                "show-index", "trusted-proxies", "download-retries", "retry-delay");
         if (!node.isMap()) throw error("", "expected a map");
-        for (Object key : node.childrenMap().keySet())
-            if (!keys.contains(key.toString())) throw error(key.toString(), "unknown option");
+        for (Object key : node.childrenMap().keySet()) {
+            String name = key.toString();
+            if (OBSOLETE.contains(name))
+                throw error(name, "obsolete option; remove it from config (not configurable)");
+            if (!OPTIONS.contains(name)) throw error(name, "unknown option");
+        }
         List<String> proxies = new ArrayList<>();
         var proxyNode = node.node("trusted-proxies");
         if (!proxyNode.virtual()) {

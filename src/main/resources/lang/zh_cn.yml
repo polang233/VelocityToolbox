@@ -22,11 +22,11 @@ main:
   language:
     regenerate: "<yellow>语言文件 <file> 使用旧结构，当前使用随包默认语言。请先备份，再移走该文件并执行 /vtb reload 重新生成；自定义语言可复制新版模板。"
   help:
-    title: "<#FF6600>VelocityToolbox 命令"
+    title: "<#FF6600>VToolBox 命令"
     info: "<#CCFFFF>插件、代理、版本限制与资源包状态"
     reload: "<#CCFFFF>重载配置、语言、版本限制与资源包"
   info:
-    title: "<#FF6600>VelocityToolbox 信息"
+    title: "<#FF6600>VToolBox 信息"
     field:
       toolbox-version: "<gray>工具箱版本"
       proxy-version: "<gray>代理版本"
@@ -36,7 +36,7 @@ main:
     ok: "<green>已重载配置、语言、版本限制与资源包。"
     fail: "<#FF5555>重载失败，请看代理日志。"
   log:
-    started: "<green>VelocityToolbox <version> 已启动。"
+    started: "<green>VelocityToolBox <version> 已启动。"
     reloaded: "<green><source> 已重载配置、语言、版本限制与资源包。"
     reload-failed: "配置或资源包重载失败 / Configuration or resource pack reload failed."
 
@@ -93,7 +93,7 @@ plugin:
     not-loaded: "<#FF5555>插件 '<plugin>' 未加载。"
     issue:
       not-loaded: "<#FF5555>目标当前未加载。"
-      protected: "<#FF5555>Velocity 与 VelocityToolbox 属于受保护目标。"
+      protected: "<#FF5555>Velocity 与 VelocityToolBox 属于受保护目标。"
       required-by-others: "<#FF5555>其它插件依赖此插件，无法卸载。"
       no-source-jar: "<#FF9955>找不到源 JAR，无法可靠重新加载。"
       no-instance: "<#FF9955>找不到插件实例，可能无法完整执行关闭和清理。"
