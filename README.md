@@ -79,7 +79,7 @@ pack-host 是带限流的公开 HTTP 下载：知道完整 URL 的人都可以�
 
 [模块、命令和权限](https://github.com/polang233/VelocityToolbox/wiki/Modules) · [资源包原理与配置](https://github.com/polang233/VelocityToolbox/wiki/Resource-Packs) · [子服版本限制](https://github.com/polang233/VelocityToolbox/wiki/Server-Versions)
 
-界面支持简体中文、繁体中文、英文和自定义语言文件，玩家消息使用 MiniMessage。language 留空跟随系统语言，无对应翻译时回退中文。bStats 可在 plugins/bStats/config.txt 中关闭。
+界面支持简体中文、繁体中文、英文和自定义语言文件，玩家消息使用 MiniMessage。language 留空跟随系统语言，无对应翻译时回退中文。
 
 [问题与建议](https://github.com/polang233/VelocityToolbox/issues) · [维护文档](docs/maintainer/README.md)
 

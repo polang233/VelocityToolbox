@@ -83,6 +83,5 @@ Messages support Simplified Chinese (`zh_cn`), Traditional Chinese (`zh_tw`), En
 
 [Report an issue or suggest a feature](https://github.com/polang233/VelocityToolbox/issues)
 
-VTB uses bStats for usage statistics. You can disable it in `plugins/bStats/config.txt`.
 
 [![bStats](https://bstats.org/signatures/velocity/VelocityToolbox.svg)](https://bstats.org/plugin/velocity/VelocityToolbox/33451)

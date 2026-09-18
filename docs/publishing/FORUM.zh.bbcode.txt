@@ -87,6 +87,4 @@ server-versions 按子服限制客户端版本，支持 min/max/allow/deny，与
 
 [url=https://github.com/polang233/VelocityToolbox/wiki/Language]语言文件说明[/url] · [url=https://github.com/polang233/VelocityToolbox/issues]提交问题与建议[/url]
 
-插件使用 bStats 统计，可在 plugins/bStats/config.txt 中关闭。
-
 [url=https://bstats.org/plugin/velocity/VelocityToolbox/33451][img]https://bstats.org/signatures/velocity/VelocityToolbox.svg[/img][/url]

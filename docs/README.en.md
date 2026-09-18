@@ -67,6 +67,6 @@ Clients on 1.20.3+ can stack packs. Older clients receive the first matching com
 
 [Modules and permissions](https://github.com/polang233/VelocityToolbox/wiki/Modules-English) · [Resource packs](https://github.com/polang233/VelocityToolbox/wiki/Resource-Packs-English) · [中文版本限制指南](https://github.com/polang233/VelocityToolbox/wiki/Server-Versions)
 
-Messages support Simplified Chinese, Traditional Chinese, English and custom MiniMessage language files. Set language to zh_tw for Traditional Chinese, or leave it empty to follow the system locale. Unsupported languages fall back to Simplified Chinese. bStats can be disabled in its configuration.
+Messages support Simplified Chinese, Traditional Chinese, English and custom MiniMessage language files. Set language to zh_tw for Traditional Chinese, or leave it empty to follow the system locale. Unsupported languages fall back to Simplified Chinese.
 
 [Issues](https://github.com/polang233/VelocityToolbox/issues) · [Maintenance notes](maintainer/README.md)

@@ -83,6 +83,5 @@ pack-host 是带限流的公开 HTTP 下载：知道完整 URL 的人都可以�
 
 [语言文件说明](https://github.com/polang233/VelocityToolbox/wiki/Language) · [提交问题与建议](https://github.com/polang233/VelocityToolbox/issues)
 
-插件使用 bStats 统计，可在 `plugins/bStats/config.txt` 中关闭。
 
 [![bStats](https://bstats.org/signatures/velocity/VelocityToolbox.svg)](https://bstats.org/plugin/velocity/VelocityToolbox/33451)
