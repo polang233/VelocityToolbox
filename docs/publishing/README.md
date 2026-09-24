@@ -7,12 +7,15 @@
 - [中文 Markdown](FORUM.zh.md)：用于支持 Markdown 的编辑器。
 - [中文 BBCode](FORUM.zh.bbcode.txt)：用于 MineBBS、苦力怕论坛等的 BBCode 源码编辑器；粘贴前切换到源码模式。
 - [Modrinth 英文介绍](MODRINTH.md)：用于项目 Description。
+- [SpigotMC 英文 BBCode](SPIGOTMC.en.bbcode.txt)：开头说明是 Velocity 代理插件，切换到 BBCode 源码模式后复制全文。
 
 中文标题可用：`[Velocity] VelocityToolBox | 插件热管理 · 自定义资源包下发 · 子服版本限制`
 
 中文简短介绍：`Velocity 运维工具箱：插件热管理、资源包托管与下发、入口排查、子服版本限制。托管与下发分开开关，@文件.zip 自动哈希，支持 pack check、匹配原因和分批 resend all。`
 
 英文简短介绍：`Runtime plugin management, custom resource packs, entry-domain diagnostics and per-backend client version rules for Velocity. Hosting and delivery are separate switches; @file.zip gets an automatic hash. Includes pack check, match reasons, batched resend all, and download rate limits.`
+
+SpigotMC 标题可用：`[Velocity] VelocityToolBox - Plugin Management & Resource Packs`
 
 ## 版本更新日志
 
@@ -28,7 +31,7 @@
 
 ## 维护文案
 
-中文 Markdown 是 BBCode 的源文件，改完后执行：
+中文稿与 [SpigotMC 英文稿](SPIGOTMC.en.md) 的 Markdown 是对应 BBCode 的源文件，改完后执行：
 
 ```sh
 python scripts/export_posts.py

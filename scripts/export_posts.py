@@ -1,4 +1,4 @@
-"""Generate forum BBCode from the Chinese Markdown publishing drafts."""
+"""Generate forum BBCode from Markdown publishing drafts."""
 from pathlib import Path
 import re
 
@@ -6,6 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DIRECTORY = ROOT / "docs/publishing"
 SOURCES = {
     "FORUM.zh.md": "FORUM.zh.bbcode.txt",
+    "SPIGOTMC.en.md": "SPIGOTMC.en.bbcode.txt",
     "RELEASE-1.3.0.md": "RELEASE-1.3.0.bbcode.txt",
     "RELEASE-1.3.5.md": "RELEASE-1.3.5.bbcode.txt",
 }
