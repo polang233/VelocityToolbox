@@ -146,16 +146,20 @@ resource-packs:
           versions:
             allow: ["1.20.1", "1.21.1"]
 
-  # 子服分配：具体子服的 packs 完整替换默认列表。
-  # keep-existing 默认 false；设为 true 时保留已有包，可省略 packs。
+  # 子服分配：独立配置会完整覆盖 default，不继承其中的 packs 或 keep-existing。
+  # keep-existing 默认 false；true 表示进入此服时保留已下发的包，不发新包。
+  # true 时可省略 packs，也可写 packs: []；不能同时指定非空包列表。
   servers:
-    # default 是保留名称，适用于未单独配置的子服；缺省为空列表。
+    # default 仅用于未单独配置的子服；省略 default 时按空包列表处理。
+    # 若要“进指定服加载，切到其它服保留”，将下面的 packs: [default]
+    # 换成 keep-existing: true，再仅为发包子服配置 packs。
+    # 其它子服无需逐个列出；单独写 packs: [] 会覆盖 default 并撤包（1.20.3+）。
     default:
       # 填写上方定义的包名；1.20.3+ 按列表顺序叠加，后面的覆盖前面的。
       # 旧客户端只使用首个实际匹配的包，应提供完整单包。
       packs: [default]
     lobby:
-      # 示例：回到大厅时保留已有资源包，大厅不发新包。
+      # 示例：进入大厅后保留已有包；首次从大厅登录时不下载。
       keep-existing: true
     vanilla:
       # 示例：进入此服时撤下 VTB 的资源包（1.20.3+）。
@@ -163,6 +167,7 @@ resource-packs:
       packs: []
       keep-existing: false
     survival:
+      # 相同包已保留时，返回此服不会重复下发；包有变化时更新。
       packs: [survival]
     rpg:
       packs: [rpg, ui]

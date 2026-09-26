@@ -1,8 +1,10 @@
 # Resource packs
 
-## Keep packs across server switches (1.3.6+)
+## Keep packs across server switches (1.3.7+)
 
 Set `keep-existing: true` on a server assignment (or on `servers.default`) to preserve VTB packs already offered during this proxy connection. Players who have not received a pack get no new request on that server. The `packs` field can be omitted or explicitly set to `[]`; a nonempty list cannot be combined with this flag. Without the flag, the existing replacement/removal behavior is unchanged.
+
+`servers.default` applies only to servers without their own assignment. Explicit assignments replace it entirely, including `keep-existing`. For “download on survival, keep elsewhere”, set `default: { keep-existing: true }` and `survival: { packs: [survival] }`. No lobby entry is needed: an explicit `lobby: { packs: [] }` would instead remove VTB packs on modern clients. Initial lobby login sends nothing; returning to survival keeps an unchanged pack.
 
 Unsent delayed requests are cancelled when entering a passive server. Requests already sent can finish there and retain their original timeout/required policy. Passive servers do not issue retries or manual/batched resends. Returning to an assigned server keeps an unchanged pack and applies changed choices. Reloading while on a passive server preserves the old pack until the player returns to an assigned server. Disconnecting, disabling delivery, or unloading VTB still cleans up the session. Switching servers sends no retention notice to the player; pack status shows the policy only to the command caller. The bundled config includes a retaining `lobby` example and a clearing `vanilla` example.
 
