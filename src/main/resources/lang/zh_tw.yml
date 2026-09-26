@@ -46,7 +46,7 @@ plugin:
   help:
     list: "<#CCFFFF>列出外掛名稱、版本與作者；移上游標查看詳情"
     inspect: "<#CCFFFF>檢查外掛的相依關係、使用中的資源與卸載風險"
-    load: "<#CCFFFF>載入 plugins/ 中的 JAR"
+    load: "<#CCFFFF>載入外掛，檔名可簡寫"
     unload: "<#CCFFFF>卸載指定外掛並清理資源"
     reload: "<#CCFFFF>卸載後重新載入指定外掛"
     limit: "<#CCFFFF>更新權限、通訊協定或連線管理外掛時，建議重新啟動代理伺服器。"
@@ -102,7 +102,9 @@ plugin:
       executor: "<#FFFF55>卸載時會關閉此外掛已建立的執行緒池。"
       standard-cleanup-only: "<#CCFFFF>已登記的資源可清理；外掛自行建立的資源仍需另外確認。"
   load:
-    need-jar: "<#FF5555>請指定 <dir> 內的 .jar 檔名。"
+    need-jar: "<#FF5555>請輸入 <dir> 中的檔名，可省略 .jar，勿包含路徑。"
+    no-match: "<#FF5555>沒有符合的外掛檔案：<name>"
+    ambiguous: "<yellow>符合多個檔案，請輸入更完整的名稱：<files>"
     missing-file: "<#FF5555>找不到外掛 JAR：<file>"
     protected: "<#FF5555>無法載入受保護的外掛 '<plugin>'。"
     already: "<#FF5555>外掛 '<plugin>' 已經載入了。"
@@ -236,6 +238,7 @@ pack:
     resent: "<green>已安排重新傳送目前子伺服器的資源包請求。"
     no-state: "<#CCFFFF>目前沒有 <player> 的資源包傳送記錄。"
     player-title: "<#FF6600><player> 的資源包狀態 <gray>· <server>"
+    kept: "<gray>切服處理：保留資源包"
     backend: "<#CCFFFF>這位舊版玩家目前使用子伺服器提供的資源包，切換子伺服器或手動重送後才會重新選包。"
     waiting: "<#CCFFFF>正在等待傳送資源包請求。"
     empty: "<gray>目前沒有 VTB 傳送的資源包。"

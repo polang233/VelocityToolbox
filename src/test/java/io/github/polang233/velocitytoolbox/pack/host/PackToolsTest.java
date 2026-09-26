@@ -83,6 +83,40 @@ public final class PackToolsTest {
 
     private static void archives() throws Exception {
         Path file = root.resolve("archives/pack.zip");
+        zip(file, "pack.mcmeta/", METADATA);
+        PackArchive.validate(file);
+        // PackSquash can overstate the uncompressed size in the central directory.
+        byte[] protectedBytes = Files.readAllBytes(file);
+        boolean changedSize = false;
+        for (int i = 0; i + 46 <= protectedBytes.length; i++) {
+            if (protectedBytes[i] == 80 && protectedBytes[i + 1] == 75
+                    && protectedBytes[i + 2] == 1 && protectedBytes[i + 3] == 2) {
+                for (int b = 0; b < 4; b++) protectedBytes[i + 24 + b] = (byte) (1_000_000 >>> (b * 8));
+                changedSize = true;
+                break;
+            }
+        }
+        check(changedSize, "central directory found for protected metadata fixture");
+        Files.write(file, protectedBytes);
+        PackArchive.validate(file);
+        zip(file, "pack.mcmeta/", "");
+        try {
+            PackArchive.validate(file);
+            throw new AssertionError("empty metadata directory accepted");
+        } catch (IOException expected) { }
+        try (var output = new ZipOutputStream(Files.newOutputStream(file))) {
+            for (String name : List.of("pack.mcmeta", "pack.mcmeta/")) {
+                output.putNextEntry(new ZipEntry(name));
+                output.write(METADATA.getBytes(StandardCharsets.UTF_8));
+                output.closeEntry();
+            }
+        }
+        try {
+            PackArchive.validate(file);
+            throw new AssertionError("ambiguous metadata aliases accepted");
+        } catch (IOException expected) {
+            check(expected.getMessage().contains("duplicate"), "metadata alias collision diagnostic");
+        }
         for (String metadata : List.of(METADATA,
                 "{\"pack\":{\"min_format\":[75,1],\"max_format\":[75],\"description\":\"Example\"}}",
                 "{\"pack\":{\"min_format\":[75,0],\"max_format\":[75,9],\"description\":{\"text\":\"Example\"}}}")) {

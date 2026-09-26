@@ -146,6 +146,8 @@ public final class PackSender implements AutoCloseable {
     public synchronized ResendResult resend(Player player) {
         if (!rules.enabled() || !player.isActive() || player.getCurrentServer().isEmpty()) return ResendResult.DISABLED;
         refresh(player, true);
+        if (rules.keepExisting(player.getCurrentServer().orElseThrow().getServerInfo().getName()))
+            return ResendResult.EMPTY;
         Session session = sessions.get(player.getUniqueId());
         if (session == null || session.player != player || session.selection == null) return ResendResult.DISABLED;
         return session.selection.packs().isEmpty() ? ResendResult.EMPTY : ResendResult.SCHEDULED;
@@ -219,6 +221,20 @@ public final class PackSender implements AutoCloseable {
         session.server = server;
         if (force || !server.equals(session.backendServer)) session.backendServer = "";
         if (!session.backendServer.isEmpty()) return;
+        if (rules.keepExisting(server)) {
+            // Do not start a delayed offer after the player has left its server.
+            session.revision++;
+            if (session.delay != null) session.delay.cancel();
+            session.delay = null;
+            session.offers.removeIf(offer -> {
+                if (offer.sent) return false;
+                offer.cancel();
+                return true;
+            });
+            session.selection = new PackRules.Selection(
+                    session.offers.stream().map(offer -> offer.choice).toList(), List.of());
+            return;
+        }
         var selected = rules.select(server, player.getProtocolVersion(), player::hasPermission);
         if (prepare(session, selected, force) && !selected.skipped().isEmpty())
             lang.send(player, "pack.delivery.skipped", Lang.ph("packs", String.join(", ", selected.skipped())));
@@ -349,6 +365,8 @@ public final class PackSender implements AutoCloseable {
 
     /** 仅重试本机明确记录的过载，撤下失败包及后续叠加项，保留前缀。 */
     private boolean retry(Session session, Offer offer) {
+        // Passive servers must not dispatch a new retry or remove retained packs.
+        if (rules.keepExisting(session.server)) return false;
         if (session.retries >= host.limits().retries()) return false;
         session.retries++;
         int start = session.offers.indexOf(offer);
@@ -373,6 +391,7 @@ public final class PackSender implements AutoCloseable {
             return;
         }
         lang.send(source, "pack.delivery.player-title", Lang.ph("player", player.getUsername()), Lang.ph("server", session.server));
+        if (rules.keepExisting(session.server)) lang.send(source, "pack.delivery.kept");
         if (!session.backendServer.isEmpty()) lang.send(source, "pack.delivery.backend");
         if (session.delay != null) lang.send(source, "pack.delivery.waiting");
         if (session.selection != null && !session.selection.skipped().isEmpty())

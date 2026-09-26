@@ -59,9 +59,13 @@ final class PackParser {
             String path = "servers." + name;
             if (name.isBlank() || !name.equals(name.trim())) throw error(path, "invalid server name");
             ConfigurationNode node = entry.getValue();
-            keys(node, path, "packs");
+            keys(node, path, "packs", "keep-existing");
             if (node.node("packs").virtual()) throw error(path + ".packs", "expected a list");
-            Assignment rule = new Assignment(names(node.node("packs"), packs, path + ".packs"));
+            List<String> assigned = names(node.node("packs"), packs, path + ".packs");
+            boolean keep = bool(node.node("keep-existing"), false, path + ".keep-existing");
+            if (keep && !assigned.isEmpty())
+                throw error(path + ".keep-existing", "requires packs: []; this assignment only preserves existing offers");
+            Assignment rule = new Assignment(assigned, keep);
             if (servers.putIfAbsent(name.toLowerCase(Locale.ROOT), rule) != null) throw error(path, "duplicate server");
         }
         Assignment defaults = servers.remove("default");

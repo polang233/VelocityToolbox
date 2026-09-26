@@ -147,6 +147,7 @@ resource-packs:
             allow: ["1.20.1", "1.21.1"]
 
   # 子服分配：具体子服的 packs 完整替换默认列表。
+  # keep-existing 默认 false；设为 true 时必须使用 packs: []。
   servers:
     # default 是保留名称，适用于未单独配置的子服；缺省为空列表。
     default:
@@ -154,8 +155,14 @@ resource-packs:
       # 旧客户端只使用首个实际匹配的包，应提供完整单包。
       packs: [default]
     lobby:
-      # 空列表不下发，并撤下 VTB 的现代客户端包；旧客户端需后续包替换或重连。
+      # 示例：回到大厅时保留已有资源包，大厅不发新包。
       packs: []
+      keep-existing: true
+    vanilla:
+      # 示例：进入此服时撤下 VTB 的资源包（1.20.3+）。
+      # 旧客户端需后续包替换或重连。
+      packs: []
+      keep-existing: false
     survival:
       packs: [survival]
     rpg:

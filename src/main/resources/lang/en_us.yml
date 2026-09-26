@@ -46,7 +46,7 @@ plugin:
   help:
     list: "<#CCFFFF>List plugins, versions and authors; hover for details"
     inspect: "<#CCFFFF>Check dependencies and resources before unloading"
-    load: "<#CCFFFF>Load a JAR from plugins/"
+    load: "<#CCFFFF>Load a plugin using a full or partial filename"
     unload: "<#CCFFFF>Unload a plugin and clean up its resources"
     reload: "<#CCFFFF>Unload a plugin, then load it again"
     limit: "<#CCFFFF>Restart the proxy to update permission, protocol or connection plugins."
@@ -102,7 +102,9 @@ plugin:
       executor: "<#FFFF55>The existing plugin executor will be shut down during unload."
       standard-cleanup-only: "<#CCFFFF>Registered resources can be removed. Resources created directly by the plugin still need checking."
   load:
-    need-jar: "<#FF5555>Specify a .jar filename in <dir>."
+    need-jar: "<#FF5555>Enter a filename in <dir>, without a path. The .jar extension is optional."
+    no-match: "<#FF5555>No matching plugin file: <name>"
+    ambiguous: "<yellow>Multiple files match; use a more specific name: <files>"
     missing-file: "<#FF5555>Plugin JAR not found: <file>"
     protected: "<#FF5555>Refusing to load protected plugin '<plugin>'."
     already: "<#FF5555>Plugin '<plugin>' is already loaded."
@@ -236,6 +238,7 @@ pack:
     resent: "<green>A new pack request is scheduled for the player's current backend."
     no-state: "<#CCFFFF>No pack status is available for <player> yet."
     player-title: "<#FF6600>Resource packs for <player> <gray>· <server>"
+    kept: "<gray>On switch: keep resource packs"
     backend: "<#CCFFFF>This older client is using the backend's pack. VTB will choose packs again on the next switch or manual resend."
     waiting: "<#CCFFFF>Waiting to send the pack request."
     empty: "<gray>There are no active VTB pack requests."

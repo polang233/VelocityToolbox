@@ -46,7 +46,7 @@ plugin:
   help:
     list: "<#CCFFFF>列出插件名称、版本和作者；悬停查看详情"
     inspect: "<#CCFFFF>只读检查热卸载风险和已登记资源"
-    load: "<#CCFFFF>从 plugins/ 加载 JAR"
+    load: "<#CCFFFF>加载插件，文件名可简写"
     unload: "<#CCFFFF>卸载指定插件并清理资源"
     reload: "<#CCFFFF>卸载后重新加载指定插件"
     limit: "<#CCFFFF>权限、协议和连接管理插件建议重启代理更新。"
@@ -102,7 +102,9 @@ plugin:
       executor: "<#FFFF55>卸载时将关闭已创建的插件线程池。"
       standard-cleanup-only: "<#CCFFFF>已登记资源可清理；插件自建资源仍需检查。"
   load:
-    need-jar: "<#FF5555>请指定 <dir> 中的 .jar 文件名。"
+    need-jar: "<#FF5555>请输入 <dir> 中的文件名，可省略 .jar，不要带路径。"
+    no-match: "<#FF5555>没有匹配的插件文件：<name>"
+    ambiguous: "<yellow>匹配到多个文件，请写具体些：<files>"
     missing-file: "<#FF5555>插件 JAR 不存在：<file>"
     protected: "<#FF5555>拒绝加载受保护插件 '<plugin>'。"
     already: "<#FF5555>插件 '<plugin>' 已经加载。"
@@ -236,6 +238,7 @@ pack:
     resent: "<green>已安排重新下发当前子服的资源包。"
     no-state: "<#CCFFFF><player> 尚无下发记录。"
     player-title: "<#FF6600><player> 的资源包状态 <gray>· <server>"
+    kept: "<gray>切服处理：保留资源包"
     backend: "<#CCFFFF>当前由后端资源包接管，等待下次切服或手动重发。"
     waiting: "<#CCFFFF>等待下发资源包。"
     empty: "<gray>当前没有 VTB 下发的包。"

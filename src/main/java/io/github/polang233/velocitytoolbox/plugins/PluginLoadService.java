@@ -121,11 +121,19 @@ public final class PluginLoadService {
     }
 
     public synchronized OperationResult loadByFileName(String fileName) {
-        Path jar = resolvePluginJar(fileName);
-        if (jar == null) {
+        if (!PluginJarMatcher.valid(fileName)) {
             return OperationResult.fail("plugin.load.need-jar", Map.of("dir", pluginsDirectory.toString()));
         }
-        return load(jar);
+        List<String> matches = PluginJarMatcher.matches(fileName, jarFileNames());
+        if (matches.isEmpty())
+            return OperationResult.fail("plugin.load.no-match", Map.of("name", fileName.trim()));
+        if (matches.size() > 1)
+            return OperationResult.fail("plugin.load.ambiguous", Map.of("files", String.join(", ", matches)));
+        return load(pluginsDirectory.resolve(matches.getFirst()));
+    }
+
+    public List<String> jarSuggestions(String input) {
+        return PluginJarMatcher.suggestions(input, jarFileNames());
     }
 
     public synchronized OperationResult load(Path jar) {
@@ -343,29 +351,6 @@ public final class PluginLoadService {
         ids.add(description.getId());
         ids.addAll(description.getProvidedIds());
         return ids;
-    }
-
-    private Path resolvePluginJar(String fileName) {
-        if (fileName == null || fileName.isBlank()) {
-            return null;
-        }
-        String trimmed = fileName.trim();
-        if (trimmed.indexOf('/') >= 0 || trimmed.indexOf('\\') >= 0) {
-            return null;
-        }
-        if (!trimmed.toLowerCase(Locale.ROOT).endsWith(".jar")) {
-            return null;
-        }
-        Path root = pluginsDirectory.toAbsolutePath().normalize();
-        Path candidate = root.resolve(trimmed).toAbsolutePath().normalize();
-        if (!candidate.startsWith(root)) {
-            return null;
-        }
-        // Windows 上文件名大小写不敏感，所以只比较 Path，不再要求字符串完全一致。
-        if (!trimmed.equalsIgnoreCase(candidate.getFileName().toString())) {
-            return null;
-        }
-        return candidate;
     }
 
     private static boolean isProtected(String id) {

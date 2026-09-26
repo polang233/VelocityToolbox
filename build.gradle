@@ -3,7 +3,7 @@ plugins {
 }
 
 group = 'io.github.polang233.velocitytoolbox'
-version = '1.3.5'
+version = '1.3.7'
 description = 'Plugin management, virtual-host diagnostics, per-server client version rules, and resource pack hosting and delivery for Velocity'
 
 ext {
@@ -139,3 +139,13 @@ tasks.register('packToolsTest', JavaExec) {
     mainClass = 'io.github.polang233.velocitytoolbox.pack.host.PackToolsTest'
 }
 tasks.named('check') { dependsOn 'packToolsTest' }
+
+tasks.register('pluginJarMatcherTest', JavaExec) {
+    group = 'verification'
+    description = 'Checks shortened plugin filenames, ambiguity, completion and path validation.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + configurations.compileClasspath
+    mainClass = 'io.github.polang233.velocitytoolbox.plugins.PluginJarMatcherTest'
+}
+
+tasks.named('check') { dependsOn 'pluginJarMatcherTest' }

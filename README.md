@@ -33,6 +33,8 @@
 
 `/vtb plugin list|inspect|load|unload|reload` 查看、检查或热管理代理插件，并报告清理结果。仍被其它插件硬依赖的插件不能卸载。权限、协议及连接管理插件建议重启代理更新。
 
+`load` 支持省略 `.jar` 和输入部分文件名，例如 `/vtb plugin load MyPlugin`。完整名称优先，简写匹配到多个文件时会列出候选，不会自动选择版本；Tab 补全也支持名称片段。
+
 <p align="center">
   <img src="assets/screenshot-plugin-load.png" alt="插件加载" width="720">
 </p>
@@ -47,6 +49,7 @@
 - `url: "@文件.zip"`：从托管目录取文件，自动生成链接和 SHA-1。
 - 外部 HTTP/HTTPS 直链：客户端从该地址下载，须填写真实 hash。
 - `url: "@"`：不下发，无需文件或托管。
+- `servers.<子服>.keep-existing: true` 配合 `packs: []`：切服后保留已下发资源包，在该子服不发起新请求（1.3.6+）。
 
 自托管的 `public-url` 是玩家下载地址前缀。留空自动选本机局域网地址；公网服请填可访问的 IP 或域名，自行配置端口映射或反代。
 

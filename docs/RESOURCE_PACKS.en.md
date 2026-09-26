@@ -1,5 +1,13 @@
 # Resource packs
 
+## Keep packs across server switches (1.3.6+)
+
+Set `packs: []` and `keep-existing: true` on a server assignment (or on `servers.default`) to preserve VTB packs already offered during this proxy connection. Players who have not received a pack get no new request on that server. A nonempty pack list cannot be combined with this flag. Without the flag, the existing replacement/removal behavior is unchanged.
+
+Unsent delayed requests are cancelled when entering a passive server. Requests already sent can finish there and retain their original timeout/required policy. Passive servers do not issue retries or manual/batched resends. Returning to an assigned server keeps an unchanged pack and applies changed choices. Reloading while on a passive server preserves the old pack until the player returns to an assigned server. Disconnecting, disabling delivery, or unloading VTB still cleans up the session. Switching servers sends no retention notice to the player; pack status shows the policy only to the command caller. The bundled config includes a retaining `lobby` example and a clearing `vanilla` example.
+
+Protected ZIPs with a nonempty `pack.mcmeta/` payload are accepted using Java ZipFile's normal lookup semantics. The 64 KiB limit applies to actual decoded bytes rather than potentially obfuscated header sizes. Empty directories, ambiguous metadata aliases, oversized payloads and malformed metadata remain rejected.
+
 [中文](RESOURCE_PACKS.md)
 
 resource-packs sets network-wide defaults and chooses packs by backend, client version and permission; pack-host serves ZIP files over HTTP. Both default to disabled. Hosted sources need pack-host and a public-url reachable by players. External URLs work without local hosting.

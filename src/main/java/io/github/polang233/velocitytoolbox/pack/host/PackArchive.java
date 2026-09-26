@@ -27,15 +27,20 @@ public final class PackArchive {
             throw new IOException("not a regular ZIP file: " + path);
         try (ZipFile zip = new ZipFile(path.toFile())) {
             var entry = zip.getEntry("pack.mcmeta");
-            if (entry == null || entry.isDirectory())
+            // Java ZipFile (also used by Minecraft) resolves pack.mcmeta to
+            // pack.mcmeta/ when a protected archive stores its payload there.
+            if (entry == null)
                 throw new IOException("missing pack.mcmeta at ZIP root; check for an extra parent folder");
-            if (zip.stream().filter(e -> e.getName().equals("pack.mcmeta")).count() != 1)
+            if (zip.stream().filter(e -> e.getName().equals("pack.mcmeta")
+                    || e.getName().equals("pack.mcmeta/")).count() != 1)
                 throw new IOException("duplicate pack.mcmeta entries");
-            if (entry.getSize() > MAX_METADATA) throw new IOException("pack.mcmeta exceeds 64 KiB");
+            // Protected archives may deliberately misreport the declared size.
+            // Always bound the actual decoded bytes instead of trusting ZIP headers.
             byte[] bytes;
             try (var input = zip.getInputStream(entry)) {
                 bytes = input.readNBytes(MAX_METADATA + 1);
             }
+            if (bytes.length == 0) throw new IOException("empty pack.mcmeta at ZIP root");
             if (bytes.length > MAX_METADATA) throw new IOException("pack.mcmeta exceeds 64 KiB");
             String json = StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
                     .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString();

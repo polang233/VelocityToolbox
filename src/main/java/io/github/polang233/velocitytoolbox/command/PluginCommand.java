@@ -48,7 +48,7 @@ final class PluginCommand extends CommandView {
                                 .executes(this::pluginInspect)))
                 .then(literal("load")
                         .requires(source -> hasPluginPermission(source, PLUGIN_LOAD_PERMISSION))
-                        .executes(ctx -> usage(ctx, "/vtoolbox plugin load <file.jar>"))
+                        .executes(ctx -> usage(ctx, "/vtoolbox plugin load <name>"))
                         .then(BrigadierCommand.requiredArgumentBuilder("file", StringArgumentType.greedyString())
                                 .suggests(this::suggestJars)
                                 .executes(this::pluginLoad)))
@@ -74,7 +74,7 @@ final class PluginCommand extends CommandView {
         pluginHelpLineIfAllowed(source, PLUGIN_INSPECT_PERMISSION,
                 "/vtoolbox plugin inspect <plugin-id>", "plugin.help.inspect");
         pluginHelpLineIfAllowed(source, PLUGIN_LOAD_PERMISSION,
-                "/vtoolbox plugin load <file.jar>", "plugin.help.load");
+                "/vtoolbox plugin load <name>", "plugin.help.load");
         pluginHelpLineIfAllowed(source, PLUGIN_UNLOAD_PERMISSION,
                 "/vtoolbox plugin unload <plugin-id>", "plugin.help.unload");
         pluginHelpLineIfAllowed(source, PLUGIN_RELOAD_PERMISSION,
@@ -193,7 +193,8 @@ final class PluginCommand extends CommandView {
     }
 
     private CompletableFuture<Suggestions> suggestJars(CommandContext<CommandSource> ctx, SuggestionsBuilder builder) {
-        return suggest(builder, plugins.jarFileNames());
+        for (String name : plugins.jarSuggestions(builder.getRemaining())) builder.suggest(name);
+        return builder.buildFuture();
     }
 
     private CompletableFuture<Suggestions> suggestPluginIds(CommandContext<CommandSource> ctx, SuggestionsBuilder builder) {

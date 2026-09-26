@@ -92,6 +92,7 @@ public final class PackDeliveryTest {
             http();
             events();
             globalAssignments();
+            keepExistingAssignments();
             legacyRequiredReplies();
             mixedOffers();
             commands();
@@ -236,6 +237,118 @@ public final class PackDeliveryTest {
             PackRules.read(yaml(empty.replace("url: \"@\"", "url: \"@absent.zip\"")), List.of(), dir, true);
             throw new AssertionError("missing hosted file");
         } catch (IOException expected) { check(expected.getMessage().contains("hosted file not found"), "distinct missing message"); }
+    }
+
+    private static void keepExistingAssignments() throws Exception {
+        String policy = """
+                enabled: true
+                settings:
+                  delay: 1
+                  timeout: 2
+                packs:
+                  base:
+                    - url: https://example.com/base.zip
+                      hash: HASH
+                servers:
+                  default:
+                    packs: []
+                    keep-existing: true
+                  target:
+                    packs: [base]
+                  clear:
+                    packs: []
+                """.replace("HASH", HASH);
+        var parsed = rules(policy);
+        check(parsed.keepExisting("LOBBY") && !parsed.keepExisting("target")
+                && !parsed.keepExisting("clear"), "retention follows exact server assignment or default");
+        for (Object bad : List.of("true", 1)) {
+            var node = yaml(policy);
+            node.node("servers", "default", "keep-existing").set(bad);
+            try {
+                PackRules.read(node, List.of());
+                throw new AssertionError("non-boolean retention accepted");
+            } catch (IOException expected) {
+                check(expected.getMessage().contains("keep-existing"), "retention type diagnostic");
+            }
+        }
+        var conflict = yaml(policy);
+        conflict.node("servers", "default", "packs").set(List.of("base"));
+        try {
+            PackRules.read(conflict, List.of());
+            throw new AssertionError("retention with new packs accepted");
+        } catch (IOException expected) {
+            check(expected.getMessage().contains("keep-existing"), "retention conflict diagnostic");
+        }
+        for (var version : List.of(ProtocolVersion.MINECRAFT_1_20_3, ProtocolVersion.MINECRAFT_1_20_2)) {
+            Harness h = new Harness(dir.resolve("keep-" + version.getProtocol()));
+            h.version = version;
+            try (PackSender sender = h.sender()) {
+                sender.apply(parsed);
+                h.run(2000);
+                check(h.sent.isEmpty(), "passive login never starts a download");
+                h.server = "target";
+                sender.connected(new ServerPostConnectEvent(h.player, null));
+                h.server = "lobby";
+                sender.connected(new ServerPostConnectEvent(h.player, null));
+                h.run(2000);
+                check(h.sent.isEmpty(), "leaving target cancels an unsent delayed offer");
+                h.server = "target";
+                sender.connected(new ServerPostConnectEvent(h.player, null));
+                h.run(1000);
+                check(h.sent.size() == 1, "entering target sends exactly one pack");
+                var first = h.sent.getLast();
+                sender.status(reply(h, first, "ACCEPTED"));
+                int playerMessages = h.messages.size();
+                h.server = "lobby";
+                sender.connected(new ServerPostConnectEvent(h.player, null));
+                sender.status(reply(h, first, "SUCCESSFUL"));
+                h.run(3000);
+                check(h.messages.size() == playerMessages, "retaining packs sends no chat notice to the player");
+                sender.show(h.player, h.proxy.getConsoleCommandSource());
+                check(h.messages.size() == playerMessages && h.consoleMessages.stream().map(PLAIN::serialize)
+                        .anyMatch(message -> message.equals(PLAIN.serialize(h.lang.prefix()) + h.lang.plain("pack.delivery.kept"))),
+                        "retention status is sent only to the command caller");
+                check(h.removed.isEmpty() && h.kicked == null && h.status(sender).contains("loaded"),
+                        "in-flight request completes after switching without removal");
+                check(h.status(sender).contains(h.lang.plain("pack.delivery.kept")), "status explains retained packs");
+                check(sender.resend(h.player) == PackSender.ResendResult.EMPTY, "passive resend makes no request");
+                sender.resendAll(h.player);
+                h.run(2000);
+                sender.apply(parsed);
+                h.run(2000);
+                check(h.sent.size() == 1 && h.removed.isEmpty(), "resend all and reload retain without sending");
+                h.server = "target";
+                sender.connected(new ServerPostConnectEvent(h.player, null));
+                h.run(1000);
+                check(h.sent.size() == 1 && h.removed.isEmpty(), "returning to same pack does not resend");
+                h.server = "lobby";
+                sender.connected(new ServerPostConnectEvent(h.player, null));
+                sender.apply(rules(policy.replace("base.zip", "updated.zip")));
+                h.run(2000);
+                check(h.sent.size() == 1 && h.removed.isEmpty(), "pack update waits while on passive server");
+                h.server = "target";
+                sender.connected(new ServerPostConnectEvent(h.player, null));
+                h.run(1000);
+                check(h.sent.size() == 2 && h.sent.getLast().getUrl().endsWith("updated.zip"), "return picks up updated pack");
+                sender.status(reply(h, h.sent.getLast(), "SUCCESSFUL"));
+                h.server = "clear";
+                sender.connected(new ServerPostConnectEvent(h.player, null));
+                check(h.status(sender).contains(h.lang.plain("pack.delivery.empty")), "explicit empty assignment clears retained state");
+                if (version == ProtocolVersion.MINECRAFT_1_20_3)
+                    check(h.removed.contains(h.sent.getLast().getId()), "explicit clear removes modern retained pack");
+                else check(h.removed.isEmpty(), "legacy path never invokes unsupported pack removal");
+                h.server = "target";
+                sender.connected(new ServerPostConnectEvent(h.player, null));
+                h.run(1000);
+                var last = h.sent.getLast();
+                sender.status(reply(h, last, "SUCCESSFUL"));
+                h.server = "lobby";
+                sender.connected(new ServerPostConnectEvent(h.player, null));
+                sender.apply(PackRules.disabled());
+                if (version == ProtocolVersion.MINECRAFT_1_20_3)
+                    check(h.removed.contains(last.getId()), "module disable still cleans up owned retained packs");
+            }
+        }
     }
 
     private static void limitedRetry() throws Exception {

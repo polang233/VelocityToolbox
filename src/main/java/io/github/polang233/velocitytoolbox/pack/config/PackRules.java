@@ -36,10 +36,14 @@ public record PackRules(boolean enabled, long delay, long timeout, Map<String, P
         }
     }
 
-    public record Assignment(List<String> packs) {
+    public record Assignment(List<String> packs, boolean keepExisting) {
         public Assignment {
             packs = List.copyOf(packs);
+            if (keepExisting && !packs.isEmpty())
+                throw new IllegalArgumentException("keep-existing requires an empty pack list");
         }
+
+        public Assignment(List<String> packs) { this(packs, false); }
     }
 
     public record Choice(String name, File file, boolean required, Component prompt) {
@@ -84,6 +88,11 @@ public record PackRules(boolean enabled, long delay, long timeout, Map<String, P
      */
     public Selection select(String server, ProtocolVersion version, Predicate<String> permission) {
         return explain(server, version, permission).selection();
+    }
+
+    /** A passive assignment keeps this connection's previously offered packs. */
+    public boolean keepExisting(String server) {
+        return servers.getOrDefault(server.toLowerCase(Locale.ROOT), defaults).keepExisting();
     }
 
     /** 选包与诊断共用一次判定，诊断信息不参与已发送包的变化比较。 */
