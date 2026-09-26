@@ -251,7 +251,6 @@ public final class PackDeliveryTest {
                       hash: HASH
                 servers:
                   default:
-                    packs: []
                     keep-existing: true
                   target:
                     packs: [base]
@@ -261,6 +260,17 @@ public final class PackDeliveryTest {
         var parsed = rules(policy);
         check(parsed.keepExisting("LOBBY") && !parsed.keepExisting("target")
                 && !parsed.keepExisting("clear"), "retention follows exact server assignment or default");
+        var explicitEmpty = yaml(policy);
+        explicitEmpty.node("servers", "default", "packs").set(List.of());
+        check(parsed.equals(PackRules.read(explicitEmpty, List.of())), "omitted packs equals explicit empty list");
+        var missingPacks = yaml(policy);
+        missingPacks.node("servers", "default", "keep-existing").set(false);
+        try {
+            PackRules.read(missingPacks, List.of());
+            throw new AssertionError("missing active pack list accepted");
+        } catch (IOException expected) {
+            check(expected.getMessage().contains("packs"), "missing list diagnostic");
+        }
         for (Object bad : List.of("true", 1)) {
             var node = yaml(policy);
             node.node("servers", "default", "keep-existing").set(bad);

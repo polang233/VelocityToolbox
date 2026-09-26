@@ -104,13 +104,12 @@ VTB 只管理自己的包。旧客户端收到后端包后，以后端为准，�
 
 ### 切服保留已下发的包（1.3.6+）
 
-在需要保留的子服分配中使用 `packs: []` 和 `keep-existing: true`。这种分配只保留当前代理连接已发送的 VTB 包，不发起新请求；从未收到包的玩家不会下载。两个选项必须同时使用，不能与非空 packs 列表组合。未设置时保持原有的切服选包/撤包行为。
+在需要保留的子服分配中设置 `keep-existing: true`，可省略 `packs`。这种分配只保留当前代理连接已发送的 VTB 包，不发起新请求；从未收到包的玩家不会下载。也兼容显式的 `packs: []`，不能与非空 packs 列表组合。未设置时保持原有的切服选包/撤包行为。
 
 ```yaml
 resource-packs:
   servers:
     default:
-      packs: []
       keep-existing: true
     survival:
       packs: [survival]

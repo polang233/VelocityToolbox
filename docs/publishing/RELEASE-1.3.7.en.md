@@ -1,5 +1,5 @@
 - Plugin loading supports abbreviated names and Tab completion.
-- Server assignments can use `keep-existing: true` with `packs: []` to retain previously offered packs without sending new ones. Unsent delayed requests are cancelled on entry.
+- Server assignments can use `keep-existing: true` to retain previously offered packs (`packs` may be omitted) without sending new ones. Unsent delayed requests are cancelled on entry.
 - The default config includes both retention and removal examples. Normal switches send no retention notice; administrative status output uses a short description.
 - Protected ZIPs with `pack.mcmeta/` metadata and obfuscated size headers are supported, while actual decoded metadata remains size-limited and validated.
 
