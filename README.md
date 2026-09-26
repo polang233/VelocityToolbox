@@ -33,8 +33,6 @@
 
 `/vtb plugin list|inspect|load|unload|reload` 查看、检查或热管理代理插件，并报告清理结果。仍被其它插件硬依赖的插件不能卸载。权限、协议及连接管理插件建议重启代理更新。
 
-`load` 支持省略 `.jar` 和输入部分文件名，例如 `/vtb plugin load MyPlugin`。完整名称优先，简写匹配到多个文件时会列出候选，不会自动选择版本；Tab 补全也支持名称片段。
-
 <p align="center">
   <img src="assets/screenshot-plugin-load.png" alt="插件加载" width="720">
 </p>

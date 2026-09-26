@@ -6,7 +6,7 @@
 
 Use `/vtb plugin list` to list metadata, `inspect id` to inspect dependencies and resources, and `load name`, `unload id` or `reload id` to manage plugins.
 
-Loading accepts a full filename, a name without `.jar`, or a partial filename. For example, `/vtb plugin load MyPlugin` can select `MyPlugin-1.2.jar`. Exact names take priority, followed by prefixes and substrings, with case-insensitive matching. Ambiguous matches list candidate files without loading one or guessing the newest version. Tab completion also accepts filename fragments. Only JAR files directly inside `plugins/` are considered.
+`load` accepts names without `.jar` or partial names, such as `/vtb plugin load MyPlugin`. Multiple matches are listed for selection; Tab completion is also available.
 
 Required dependencies block unloading. VTB cleans registered commands, listeners, tasks, identifiable channels and class loaders. Plugins must close their own threads and external connections. Inspection cannot guarantee safe hot updates.
 
