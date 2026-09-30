@@ -9,6 +9,7 @@ import org.spongepowered.configurate.ConfigurationNode;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 /**
@@ -80,7 +81,12 @@ public record PackRules(boolean enabled, long delay, long timeout, Map<String, P
     }
 
     public static PackRules read(ConfigurationNode root, List<HostedPack> hosted, Path directory, boolean hostEnabled) throws IOException {
-        return PackParser.read(root, hosted, directory, hostEnabled);
+        return read(root, hosted, directory, hostEnabled, warning -> {});
+    }
+
+    public static PackRules read(ConfigurationNode root, List<HostedPack> hosted, Path directory,
+                                 boolean hostEnabled, Consumer<String> warning) throws IOException {
+        return PackParser.read(root, hosted, directory, hostEnabled, warning);
     }
 
     /**

@@ -170,7 +170,7 @@ public final class VelocityToolboxPlugin {
     private void reloadPacks(PackConfig config) throws java.io.IOException {
         PackService.Prepared prepared = packService.prepare(config);
         PackRules rules = PackRules.read(ResourceFiles.loadYaml(dataDirectory.resolve("config.yml"))
-                .node("resource-packs"), prepared.list(), prepared.directory(), config.enabled());
+                .node("resource-packs"), prepared.list(), prepared.directory(), config.enabled(), logger::warn);
         packService.apply(prepared);
         packSender.apply(rules);
     }

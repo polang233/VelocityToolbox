@@ -12,17 +12,19 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.function.Consumer;
 
 import static io.github.polang233.velocitytoolbox.pack.config.PackRules.*;
 
 /**
- * 读取配置并校验文件、哈希和分配引用；全部有效后才交给下发器。
+ * 读取配置并校验文件、哈希和分配引用；缺失的托管文件跳过，其余规则校验通过后交给下发器。
  */
 final class PackParser {
     private PackParser() {
     }
 
-    static PackRules read(ConfigurationNode root, List<HostedPack> hosted, Path directory, boolean hostEnabled) throws IOException {
+    static PackRules read(ConfigurationNode root, List<HostedPack> hosted, Path directory,
+                          boolean hostEnabled, Consumer<String> warning) throws IOException {
         if (root.virtual()) return disabled();
         keys(root, "", "enabled", "settings", "packs", "servers");
         if (!bool(root.node("enabled"), false, "enabled")) return disabled();
@@ -35,21 +37,26 @@ final class PackParser {
         Map<String, HostedPack> files = new HashMap<>();
         for (HostedPack pack : hosted) files.put(pack.fileName(), pack);
         Map<String, Pack> packs = new LinkedHashMap<>();
+        Set<String> configuredPacks = new HashSet<>();
         Set<Path> checkedArchives = new HashSet<>();
         ConfigurationNode entries = root.node("packs");
         if (!entries.isMap()) throw error("packs", "expected a map of named variant lists");
         for (var entry : entries.childrenMap().entrySet()) {
             String name = String.valueOf(entry.getKey());
             if (!name.matches("[A-Za-z0-9_-]+")) throw error("packs", "invalid name: " + name);
+            configuredPacks.add(name);
             String path = "packs." + name;
             ConfigurationNode node = entry.getValue();
             if (!node.isList() || node.childrenList().isEmpty())
                 throw error(path, "expected a non-empty variant list (- url: ...); see docs/RESOURCE_PACKS.md");
             List<Variant> variants = new ArrayList<>();
             int i = 0;
-            for (ConfigurationNode variant : node.childrenList())
-                variants.add(variant(variant, files, path + "[" + i++ + "]", required, prompt, directory, hostEnabled, checkedArchives));
-            packs.put(name, new Pack(variants));
+            for (ConfigurationNode variant : node.childrenList()) {
+                Variant parsed = variant(variant, files, path + "[" + i++ + "]", required, prompt,
+                        directory, hostEnabled, checkedArchives, warning);
+                if (parsed != null) variants.add(parsed);
+            }
+            if (!variants.isEmpty()) packs.put(name, new Pack(variants));
         }
         Map<String, Assignment> servers = new LinkedHashMap<>();
         ConfigurationNode serverNode = root.node("servers");
@@ -63,8 +70,8 @@ final class PackParser {
             boolean keep = bool(node.node("keep-existing"), false, path + ".keep-existing");
             if (!keep && node.node("packs").virtual()) throw error(path + ".packs", "expected a list");
             List<String> assigned = keep && node.node("packs").virtual()
-                    ? List.of() : names(node.node("packs"), packs, path + ".packs");
-            if (keep && !assigned.isEmpty())
+                    ? List.of() : names(node.node("packs"), configuredPacks, packs, path + ".packs");
+            if (keep && !node.node("packs").virtual() && !node.node("packs").childrenList().isEmpty())
                 throw error(path + ".keep-existing", "cannot be combined with a non-empty pack list");
             Assignment rule = new Assignment(assigned, keep);
             if (servers.putIfAbsent(name.toLowerCase(Locale.ROOT), rule) != null) throw error(path, "duplicate server");
@@ -75,10 +82,17 @@ final class PackParser {
     }
 
     private static Variant variant(ConfigurationNode node, Map<String, HostedPack> files, String path,
-                                   boolean required, Component prompt, Path directory, boolean hostEnabled, Set<Path> checkedArchives) throws IOException {
+                                   boolean required, Component prompt, Path directory, boolean hostEnabled,
+                                   Set<Path> checkedArchives, Consumer<String> warning) throws IOException {
         keys(node, path, "url", "hash", "conditions", "required", "prompt");
         String url = string(node.node("url"), "", path + ".url");
         String hash = string(node.node("hash"), "", path + ".hash").toLowerCase(Locale.ROOT);
+        ConfigurationNode conditions = node.node("conditions");
+        if (!conditions.virtual()) keys(conditions, path + ".conditions", "versions", "permission");
+        VersionRule versions = VersionRule.read(conditions.node("versions"), "resource-packs." + path + ".conditions.versions");
+        String permission = string(conditions.node("permission"), "", path + ".conditions.permission");
+        boolean variantRequired = bool(node.node("required"), required, path + ".required");
+        Component variantPrompt = prompt(node.node("prompt"), prompt, path + ".prompt");
         File source;
         if (url.equals("@")) {
             if (!node.node("hash").virtual() && !hash.equals("@"))
@@ -90,16 +104,20 @@ final class PackParser {
                     "self-hosting is disabled; enable pack-host.enabled to use " + url);
             if (!PackScanner.isSafeZipFileName(file))
                 throw error(path + ".url", "expected @ or @filename.zip without a directory");
+            if (!(node.node("hash").virtual() || hash.equals("@")) && !hash.matches("[0-9a-f]{40}"))
+                throw error(path + ".hash", "expected @ or 40 hexadecimal characters");
             HostedPack hosted = files.get(file);
-            if (hosted == null) throw error(path + ".url", "hosted file not found: " + file
-                    + "; check filename and packs-directory: " + (directory == null ? "(not supplied)" : directory));
+            if (hosted == null) {
+                warning.accept("resource-packs." + path + ".url: hosted file not found: " + file
+                        + "; skipping this variant; check packs-directory: "
+                        + (directory == null ? "(not supplied)" : directory));
+                return null;
+            }
             if (checkedArchives.add(hosted.path())) {
                 try { PackArchive.validate(hosted.path()); }
                 catch (IOException invalid) { throw error(path + ".url", invalid.getMessage()); }
             }
             if (!(node.node("hash").virtual() || hash.equals("@"))) {
-                if (!hash.matches("[0-9a-f]{40}"))
-                    throw error(path + ".hash", "expected @ or 40 hexadecimal characters");
                 if (!hash.equalsIgnoreCase(hosted.sha1()))
                     throw error(path + ".hash", "hash does not match hosted file: " + file);
             }
@@ -118,22 +136,20 @@ final class PackParser {
         } catch (IllegalArgumentException e) {
             throw error(path + ".url", "expected an HTTP(S) download URL with port 1-65535 and no credentials or fragment");
         }
-        ConfigurationNode conditions = node.node("conditions");
-        if (!conditions.virtual()) keys(conditions, path + ".conditions", "versions", "permission");
-        return new Variant(source, VersionRule.read(conditions.node("versions"), "resource-packs." + path + ".conditions.versions"),
-                string(conditions.node("permission"), "", path + ".conditions.permission"),
-                bool(node.node("required"), required, path + ".required"), prompt(node.node("prompt"), prompt, path + ".prompt"));
+        return new Variant(source, versions, permission, variantRequired, variantPrompt);
     }
 
-    private static List<String> names(ConfigurationNode node, Map<String, Pack> packs, String path) throws IOException {
+    private static List<String> names(ConfigurationNode node, Set<String> configuredPacks,
+                                      Map<String, Pack> packs, String path) throws IOException {
         if (node.virtual()) return List.of();
         if (!node.isList()) throw error(path, "expected a list");
         List<String> names = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
         for (ConfigurationNode child : node.childrenList()) {
             String name = string(child, "", path);
-            if (!packs.containsKey(name) || names.contains(name))
+            if (!configuredPacks.contains(name) || !seen.add(name))
                 throw error(path, "unknown or duplicate pack: " + name);
-            names.add(name);
+            if (packs.containsKey(name)) names.add(name);
         }
         return names;
     }

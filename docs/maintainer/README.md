@@ -6,7 +6,7 @@
 
 ## 构建与验证
 
-在 VelocityToolbox 子目录执行 gradlew.bat build，Linux 使用 ./gradlew build。需要 Java 25。当前版本为 1.3.5；此工作区根目录没有统一 Git 仓库。
+在 VelocityToolbox 子目录执行 gradlew.bat build，Linux 使用 ./gradlew build。需要 Java 25；版本号以 build.gradle 为准。此工作区根目录没有统一 Git 仓库。
 
 修改文档后运行 `python scripts/check_docs.py` 检查链接和代码围栏。
 

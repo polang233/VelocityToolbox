@@ -102,6 +102,8 @@ SHA-1 identifies the ZIP bytes for caching, update detection and download checks
 
 ## Selection and delivery
 
+If a configured `@filename.zip` is missing from `packs-directory` during startup or reload, VTB logs its configuration path and filename and skips that variant. If every variant of a pack is missing, assigned servers receive no offer for that pack. Other valid packs continue to be offered. Restore the file and run `/vtb reload` to enable it again.
+
 Each pack uses the first variant matching both version and permission conditions. An unmatched pack is skipped. Omitted conditions match everyone; put fallback variants last.
 
 versions shares the server-versions parser and matching rules. min/max are inclusive and default to Velocity's supported bounds; max: max follows proxy updates. A nonempty allow list further restricts the range; deny takes precedence. Quote version names or use integer protocol IDs. Versions sharing a protocol match together.

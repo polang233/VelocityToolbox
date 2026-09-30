@@ -87,6 +87,7 @@ public final class PackDeliveryTest {
             hostOptions();
             rules();
             redesignedRules();
+            missingHostedFile();
             noPack();
             limitedRetry();
             http();
@@ -144,7 +145,6 @@ public final class PackDeliveryTest {
         for (String bad : List.of(YAML.replace(HASH, "bad"), YAML.replace("packs: [base]", "packs: [missing]"),
                 YAML.replace("delay: 0", "delay: -1"), YAML.replace("timeout: 2", "timeout: 0"),
                 YAML.replace("min: \"1.20.3\"", "min: 999999"), YAML.replace("enabled: true", "enabled: \"yes\""),
-                YAML.replace("url: https://example.com/base.zip", "url: \"@missing.zip\""),
                 YAML.replace("packs: [base]", "packs: [base, base]"))) {
             try {
                 rules(bad);
@@ -206,11 +206,75 @@ public final class PackDeliveryTest {
             PackRules.read(yaml(local + "      hash: " + "a".repeat(40)), List.of(hosted), directory);
             throw new AssertionError("local mismatched hash");
         } catch (IOException expected) { check(expected.getMessage().contains(".hash"), "hash error path"); }
-        try {
-            PackRules.read(yaml(local), List.of(), directory);
-            throw new AssertionError("missing file");
-        } catch (IOException expected) {
-            check(expected.getMessage().contains(directory.toString()) && expected.getMessage().contains("packs.base[0].url"), "missing file diagnostic");
+    }
+
+    private static void missingHostedFile() throws Exception {
+        Path directory = Files.createDirectories(dir.resolve("missing-hosted"));
+        zip(directory.resolve("deleted.zip"), "before-delete");
+        zip(directory.resolve("present.zip"), "still-present");
+        String config = """
+                enabled: true
+                settings:
+                  delay: 0
+                packs:
+                  deleted:
+                    - url: '@deleted.zip'
+                  fallback:
+                    - url: '@deleted.zip'
+                    - url: '@present.zip'
+                  present:
+                    - url: '@present.zip'
+                servers:
+                  default:
+                    packs: [deleted]
+                  survival:
+                    packs: [deleted, fallback, present]
+                  other:
+                    packs: [present]
+                """;
+        var before = PackRules.read(yaml(config), PackScanner.scan(directory, "https://example.com").values().stream().toList(), directory);
+        check(before.select("survival", ProtocolVersion.MINECRAFT_1_20_3, x -> true).packs().size() == 3,
+                "all hosted packs initially selected");
+        Files.delete(directory.resolve("deleted.zip"));
+        List<String> warnings = new ArrayList<>();
+        var after = PackRules.read(yaml(config), PackScanner.scan(directory, "https://example.com").values().stream().toList(),
+                directory, true, warnings::add);
+        check(warnings.size() == 2 && warnings.stream().allMatch(message -> message.contains("deleted.zip")
+                && message.contains(directory.toString()) && message.contains(".url")), "missing variants logged with location");
+        check(!after.packs().containsKey("deleted") && after.servers().get("survival").packs().equals(List.of("fallback", "present")),
+                "missing pack removed from assignments");
+        check(after.select("lobby", ProtocolVersion.MINECRAFT_1_20_3, x -> true).packs().isEmpty(),
+                "default server sends no deleted pack");
+        check(after.select("survival", ProtocolVersion.MINECRAFT_1_20_3, x -> true).packs().size() == 2
+                && after.select("other", ProtocolVersion.MINECRAFT_1_20_3, x -> true).packs().size() == 1,
+                "remaining variants and other servers still send");
+        for (String invalid : List.of(
+                config.replace("packs: [deleted]", "packs: [deleted, deleted]"),
+                config.replace("packs: [deleted]", "keep-existing: true\n    packs: [deleted]"),
+                config.replace("url: '@deleted.zip'", "url: '@deleted.zip'\n      hash: invalid"),
+                config.replace("url: '@deleted.zip'", "url: '@deleted.zip'\n      required: 'yes'"),
+                config.replace("url: '@deleted.zip'", "url: '@deleted.zip'\n      conditions:\n        versions:\n          min: invalid"))) {
+            try {
+                PackRules.read(yaml(invalid), List.of(), directory);
+                throw new AssertionError("missing file hid invalid configuration");
+            } catch (IOException expected) { }
+        }
+        zip(directory.resolve("deleted.zip"), "restored");
+        var restored = PackRules.read(yaml(config), PackScanner.scan(directory, "https://example.com").values().stream().toList(), directory);
+        check(restored.select("survival", ProtocolVersion.MINECRAFT_1_20_3, x -> true).packs().size() == 3,
+                "restoring a file restores its assignments on reload");
+        Harness h = new Harness(directory.resolve("sender"));
+        try (PackSender sender = h.sender()) {
+            sender.apply(rules("enabled: true\nsettings:\n  delay: 0\npacks:\n  deleted:\n"
+                    + "    - url: https://example.com/deleted.zip\n      hash: " + HASH
+                    + "\nservers:\n  default:\n    packs: [deleted]\n"));
+            h.run(0);
+            check(h.sent.size() == 1, "server initially receives hosted pack");
+            UUID previous = h.sent.getFirst().getId();
+            sender.apply(after);
+            h.run(0);
+            check(h.sent.size() == 1 && h.removed.contains(previous),
+                    "reload removes deleted pack without a new offer");
         }
     }
 
@@ -233,10 +297,11 @@ public final class PackDeliveryTest {
             PackRules.read(yaml(empty.replace("url: \"@\"", "url: \"@absent.zip\"")), List.of(), dir, false);
             throw new AssertionError("disabled hosting reference");
         } catch (IOException expected) { check(expected.getMessage().contains("self-hosting is disabled"), "distinct disabled message"); }
-        try {
-            PackRules.read(yaml(empty.replace("url: \"@\"", "url: \"@absent.zip\"")), List.of(), dir, true);
-            throw new AssertionError("missing hosted file");
-        } catch (IOException expected) { check(expected.getMessage().contains("hosted file not found"), "distinct missing message"); }
+        List<String> warnings = new ArrayList<>();
+        var absent = PackRules.read(yaml(empty.replace("url: \"@\"", "url: \"@absent.zip\"")),
+                List.of(), dir, true, warnings::add);
+        check(absent.defaults().packs().isEmpty() && warnings.size() == 1
+                && warnings.getFirst().contains("hosted file not found"), "missing hosted file is skipped");
     }
 
     private static void keepExistingAssignments() throws Exception {
@@ -526,12 +591,9 @@ public final class PackDeliveryTest {
             } catch (IOException expected) {
             }
             check(host.enabled() && client.send(HttpRequest.newBuilder(uri).GET().build(), HttpResponse.BodyHandlers.discarding()).statusCode() == 200, "same-port restoration");
-            try {
-                PackRules.read(yaml("enabled: true\npacks:\n  broken:\n    - url: \"@absent.zip\"\n"), host.prepare(config).list());
-                throw new AssertionError("missing local");
-            } catch (IOException expected) {
-            }
-            check(host.enabled(), "bad rule does not stop host");
+            check(PackRules.read(yaml("enabled: true\npacks:\n  broken:\n    - url: \"@absent.zip\"\n"),
+                    host.prepare(config).list()).packs().isEmpty(), "missing local pack is skipped");
+            check(host.enabled(), "missing rule does not stop host");
         }
     }
 
