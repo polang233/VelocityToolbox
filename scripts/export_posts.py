@@ -11,6 +11,7 @@ SOURCES = {
     "RELEASE-1.3.5.md": "RELEASE-1.3.5.bbcode.txt",
     "RELEASE-1.3.7.md": "RELEASE-1.3.7.bbcode.txt",
     "RELEASE-1.3.8.md": "RELEASE-1.3.8.bbcode.txt",
+    "RELEASE-1.3.9.md": "RELEASE-1.3.9.bbcode.txt",
 }
 
 

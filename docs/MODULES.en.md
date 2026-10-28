@@ -16,7 +16,9 @@ Required dependencies block unloading. VTB cleans registered commands, listeners
 
 Use `/vtb pack list`, `status player` and `resend player`. Status includes the current assignment and variant matches, with version and permission mismatch reasons.
 
-From 1.3.5, `/vtb pack check` checks the disk configuration, hashes and local pack metadata without applying changes. Failures identify the location in chat and the console. `/vtb pack resend all` schedules up to five online players per second, recalculating their packs before scheduling. Duplicate runs are rejected; reload or shutdown cancels the remaining queue. Completion reports scheduling, not successful client loading. A running HTTP listener does not prove public reachability or successful client loading. See [resource packs](RESOURCE_PACKS.en.md).
+`/vtb pack remove player|all` withdraws this plugin's packs, cancels pending sends, retries and timeouts, and pauses delivery on the current backend. Reload preserves the pause; a server switch or manual resend resumes delivery. Bulk removal also cancels the resend queue. Clients below 1.20.3 must reconnect to clear loaded packs.
+
+From 1.3.5, `/vtb pack check` checks the disk configuration, hashes and local pack metadata without applying changes. Failures identify the location in chat and the console. `/vtb pack resend all` retires all old requests first, then schedules up to five online players per second. Duplicate runs are rejected; reload continues pending delivery using current rules, while disabling delivery or remove all cancels it. Completion reports scheduling, not successful client loading. A running HTTP listener does not prove public reachability or successful client loading. See [resource packs](RESOURCE_PACKS.en.md).
 
 ## Servers and entries
 
@@ -36,7 +38,7 @@ From 1.3.5, `/vtb pack check` checks the disk configuration, hashes and local pa
 
 - `velocitytoolbox.command.info` or `velocitytoolbox.command.reload` for general actions.
 - `velocitytoolbox.command.plugin` and `velocitytoolbox.command.plugin.<action>` for list, inspect, load, unload or reload.
-- `velocitytoolbox.command.pack` and `velocitytoolbox.command.pack.<action>` for list, check, status or resend. Bulk resend also needs `velocitytoolbox.command.pack.resend.all`; administrator access includes it.
+- `velocitytoolbox.command.pack` and `velocitytoolbox.command.pack.<action>` for list, check, status, resend or remove. Bulk resend also needs `velocitytoolbox.command.pack.resend.all`; bulk removal needs `velocitytoolbox.command.pack.remove.all`. Administrator access includes both.
 - `velocitytoolbox.command.server` and `velocitytoolbox.command.server.hosts` for entries.
 
 Variant permissions affect pack selection, not command access. The old packs/vhosts commands became pack list/server hosts; update scripts and permissions accordingly.

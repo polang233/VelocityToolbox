@@ -38,38 +38,48 @@ final class PackCommand extends CommandView {
                 .requires(source -> action(source, "pack", "list")).executes(this::list));
         node.then(literal("check")
                 .requires(source -> action(source, "pack", "check")).executes(this::check));
-        for (String action : List.of("status", "resend")) {
+        for (String action : List.of("status", "resend", "remove")) {
+            boolean supportsAll = !action.equals("status");
             var command = literal(action)
                     .requires(source -> action(source, "pack", action))
-                    .executes(ctx -> usage(ctx, "/vtb pack " + action + (action.equals("resend") ? " <player|all>" : " <player>")))
+                    .executes(ctx -> usage(ctx, "/vtb pack " + action + (supportsAll ? " <player|all>" : " <player>")))
                     .then(BrigadierCommand.requiredArgumentBuilder("player", StringArgumentType.word())
                             .suggests((ctx, builder) -> {
                                 List<String> names = new ArrayList<>(proxy.getAllPlayers().stream().map(Player::getUsername).sorted().toList());
-                                if (action.equals("resend") && bulk(ctx.getSource())) names.add("all");
+                                if (supportsAll && bulk(ctx.getSource(), action)) names.add("all");
                                 return suggest(builder, names);
                             })
                             .executes(ctx -> player(ctx, action)));
-            if (action.equals("resend"))
-                command.then(literal("all").requires(this::bulk)
-                        .executes(ctx -> sender.resendAll(ctx.getSource()) ? 1 : 0));
+            if (supportsAll)
+                command.then(literal("all").requires(source -> bulk(source, action))
+                        .executes(ctx -> all(ctx, action)));
             node.then(command);
         }
         return node;
     }
 
-    private boolean bulk(CommandSource source) {
-        return action(source, "pack", "resend") && (source.hasPermission(PERMISSION)
-                || source.hasPermission("velocitytoolbox.command.pack.resend.all"));
+    private boolean bulk(CommandSource source, String action) {
+        return action(source, "pack", action) && (source.hasPermission(PERMISSION)
+                || source.hasPermission("velocitytoolbox.command.pack." + action + ".all"));
+    }
+
+    private int all(CommandContext<CommandSource> ctx, String action) {
+        if (action.equals("resend")) return sender.resendAll(ctx.getSource()) ? 1 : 0;
+        var result = sender.removeAll();
+        lang.send(ctx.getSource(), "pack.delivery.remove-all", Lang.ph("removed", result.removed()),
+                Lang.ph("empty", result.empty()), Lang.ph("legacy", result.legacy()), Lang.ph("skipped", result.skipped()));
+        return 1;
     }
 
     private int help(CommandContext<CommandSource> ctx) {
         sectionLine(ctx.getSource(), "pack.title");
-        for (String action : List.of("list", "check", "status", "resend"))
+        for (String action : List.of("list", "check", "status", "resend", "remove"))
             if (action(ctx.getSource(), "pack", action))
                 helpLine(ctx.getSource(), "/vtb pack " + action + (List.of("list", "check").contains(action) ? ""
-                        : action.equals("resend") ? " <player|all>" : " <player>"),
+                        : action.equals("status") ? " <player>" : " <player|all>"),
                         "pack.help." + action);
-        if (bulk(ctx.getSource())) helpLine(ctx.getSource(), "/vtb pack resend all", "pack.help.resend-all");
+        for (String action : List.of("resend", "remove"))
+            if (bulk(ctx.getSource(), action)) helpLine(ctx.getSource(), "/vtb pack " + action + " all", "pack.help." + action + "-all");
         return 1;
     }
 
@@ -102,14 +112,24 @@ final class PackCommand extends CommandView {
     private int player(CommandContext<CommandSource> ctx, String action) throws CommandSyntaxException {
         String name = StringArgumentType.getString(ctx, "player");
         // all 是批量操作关键字，不得在权限不足时回落为玩家名。
-        if (action.equals("resend") && name.equalsIgnoreCase("all")) {
-            if (!bulk(ctx.getSource())) throw CommandSyntaxException.BUILT_IN_EXCEPTIONS.dispatcherUnknownCommand().create();
-            return sender.resendAll(ctx.getSource()) ? 1 : 0;
+        if (!action.equals("status") && name.equalsIgnoreCase("all")) {
+            if (!bulk(ctx.getSource(), action)) throw CommandSyntaxException.BUILT_IN_EXCEPTIONS.dispatcherUnknownCommand().create();
+            return all(ctx, action);
         }
         Player player = proxy.getPlayer(name).orElse(null);
         if (player == null) {
             lang.send(ctx.getSource(), "pack.delivery.offline");
             return 0;
+        }
+        if (action.equals("remove")) {
+            var result = sender.remove(player);
+            lang.send(ctx.getSource(), switch (result) {
+                case REMOVED -> "pack.delivery.removed";
+                case EMPTY -> "pack.delivery.remove-empty";
+                case LEGACY -> "pack.delivery.remove-legacy";
+                case OFFLINE -> "pack.delivery.offline";
+            }, Lang.ph("player", player.getUsername()));
+            return result == PackSender.RemoveResult.OFFLINE ? 0 : 1;
         }
         if (action.equals("status")) {
             sender.show(player, ctx.getSource());

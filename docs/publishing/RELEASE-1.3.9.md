@@ -1,0 +1,11 @@
+- 改善连续切服和批量更新：换包间隔至少 1 秒，reload 和 resend all 按每秒最多 5 人下发；自托管下载失败最多自动重试两次。
+- 修复旧任务和旧回执干扰新包的问题。批量重发先作废全部旧请求；连用 remove all、resend all 和 reload 时保留最后一次撤包或重发意图，旧失败、拒绝和超时不能误踢玩家。
+- 新增 `/vtb pack remove 玩家|all`，撤包并取消等待、重试、超时任务。同一子服内 reload 不会补发，下次切服或手动 resend 恢复。1.20.3 以下客户端只能暂停下发，已加载的包需重连清除。
+- 单 IP 默认下载并发从 8 调至 12，短时请求突发从 20 调至 40；持续请求、全服并发和带宽限制继续生效。
+- 后台记录具体包名、客户端状态和可用的 HTTP 诊断。玩家提示精简，不附包名或重复插件名；撤包提示为“管理员已撤下你的资源包”。
+
+替换旧 JAR 后完整重启代理。原配置和自定义语言文件保留，缺少的新提示使用随包文本。已有 `max-downloads-per-ip: 8` 不会自动改为 12；需要放宽时合并 [资源包配置](https://github.com/polang233/VelocityToolbox/blob/main/docs/RESOURCE_PACKS.md) 中的升级片段。40 次突发额度自动生效。
+
+撤包权限为 `velocitytoolbox.command.pack.remove`，批量撤包另需 `velocitytoolbox.command.pack.remove.all`；仍需基础和模块权限，`velocitytoolbox.admin` 已包含全部权限。
+
+运行环境：Velocity 4.0+、Java 25+。完整构建与回归通过，覆盖 30 人更新、连续命令、旧回调与回执、重试及真实本机 HTTP。尚未进行客户端实服验证。

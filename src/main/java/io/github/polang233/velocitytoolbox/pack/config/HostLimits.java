@@ -13,6 +13,9 @@ public record HostLimits(int downloads, int downloadsPerIp, int requestsPerSecon
                          boolean index, List<String> trustedProxies, int retries, int retrySeconds) {
     public HostLimits { trustedProxies = List.copyOf(trustedProxies); }
 
+    private static final int DEFAULT_DOWNLOADS_PER_IP = 12;
+    private static final int REQUEST_BURST_PER_IP = 40;
+
     private static final Set<String> OPTIONS = Set.of(
             "max-downloads", "max-downloads-per-ip", "requests-per-minute-per-ip",
             "max-download-seconds", "bandwidth-mib", "per-download-mib", "trusted-proxies");
@@ -21,7 +24,8 @@ public record HostLimits(int downloads, int downloadsPerIp, int requestsPerSecon
             "max-request-bytes", "show-index", "download-retries", "retry-delay");
 
     public static HostLimits defaults() {
-        return new HostLimits(64, 8, 200, 120, 20, 10000, 300, 16384, 60, 0, 0, false, List.of(), 2, 5);
+        return new HostLimits(64, DEFAULT_DOWNLOADS_PER_IP, 200, 120, REQUEST_BURST_PER_IP,
+                10000, 300, 16384, 60, 0, 0, false, List.of(), 2, 5);
     }
 
     public static HostLimits read(ConfigurationNode node) throws IOException {
@@ -43,10 +47,10 @@ public record HostLimits(int downloads, int downloadsPerIp, int requestsPerSecon
             }
         }
         return new HostLimits(number(node, "max-downloads", 64, 1, 4096),
-                number(node, "max-downloads-per-ip", 8, 1, 4096),
+                number(node, "max-downloads-per-ip", DEFAULT_DOWNLOADS_PER_IP, 1, 4096),
                 200,
                 number(node, "requests-per-minute-per-ip", 120, 1, 100000),
-                20,
+                REQUEST_BURST_PER_IP,
                 10000,
                 300,
                 16384,

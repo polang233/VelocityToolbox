@@ -74,93 +74,127 @@ public final class PackHttpServer implements AutoCloseable {
 
     private void handle(HttpExchange exchange) throws IOException {
         Snapshot current = snapshot;
+        DownloadTickets.Request request = tickets.begin(exchange.getRequestURI(), exchange.getRequestMethod().equals("GET"));
         int count = handlers.incrementAndGet();
         try {
             if (!running() || count > current.limits().downloads() + 64) {
-                reject(exchange, 503);
+                reject(exchange, request, 503);
                 return;
             }
-            try (var transfer = transfers.begin(exchange)) {
+            try (var transfer = transfers.begin(exchange, request)) {
                 if (requestBytes(exchange) > current.limits().requestBytes()) {
                     int rejection = requests.request(exchange.getRemoteAddress().getAddress().getHostAddress());
-                    if (rejection != 0) { reject(exchange, rejection); return; }
-                    respond(exchange, 431, "Request too large\n"); return;
+                    if (rejection != 0) { reject(exchange, request, rejection); return; }
+                    respond(exchange, request, 431, "Request too large\n"); return;
                 }
                 String ip = current.addresses().resolve(exchange);
                 int rejection = requests.request(ip);
-                if (rejection != 0) { reject(exchange, rejection); return; }
+                if (rejection != 0) { reject(exchange, request, rejection); return; }
                 String method = exchange.getRequestMethod();
                 if (!method.equals("GET") && !method.equals("HEAD")) {
                     exchange.getResponseHeaders().set("Allow", "GET, HEAD");
-                    respond(exchange, 405, "Method not allowed\n"); return;
+                    respond(exchange, request, 405, "Method not allowed\n"); return;
                 }
                 if (exchange.getRequestHeaders().containsKey("Transfer-Encoding")
                         || exchange.getRequestHeaders().getOrDefault("Content-Length", java.util.List.of("0"))
                         .stream().anyMatch(value -> !value.equals("0"))) {
-                    respond(exchange, 400, "Request body not accepted\n"); return;
+                    respond(exchange, request, 400, "Request body not accepted\n"); return;
                 }
                 String path = exchange.getRequestURI().getPath();
                 if ("/".equals(path)) {
-                    if (!current.limits().index()) { respond(exchange, 404, "Not found\n"); return; }
+                    if (!current.limits().index()) { respond(exchange, request, 404, "Not found\n"); return; }
                     StringBuilder body = new StringBuilder("VelocityToolBox packs\n");
                     current.packs().values().stream().sorted(Comparator.comparing(HostedPack::fileName))
                             .forEach(pack -> body.append(pack.fileName()).append('\n'));
-                    respond(exchange, 200, body.toString()); return;
+                    respond(exchange, request, 200, body.toString()); return;
                 }
                 String name = requestedFileName(exchange.getRequestURI());
                 HostedPack pack = name == null ? null : current.packs().get(name.toLowerCase(Locale.ROOT));
-                if (pack == null) { respond(exchange, 404, "Not found\n"); return; }
+                if (pack == null) { respond(exchange, request, 404, "Not found\n"); return; }
                 if (!valid(current.root(), pack)) {
-                    respond(exchange, 409, "Pack changed or unavailable; reload required\n"); return;
+                    respond(exchange, request, 409, "Pack changed or unavailable; reload required\n"); return;
                 }
                 String tag = "\"" + pack.sha1() + "\"";
                 exchange.getResponseHeaders().set("ETag", tag);
                 exchange.getResponseHeaders().set("Cache-Control", "no-cache");
                 if (matchesTag(exchange.getRequestHeaders().getFirst("If-None-Match"), tag)) {
+                    request.response(304);
                     exchange.sendResponseHeaders(304, -1); return;
                 }
                 exchange.getResponseHeaders().set("Content-Type", "application/zip");
                 exchange.getResponseHeaders().set("X-Content-Type-Options", "nosniff");
                 exchange.getResponseHeaders().set("Content-Length", Long.toString(pack.size()));
-                if (method.equals("HEAD")) { exchange.sendResponseHeaders(200, -1); return; }
+                if (method.equals("HEAD")) { request.response(200); exchange.sendResponseHeaders(200, -1); return; }
                 try (var lease = requests.download(ip)) {
-                    if (lease == null) { reject(exchange, 503); return; }
+                    if (lease == null) { reject(exchange, request, 503); return; }
                     transfer.downloading(current.limits());
-                    try (SeekableByteChannel input = Files.newByteChannel(pack.path(), StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
-                        if (input.size() != pack.size() || !valid(current.root(), pack)) {
-                            respond(exchange, 409, "Pack changed; reload required\n"); return;
+                    try (SeekableByteChannel input = open(pack.path(), request)) {
+                        if (size(input, request) != pack.size() || !valid(current.root(), pack)) {
+                            respond(exchange, request, 409, "Pack changed; reload required\n"); return;
                         }
+                        request.sending(pack.size());
                         if (pack.size() == 0) {
                             exchange.sendResponseHeaders(200, -1);
+                            request.complete();
                             return;
                         }
                         exchange.sendResponseHeaders(200, pack.size());
                         // 由 exchange 统一关闭响应；部分发送时先关闭流可能使 JDK 保留连接。
                         OutputStream output = exchange.getResponseBody();
                         ByteBuffer buffer = ByteBuffer.allocate(32768);
-                        while (input.read(buffer) != -1) {
+                        while (read(input, buffer, request) != -1) {
                             int bytes = buffer.position();
                             transfer.pause(bytes, current.limits());
                             output.write(buffer.array(), 0, bytes);
+                            request.wrote(bytes);
                             transfers.bytes.add(bytes);
                             buffer.clear();
                         }
+                        request.complete();
                     }
                 }
             }
-        } catch (IOException ignored) {
-            // 客户端断开或期限到达，统一在 finally 中关闭；不逐请求刷错误日志。
+        } catch (IOException failure) {
+            request.failed(failure instanceof java.net.SocketTimeoutException
+                            ? DownloadTickets.Stage.TIMED_OUT : DownloadTickets.Stage.INTERRUPTED,
+                    failure.getClass().getSimpleName() + ": " + failure.getMessage());
+            // 诊断只随玩家失败或重试写入后台，不为公开 HTTP 请求逐条刷日志。
         } finally {
+            request.finish();
             handlers.decrementAndGet();
             exchange.close();
         }
     }
 
-    private void reject(HttpExchange exchange, int status) throws IOException {
+    private void reject(HttpExchange exchange, DownloadTickets.Request request, int status) throws IOException {
         if (status == 429) transfers.rejected.increment(); else transfers.busy.increment();
         tickets.limited(exchange.getRequestURI());
         exchange.getResponseHeaders().set("Retry-After", Integer.toString(snapshot.limits().retrySeconds()));
-        respond(exchange, status, status == 429 ? "Too many requests\n" : "Server busy\n");
+        respond(exchange, request, status, status == 429 ? "Too many requests\n" : "Server busy\n");
+    }
+
+    private static SeekableByteChannel open(Path path, DownloadTickets.Request request) throws IOException {
+        try { return Files.newByteChannel(path, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS); }
+        catch (IOException failure) {
+            request.failed(DownloadTickets.Stage.FILE_ERROR, failure.getClass().getSimpleName() + ": " + failure.getMessage());
+            throw failure;
+        }
+    }
+
+    private static int read(SeekableByteChannel input, ByteBuffer buffer, DownloadTickets.Request request) throws IOException {
+        try { return input.read(buffer); }
+        catch (IOException failure) {
+            request.failed(DownloadTickets.Stage.FILE_ERROR, failure.getClass().getSimpleName() + ": " + failure.getMessage());
+            throw failure;
+        }
+    }
+
+    private static long size(SeekableByteChannel input, DownloadTickets.Request request) throws IOException {
+        try { return input.size(); }
+        catch (IOException failure) {
+            request.failed(DownloadTickets.Stage.FILE_ERROR, failure.getClass().getSimpleName() + ": " + failure.getMessage());
+            throw failure;
+        }
     }
 
     private static boolean valid(Path root, HostedPack pack) {
@@ -196,7 +230,8 @@ public final class PackHttpServer implements AutoCloseable {
         return PackScanner.isSafeZipFileName(name) ? name : null;
     }
 
-    private static void respond(HttpExchange exchange, int status, String message) throws IOException {
+    private static void respond(HttpExchange exchange, DownloadTickets.Request request, int status, String message) throws IOException {
+        request.response(status);
         byte[] bytes = message.getBytes(StandardCharsets.UTF_8);
         var headers = exchange.getResponseHeaders();
         headers.remove("ETag");

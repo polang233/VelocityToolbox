@@ -17,12 +17,13 @@ import java.util.function.Consumer;
 final class TransferControl implements AutoCloseable {
     final class Transfer implements AutoCloseable {
         final HttpExchange exchange;
+        final DownloadTickets.Request request;
         final Thread thread = Thread.currentThread();
         final long started = System.nanoTime();
         volatile long deadline = started + TimeUnit.SECONDS.toNanos(10);
         volatile boolean closed;
         long localNext;
-        Transfer(HttpExchange exchange) { this.exchange = exchange; }
+        Transfer(HttpExchange exchange, DownloadTickets.Request request) { this.exchange = exchange; this.request = request; }
         void downloading(HostLimits config) {
             deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(config.downloadSeconds());
         }
@@ -44,6 +45,7 @@ final class TransferControl implements AutoCloseable {
             if (closed) return;
             closed = true;
             transfers.remove(exchange);
+            request.closing();
             exchange.close();
         }
     }
@@ -64,6 +66,7 @@ final class TransferControl implements AutoCloseable {
             for (Transfer transfer : transfers.values()) {
                 if (!transfer.closed && transfer.deadline <= now) {
                     expired.increment();
+                    transfer.request.failed(DownloadTickets.Stage.TIMED_OUT, "HTTP transfer deadline exceeded");
                     transfer.thread.interrupt();
                     transfer.close();
                 }
@@ -76,8 +79,8 @@ final class TransferControl implements AutoCloseable {
             lastRejected = r; lastBusy = b; lastExpired = e;
         }, 60, 60, TimeUnit.SECONDS);
     }
-    Transfer begin(HttpExchange exchange) {
-        Transfer transfer = new Transfer(exchange);
+    Transfer begin(HttpExchange exchange, DownloadTickets.Request request) {
+        Transfer transfer = new Transfer(exchange, request);
         transfers.put(exchange, transfer);
         return transfer;
     }
@@ -90,6 +93,7 @@ final class TransferControl implements AutoCloseable {
     @Override public void close() {
         timer.shutdownNow();
         for (Transfer transfer : transfers.values()) {
+            transfer.request.failed(DownloadTickets.Stage.STOPPED, "HTTP host stopped");
             transfer.thread.interrupt();
             transfer.close();
         }

@@ -43,6 +43,8 @@ pack-host is public HTTP with rate limits. Anyone who knows the full URL can dow
 
 Clients on 1.20.3+ can stack packs. Older clients receive the first matching complete pack. A selected required pack disconnects on rejection, failure or timeout. Use `/vtb pack list`, `status player` and `resend player|all` to inspect or resend packs. `/vtb pack check` checks configuration without applying it.
 
+`/vtb pack remove player|all` withdraws packs and pauses delivery until a server switch or manual resend; reload preserves the pause. Clients below 1.20.3 must reconnect to clear loaded packs. Console logs retain client status and HTTP diagnostics, while player notices omit pack names.
+
 <p align="center">
   <img src="../assets/screenshot-packs.png" alt="Client resource pack prompt" width="720">
 </p>

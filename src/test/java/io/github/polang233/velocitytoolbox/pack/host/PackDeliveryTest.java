@@ -85,11 +85,16 @@ public final class PackDeliveryTest {
         dir = Files.createTempDirectory("vtb-delivery-");
         try {
             hostOptions();
+            PackTaskConflictTest.run(dir);
+            PackRemovalTest.run(dir);
             rules();
             redesignedRules();
             missingHostedFile();
             noPack();
             limitedRetry();
+            diagnosticMessages();
+            downloadRetry();
+            reloadWaves();
             http();
             events();
             globalAssignments();
@@ -444,22 +449,214 @@ public final class PackDeliveryTest {
             check(!first.getShouldForce(), "VTB enforces required during local retry");
             var request = HttpRequest.newBuilder(URI.create(first.getUrl())).method("HEAD", HttpRequest.BodyPublishers.noBody()).build();
             check(client.send(request, HttpResponse.BodyHandlers.discarding()).statusCode() == 200, "initial local request");
-            for (int i = 0; i < 20; i++) client.send(request, HttpResponse.BodyHandlers.discarding());
+            for (int i = 0; i < config.limits().burst(); i++) client.send(request, HttpResponse.BodyHandlers.discarding());
             for (int i = 0; i < 3; i++) {
                 var offer = h.sent.getLast();
-                var limited = client.send(HttpRequest.newBuilder(URI.create(offer.getUrl())).method("HEAD",
-                        HttpRequest.BodyPublishers.noBody()).build(), HttpResponse.BodyHandlers.discarding());
+                var limited = client.send(HttpRequest.newBuilder(URI.create(offer.getUrl())).GET().build(),
+                        HttpResponse.BodyHandlers.discarding());
                 check(limited.statusCode() == 429, "real host records limiting");
                 sender.status(reply(h, offer, "FAILED_DOWNLOAD"));
                 if (i < 2) {
                     check(h.kicked == null, "overload waits before enforcing required");
-                    h.run(5000);
+                    h.run(5000L * (i + 1));
                     check(!h.sent.getLast().getId().equals(offer.getId()), "retry gets new offer");
                     sender.status(reply(h, offer, "FAILED_DOWNLOAD"));
                     check(h.kicked == null, "old retry response ignored");
                 }
             }
-            check(h.kicked != null && PLAIN.serialize(h.kicked).contains("busy"), "bounded retries retain required policy");
+            check(h.kicked != null && PLAIN.serialize(h.kicked).contains("download requests too frequent"),
+                    "bounded retries retain required policy and report the actual rate-limit cause");
+        }
+    }
+
+    private static void diagnosticMessages() throws Exception {
+        Path root = Files.createDirectories(dir.resolve("diagnostic-messages"));
+        Path packs = Files.createDirectories(root.resolve("packs"));
+        Path file = packs.resolve("diagnostic.zip");
+        zip(file, "original");
+        Harness h = new Harness(root);
+        try (PackService host = h.host; HttpClient client = HttpClient.newHttpClient(); PackSender sender = h.sender()) {
+            host.apply(host.prepare(hostConfig(freePort(), "127.0.0.1")));
+            sender.apply(PackRules.read(yaml("enabled: true\nsettings:\n  delay: 0\n  timeout: 60\npacks:\n  diagnostic:\n"
+                    + "    - url: '@diagnostic.zip'\nservers:\n  default:\n    packs: [diagnostic]\n"), host.packs(), packs, true));
+            h.run(0);
+            zip(file, "changed file with a different size");
+            for (int i = 0; i < 3; i++) {
+                var offer = h.sent.getLast();
+                check(client.send(HttpRequest.newBuilder(URI.create(offer.getUrl())).GET().build(),
+                        HttpResponse.BodyHandlers.discarding()).statusCode() == 409, "real host rejects changed file");
+                sender.status(reply(h, offer, "FAILED_DOWNLOAD"));
+                if (i < 2) h.run(5000L * (i + 1));
+            }
+            check(PLAIN.serialize(h.messages.getLast()).equals("[VTB] Resource pack could not be applied: resource pack file changed or unavailable"),
+                    "confirmed file change is shown without inventing a network fault or exposing the pack name");
+            check(h.warnings.stream().anyMatch(warning -> warning.contains("Resource pack failure")
+                    && warning.contains("diagnostic") && warning.contains("FAILED_DOWNLOAD") && warning.contains("status=409")),
+                    "backend failure retains pack identity, client status and real HTTP evidence");
+        }
+        Harness timeout = new Harness(root.resolve("apply-timeout"));
+        try (PackSender sender = timeout.sender()) {
+            sender.apply(rules(YAML));
+            timeout.run(0);
+            sender.status(reply(timeout, timeout.sent.getLast(), "DOWNLOADED"));
+            timeout.run(3000);
+            check(PLAIN.serialize(timeout.messages.getLast()).equals("[VTB] Resource pack could not be applied: client resource application timed out"),
+                    "application timeout after DOWNLOADED is not labelled as a network fault");
+        }
+    }
+
+    private static void downloadRetry() throws Exception {
+        Path root = Files.createDirectories(dir.resolve("download-retry"));
+        Path packs = Files.createDirectories(root.resolve("packs"));
+        zip(packs.resolve("base.zip"), "base");
+        zip(packs.resolve("extra.zip"), "extra");
+        Harness h = new Harness(root);
+        try (PackService host = h.host; PackSender sender = h.sender()) {
+            host.apply(host.prepare(hostConfig(freePort(), "127.0.0.1")));
+            var policy = yaml("""
+                    enabled: true
+                    settings:
+                      delay: 0
+                      timeout: 60
+                    packs:
+                      base:
+                        - url: '@base.zip'
+                      extra:
+                        - url: '@extra.zip'
+                    servers:
+                      default:
+                        packs: [base, extra]
+                      empty:
+                        packs: []
+                      passive:
+                        keep-existing: true
+                    """);
+            var rules = PackRules.read(policy, host.packs(), packs, true);
+            sender.apply(rules);
+            h.run(0);
+            var base = h.sent.getFirst();
+            sender.status(reply(h, base, "SUCCESSFUL"));
+            var failed = h.sent.getLast();
+            sender.status(reply(h, failed, "FAILED_DOWNLOAD"));
+            check(h.kicked == null && h.removed.contains(failed.getId()) && !h.removed.contains(base.getId()),
+                    "download failure retries suffix and retains loaded prefix");
+            check(h.messages.stream().map(PLAIN::serialize).anyMatch(message -> message.contains("download failed")),
+                    "download failure has distinct retry notice");
+            sender.status(reply(h, failed, "FAILED_DOWNLOAD"));
+            sender.apply(rules);
+            h.run(4999);
+            check(h.sent.size() == 2, "duplicate reply and unchanged reload do not advance retry");
+            h.run(1);
+            var retried = h.sent.getLast();
+            check(h.sent.size() == 3 && !retried.getId().equals(failed.getId()), "download retry gets fresh offer");
+            sender.status(reply(h, failed, "SUCCESSFUL"));
+            sender.status(reply(h, retried, "FAILED_DOWNLOAD"));
+            h.run(9999);
+            check(h.sent.size() == 3, "second attempt backs off for ten seconds");
+            h.run(1);
+            sender.status(reply(h, h.sent.getLast(), "FAILED_DOWNLOAD"));
+            int exhausted = h.sent.size();
+            h.run(30000);
+            check(exhausted == 4 && h.sent.size() == exhausted && h.status(sender).contains("failed"),
+                    "ordinary download failure stops after two retries");
+            sender.apply(rules);
+            h.run(1000);
+            check(h.sent.size() == exhausted + 1 && !h.removed.contains(base.getId()),
+                    "explicit reload recovers failed local suffix with unchanged rules");
+            sender.status(reply(h, h.sent.getLast(), "SUCCESSFUL"));
+            sender.apply(rules);
+            h.run(0);
+            check(h.sent.size() == exhausted + 1, "unchanged loaded packs stay loaded");
+
+            for (String status : List.of("DECLINED", "FAILED_RELOAD", "INVALID_URL", "DISCARDED")) {
+                sender.resend(h.player);
+                h.run(1000);
+                var offer = h.sent.getLast();
+                sender.status(reply(h, offer, status));
+                int count = h.sent.size();
+                sender.apply(rules);
+                h.run(15000);
+                check(h.sent.size() == count, "non-download failure is not automatically retried: " + status);
+            }
+
+            sender.resend(h.player);
+            h.run(1000);
+            sender.status(reply(h, h.sent.getLast(), "FAILED_DOWNLOAD"));
+            h.server = "empty";
+            sender.connected(new ServerPostConnectEvent(h.player, null));
+            int beforeSwitch = h.sent.size();
+            h.run(15000);
+            check(h.sent.size() == beforeSwitch, "switching cancels a pending download retry");
+
+            h.server = "lobby";
+            sender.connected(new ServerPostConnectEvent(h.player, null));
+            h.run(0);
+            var retained = h.sent.getLast();
+            h.server = "passive";
+            sender.connected(new ServerPostConnectEvent(h.player, null));
+            sender.status(reply(h, retained, "FAILED_DOWNLOAD"));
+            int beforePassive = h.sent.size();
+            h.run(15000);
+            check(h.sent.size() == beforePassive, "passive server does not start download retries");
+            h.server = "lobby";
+            sender.connected(new ServerPostConnectEvent(h.player, null));
+            h.run(1000);
+            check(h.sent.size() > beforePassive, "returning to an active assignment recovers failed download");
+
+            policy.node("packs", "extra", 0, "required").set(true);
+            var required = PackRules.read(policy, host.packs(), packs, true);
+            sender.apply(required);
+            h.run(1000);
+            for (int i = 0; i < 3; i++) {
+                sender.status(reply(h, h.sent.getLast(), "FAILED_DOWNLOAD"));
+                if (i < 2) {
+                    check(h.kicked == null, "required download gets bounded recovery before disconnect");
+                    h.run(5000L * (i + 1));
+                }
+            }
+            check(h.kicked != null, "required policy enforced when retries exhausted");
+        }
+    }
+
+    private static void reloadWaves() throws Exception {
+        Harness h = new Harness(dir.resolve("reload-waves"));
+        var players = new ArrayList<Harness>();
+        players.add(h);
+        for (int i = 1; i < 30; i++) players.add(new Harness(dir.resolve("reload-wave-" + i)));
+        h.online.clear();
+        players.forEach(player -> h.online.add(player.player));
+        try (PackSender sender = h.sender()) {
+            var initial = rules(YAML);
+            sender.apply(initial);
+            for (int wave = 0; wave < 6; wave++) {
+                h.run(wave == 0 ? 0 : 1000);
+                check(players.stream().mapToInt(player -> player.sent.size()).sum() == (wave + 1) * 5,
+                        "thirty-player reload sends five players per second: " + wave);
+                for (int i = wave * 5; i < (wave + 1) * 5; i++) {
+                    Harness player = players.get(i);
+                    sender.status(reply(player, player.sent.getLast(), "SUCCESSFUL"));
+                }
+                if (wave == 0) sender.apply(initial);
+            }
+            sender.apply(initial);
+            h.run(0);
+            check(players.stream().mapToInt(player -> player.sent.size()).sum() == 30,
+                    "unchanged reload preserves thirty loaded packs");
+            sender.apply(rules(YAML.replace("base.zip", "updated.zip")));
+            h.run(1000);
+            check(players.stream().mapToInt(player -> player.sent.size()).sum() == 35,
+                    "changed pack reload also starts only five downloads");
+            check(players.get(29).status(sender).contains("Waiting to send"), "queued player has visible waiting state");
+            Harness switched = players.get(6), offline = players.get(7);
+            switched.server = "empty";
+            sender.connected(new ServerPostConnectEvent(switched.player, null));
+            offline.kicked = Component.text("offline");
+            sender.disconnected(new DisconnectEvent(offline.player, DisconnectEvent.LoginStatus.SUCCESSFUL_LOGIN));
+            for (int wave = 1; wave < 6; wave++) h.run(1000);
+            check(players.stream().mapToInt(player -> player.sent.size()).sum() == 58,
+                    "switch and disconnect invalidate queued reload offers");
+            check(players.getLast().sent.getLast().getUrl().endsWith("updated.zip") && players.getLast().kicked == null,
+                    "last queued player gets current pack without a pre-dispatch timeout");
         }
     }
 
@@ -504,7 +701,7 @@ public final class PackDeliveryTest {
                         : YAML.replace("url: https://example.com/new.zip", replacement);
                 int before = h.sent.size();
                 sender.apply(rules(changed));
-                h.run(0);
+                h.run(1000);
                 check(h.sent.size() == before + 1 && !h.removed.contains(base.getId()), "changed variant only resends suffix");
             }
             PackRules previous = sender.rules();
@@ -625,15 +822,26 @@ public final class PackDeliveryTest {
             h.run(0);
             ResourcePackInfo before = h.sent.getLast();
             sender.resend(h.player);
-            h.run(0);
+            h.run(1000);
             ResourcePackInfo after = h.sent.getLast();
             check(!before.getId().equals(after.getId()), "resend has new offer id");
             sender.status(reply(h, before, "SUCCESSFUL"));
             check(!h.status(sender).contains(" · loaded"), "late success ignored");
             sender.status(reply(h, after, "FAILED_DOWNLOAD"));
+            check(PLAIN.serialize(h.messages.getLast()).equals("[VTB] Resource pack could not be applied: download failed; cause unknown"),
+                    "player failure names the cause without exposing the resource pack name");
+            check(h.warnings.stream().anyMatch(warning -> warning.contains("Tester")
+                    && warning.contains(h.server) && warning.contains("FAILED_DOWNLOAD")
+                    && warning.contains("server={}") && warning.contains("pack={}")),
+                    "failure log identifies player, backend server, pack and client status");
+            int notices = h.messages.size();
+            int warnings = h.warnings.size();
+            sender.status(reply(h, after, "FAILED_DOWNLOAD"));
+            check(h.messages.size() == notices && h.warnings.size() == warnings,
+                    "duplicate failure does not repeat player notice or backend warning");
             check(h.kicked == null && h.status(sender).contains("failed"), "optional failure");
             sender.resend(h.player);
-            h.run(0);
+            h.run(1000);
             h.run(3000);
             check(h.kicked == null && h.status(sender).contains("timed out"), "optional timeout");
             h.server = "vip";
@@ -647,6 +855,8 @@ public final class PackDeliveryTest {
             required.run(0);
             sender.status(reply(required, required.sent.getLast(), "DECLINED"));
             check(required.kicked != null, "required declined");
+            check(PLAIN.serialize(required.kicked).equals("Resource pack could not be applied: declined"),
+                    "required-pack disconnect also hides the resource pack name");
         }
         Harness timed = new Harness(dir.resolve("timed"));
         try (PackSender sender = timed.sender()) {
@@ -751,7 +961,7 @@ public final class PackDeliveryTest {
 
             String reordered = config.replace("default:\n    packs: [base, extra]", "default:\n    packs: [extra, base]");
             sender.apply(rules(reordered));
-            modern.run(0);
+            modern.run(1000);
             check(modern.sent.size() == 4 && modern.sent.get(2).getUrl().endsWith("new.zip")
                     && modern.sent.get(3).getUrl().endsWith("base.zip") && modern.removed.containsAll(original),
                     "global reordering updates stack order on existing players");
@@ -814,7 +1024,9 @@ public final class PackDeliveryTest {
             try (PackSender sender = h.sender()) {
                 sender.apply(rules(requiredConfig));
                 h.run(0);
-                check(h.sent.getFirst().getShouldForce(), "supported external packs keep the native required flag");
+                check(!h.sent.getFirst().getShouldForce(), "modern external required packs use active VTB enforcement");
+                sender.status(reply(h, h.sent.getFirst(), "DECLINED"));
+                check(h.kicked != null, "modern active required pack is still enforced");
             }
         }
     }
@@ -905,6 +1117,8 @@ public final class PackDeliveryTest {
     static final class Harness {
         long now;
         String throwUrl = "";
+        java.util.function.Consumer<ResourcePackInfo> onSend = offer -> {};
+        java.util.function.Consumer<UUID> onRemove = id -> {};
         String server = "lobby";
         ProtocolVersion version = ProtocolVersion.MINECRAFT_1_20_3;
         final UUID uuid = UUID.randomUUID();
@@ -913,6 +1127,7 @@ public final class PackDeliveryTest {
         final List<ResourcePackInfo> sent = new ArrayList<>();
         final List<UUID> removed = new ArrayList<>();
         final List<Component> messages = new ArrayList<>();
+        final List<String> warnings = new ArrayList<>();
         final List<Component> consoleMessages = new ArrayList<>();
         final List<Job> jobs = new ArrayList<>();
         final List<Player> online = new ArrayList<>();
@@ -955,12 +1170,16 @@ public final class PackDeliveryTest {
                     if (!throwUrl.isEmpty() && ((ResourcePackInfo) a[0]).getUrl().endsWith(throwUrl))
                         throw new IllegalStateException("simulated send failure");
                     sent.add((ResourcePackInfo) a[0]);
+                    onSend.accept((ResourcePackInfo) a[0]);
                     yield null;
                 }
                 case "removeResourcePacks" -> {
-                    if (a[0] instanceof UUID[] ids) removed.addAll(List.of(ids));
-                    else if (a[0] instanceof Iterable<?> ids) for (Object id : ids) removed.add((UUID) id);
-                    else removed.add((UUID) a[0]);
+                    var ids = new ArrayList<UUID>();
+                    if (a[0] instanceof UUID[] values) ids.addAll(List.of(values));
+                    else if (a[0] instanceof Iterable<?> values) for (Object id : values) ids.add((UUID) id);
+                    else ids.add((UUID) a[0]);
+                    removed.addAll(ids);
+                    ids.forEach(onRemove);
                     yield null;
                 }
                 default -> throw unexpected(m);
@@ -1002,7 +1221,8 @@ public final class PackDeliveryTest {
                     if (method.getName().equals("hasPermission")) return true;
                     throw unexpected(method);
                 });
-                case "getPlayer" -> Optional.of(player);
+                case "getPlayer" -> online.stream().filter(candidate -> candidate.isActive()
+                        && candidate.getUsername().equalsIgnoreCase((String) a[0])).findFirst();
                 case "getPluginManager" -> stub(com.velocitypowered.api.plugin.PluginManager.class, (pm, method, args) -> {
                     if (method.getName().equals("getPlugins")) return List.of();
                     throw unexpected(method);
@@ -1018,7 +1238,14 @@ public final class PackDeliveryTest {
         }
 
         PackSender sender() {
-            return new PackSender(this, proxy, host, lang, LOG);
+            Logger logger = stub(Logger.class, (o, method, args) -> {
+                if (method.getName().equals("warn")) {
+                    warnings.add(java.util.Arrays.deepToString(args));
+                    return null;
+                }
+                return method.invoke(LOG, args);
+            });
+            return new PackSender(this, proxy, host, lang, logger, () -> TimeUnit.MILLISECONDS.toNanos(now));
         }
 
         String status(PackSender sender) {

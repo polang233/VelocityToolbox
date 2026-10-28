@@ -29,7 +29,7 @@ Saved client preferences can accept or decline automatically, so an offer does n
 - Protocol version, pack.mcmeta format and resource compatibility are separate. conditions.versions selects a file; it does not convert resources, merge ZIPs or repair models or fonts. Supply variants for the target clients.
 - Download size limits, resource formats and loading capacity vary by client version. Large packs can fail due to networking, client memory or format errors. Test target clients; increasing a timeout cannot fix an invalid pack.
 
-External required packs use the native flag on 1.17+; the client may disconnect immediately when declining them. On older clients, VTB enforces required against the current request, so late responses to cancelled requests do not disconnect the player. VTB also enforces required for hosted packs to allow overload retries: declines still disconnect; failures explicitly recorded as locally rate-limited retry twice at five-second intervals, then follow required.
+VTB enforces required for both external and hosted packs against the current valid request, with the protocol's native force flag disabled. Declines, failures and timeouts of current required packs still disconnect the player; late responses to cancelled offers cannot trigger a native or VTB disconnect. Hosted packs allow two retries for FAILED_DOWNLOAD or explicitly recorded local overload, after waits of 5 and 10 seconds, before applying required. Retries retain the loaded prefix, remove the failed pack and subsequent layers, and issue new request IDs. Declines, invalid URLs, client loading failures and discarded offers do not trigger automatic retries.
 
 ## Hosting, URLs and delivery
 
@@ -49,7 +49,7 @@ For example, `public-url: "https://packs.example.com"` and `@survival.zip` produ
 
 `public-url` does not configure port forwarding or HTTPS. A reverse-proxy path prefix is allowed; credentials, queries and fragments are not. In the current version, leaving it empty selects a LAN address such as `192.168.1.10`, which Internet players usually cannot reach. For public servers, set a reachable IP or domain and configure port forwarding or a reverse proxy. Inspect generated URLs with `/vtb pack list` and test downloads from an external network.
 
-pack-host is public HTTP with rate limits. Anyone who knows the full URL can download the ZIP. The ticket query parameter only correlates overload retries; it is not a login or download password. Pack-selection permissions are not HTTP authorization either.
+pack-host is public HTTP with rate limits. Anyone who knows the full URL can download the ZIP. The ticket query parameter correlates download diagnostics and overload retries; it is not a login or download password. Pack-selection permissions are not HTTP authorization either.
 
 ## Example
 
@@ -118,14 +118,32 @@ VTB manages only its own packs. On older clients, backend offers take precedence
 
 Use /vtb reload, /vtb pack list, /vtb pack status player and /vtb pack resend player. Status separates recorded loading state from matches calculated using the current rules, client version and permissions, including the assignment source and variant number.
 
+/vtb pack remove player|all removes VTB's packs, cancels pending delivery, retry and timeout tasks, and pauses automatic delivery on the current backend. Removing one player invalidates their queued bulk-resend entry; remove all also cancels the existing bulk-resend queue. The command caller receives the results. Players see only "An administrator removed your resource packs", or a delivery-paused notice for unsent offers and older clients. Repeated removal does not repeat the notice. Only VTB's tracked pack IDs are removed; backend and other plugins' packs are unaffected. Clients on 1.20.3+ support removal by ID. Older clients have tasks cancelled and delivery paused, but must reconnect to clear an applied pack; the command reports this limitation.
+
+Removal pauses even players whose offers have not been sent yet, and status shows the pause. Reloads, rule changes and disabling/re-enabling delivery on the same backend preserve it. A switch to another backend or a new manual resend player/all resumes selection using current rules. keep-existing assignments still retain their normal passive behavior. The pause belongs to the current proxy connection and is not saved across disconnects or restarts.
+
+The latest remove or resend determines delivery intent; reload preserves it. remove all → resend all → reload resumes everyone with the latest rules. resend all → remove all → reload keeps everyone paused. Earlier batch callbacks, delays, retries, timeouts and receipts cannot resume paused delivery or disconnect the player.
+
 From 1.3.5:
 
 - /vtb pack check reads disk configuration and checks enabled modules without applying it, creating files or directories, opening a listener or sending packs. Disabled delivery rules and their pack metadata are skipped. The check does not test port availability, public reachability or external URL contents.
-- /vtb pack resend all queues the currently online players, processing at most five per second. Each player still uses the configured delay. Duplicate runs are rejected; reload or shutdown cancels the remaining queue. The summary counts scheduled, empty and skipped players. Check status for actual loading results.
+- /vtb pack resend all first retires old requests, withdraws packs and cancels old tasks for all online players, then sends offers to at most five players per second. The configured delay and replacement interval still apply. keep-existing assignments retain their packs. Entries superseded by a switch or individual operation are skipped. Duplicate runs are rejected. Reload continues pending requests in batches using the latest rules; disabling delivery or remove all cancels them. The summary counts scheduled, empty and skipped players. Check status for actual loading results.
 
-Grant velocitytoolbox.admin, or velocitytoolbox.command plus velocitytoolbox.command.pack and the matching list/check/status/resend action permission. Bulk resend also requires velocitytoolbox.command.pack.resend.all.
+Grant velocitytoolbox.admin, or velocitytoolbox.command plus velocitytoolbox.command.pack and the matching list/check/status/resend/remove action permission. Bulk resend also requires velocitytoolbox.command.pack.resend.all; bulk removal requires velocitytoolbox.command.pack.remove.all.
 
 Invalid reloads retain previous rules; invalid initial loading disables delivery. Unchanged packs are not resent. Publish ZIPs by replacing completed temporary files. Set public-url for Internet access; leaving it empty selects a LAN address.
+
+Reload staggers players needing new offers in groups of five per second, plus the configured delay. For 30 players, the final group starts five seconds after the first. Unchanged loaded or downloading packs remain; hosted packs with download-failure, busy or timeout states may be offered again. Each pack's loading timeout starts when its offer is sent, excluding time waiting for a batch. Reloading unchanged configuration preserves existing retry waits and delivery delays. Switching servers, disconnecting or disabling delivery invalidates old tasks.
+
+Batching controls offer starts; HTTP concurrency, bandwidth and transfer deadlines still govern downloads, and client loading can still fail. Resource pack retry logs distinguish host-busy from FAILED_DOWNLOAD. A download failure without recorded local overload still needs client logs to identify network, file verification or client problems.
+
+Replacing, updating or forcibly resending packs leaves at least one second between withdrawing an old offer and sending a new one. Use the larger of this interval and the configured delay, then add reload batch spacing. Initial offers, added layers and unchanged packs need no extra wait. Identical reload/resend requests during a wait share the pending task; rapid switches offer only the latest selection. Receipts and timeouts are checked against the player connection, actual backend and request ID. Retired offers detach before withdrawal, so late failures and cancelled callbacks cannot remove new packs.
+
+Player failures use "Resource pack could not be applied: reason", without the pack name. Hosted GET requests record HTTP status, bytes written/expected, elapsed time and server-side errors; failure and retry logs retain these diagnostics. Confirmed 429, 503, 404 and 409 responses, transfer deadlines, connection interruptions and file read errors receive distinct reasons. HEAD does not replace GET diagnostics, and older connections cannot overwrite a newer request using the same ticket.
+
+Automatic player notices omit the plugin name, pack names, retry counts and internal task details. Administrator status and console logs retain diagnostic details. Existing custom language files are preserved; missing new notice keys fall back to bundled text.
+
+FAILED_DOWNLOAD alone contains no client network exception or hash-verification details. Without a matching GET, with an external host, or after the server writes the file, VTB cannot identify DNS errors, network instability, client cancellations or verification failures. It reports "download failed; cause unknown" and client logs are needed. A connection interruption does not identify its cause or responsible side. A timeout after the client reports DOWNLOADED is an application timeout.
 
 Migration and validation notes are in the [maintainer guide](maintainer/README.md).
 
@@ -143,10 +161,20 @@ File boundary checks, request size limits, IP record expiry, hidden directory li
 
 pack-host.security exposes only the options that take effect. Start with the defaults. Obsolete internal keys such as show-index or burst-per-ip fail reload and name the key; remove them.
 
-- max-downloads / max-downloads-per-ip: global and per-IP concurrent downloads; players sharing a public IP share limits.
-- requests-per-minute-per-ip: per-IP refill rate, including HEAD and invalid paths, with a short burst allowance.
+- max-downloads / max-downloads-per-ip: global and per-IP concurrent downloads, defaulting to 64/12. Players sharing a public IP share limits; unfinished downloads from the previous server still occupy slots.
+- requests-per-minute-per-ip: per-IP refill rate, defaulting to 120 per minute, including HEAD and invalid paths. Up to 40 requests may arrive in a short burst. Server switches, probes and retries share this allowance; sustained floods still receive 429 and excess concurrent downloads receive 503.
 - max-download-seconds: HTTP transfer deadline. Allow additional client loading time in resource-packs.settings.timeout.
 - bandwidth-mib / per-download-mib: global and per-download MiB/s; 0 is unlimited. Tune for the uplink and allow enough download time.
 - trusted-proxies: actual reverse-proxy IPs/CIDRs only. Forwarded headers are ignored by default; trusted chains are parsed right to left.
+
+Explicit limits in existing configurations remain effective. If max-downloads-per-ip still uses the previous default of 8, change it to 12 and run /vtb reload. The 40-request burst allowance applies automatically without a new configuration key. Tickets do not bypass these limits.
+
+To adopt the new per-IP concurrency default when upgrading to 1.3.9, merge this snippet and preserve the other security settings:
+
+```yaml
+pack-host:
+  security:
+    max-downloads-per-ip: 12
+```
 
 /vtb pack list shows HTTP counters. The console summarizes new rejections and timeouts once per minute. Changed files return 409 until reload; replace completed temporary ZIPs rather than editing files during downloads.

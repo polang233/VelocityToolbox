@@ -72,12 +72,15 @@ server-versions 按子服限制客户端版本，支持 min/max/allow/deny，与
 [*]/vtb pack list：查看包来源、匹配条件、托管文件和 HTTP 统计。
 [*]/vtb pack check（1.3.5+）：检查配置、哈希和本地包元数据，不应用改动；出错时提示配置位置与文件名。
 [*]/vtb pack status 玩家、/vtb pack resend 玩家|all：查看加载状态、分配来源与变体匹配原因，或重新下发。
-[*]/vtb pack resend all（1.3.5+）：每秒最多安排 5 名在线玩家重发，重载会取消剩余队列。
+[*]/vtb pack resend all（1.3.5+）：先作废全部旧请求，再按每秒最多 5 人重发；重载按最新规则继续。
+[*]/vtb pack remove 玩家|all（1.3.9+）：撤包并暂停当前子服下发，取消等待、重试和超时；下次切服或手动 resend 恢复，reload 保持暂停。1.20.3 以下客户端需重连清除已加载的包。
 [*]/vtb server hosts：查看玩家入口。
 [*]/vtb info、/vtb reload：查看模块状态或重载配置、语言和规则。
 [/list]
 
 管理员权限为 velocitytoolbox.admin。细分授权需要基础权限 velocitytoolbox.command，再加模块与动作权限。例如查看资源包状态还需 velocitytoolbox.command.pack 和 velocitytoolbox.command.pack.status。检查配置需要 velocitytoolbox.command.pack.check；批量重发在 resend 权限外还需 velocitytoolbox.command.pack.resend.all。公共命令使用 velocitytoolbox.command.info 或 velocitytoolbox.command.reload。
+
+撤包动作需要 velocitytoolbox.command.pack.remove，批量撤包另需 velocitytoolbox.command.pack.remove.all；管理员权限已包含。
 
 [url=https://github.com/polang233/VelocityToolbox/wiki/Modules]完整命令与权限[/url]
 

@@ -294,14 +294,16 @@ public final class PackToolsTest {
             h.run(1);
             check(sent(players) == 8, "offline and empty players skipped independently");
             h.run(1000);
-            check(sent(players) == 10 && text(h.messages).contains("10 scheduled, 1 with no applicable pack, 1 offline"), "bulk completion counts");
+            check(sent(players) == 10 && text(h.messages).contains("10 scheduled, 0 with no applicable pack, 2 skipped"),
+                    "bulk completion counts offline and superseded entries as skipped");
 
             sender.resendAll(h.player);
             var cancelled = h.jobs.getLast();
             sender.apply(rules(RULES));
             cancelled.run.run();
             h.run(0);
-            check(sent(players) == 10 && text(h.messages).contains("Bulk resend cancelled"), "reload cancels batch and late callback");
+            check(sent(players) == 10 && text(h.messages).contains("Pending resend requests will continue"),
+                    "reload replaces old bulk callback with requests using current rules");
             sender.resendAll(h.player);
             var closed = h.jobs.getLast();
             sender.close();

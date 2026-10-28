@@ -33,6 +33,7 @@ Clients on 1.20.3+ can stack packs. Older clients receive the first matching com
 - `/vtb pack check`: check configuration without applying changes.
 - `/vtb pack resend player`: resend packs to one player.
 - `/vtb pack resend all`: resend to online players in batches.
+- `/vtb pack remove player|all`: withdraw packs and pause delivery until a switch or manual resend. Reload preserves the pause; clients below 1.20.3 must reconnect to clear loaded packs.
 
 ![Client resource pack prompt](https://raw.githubusercontent.com/polang233/VelocityToolbox/main/assets/screenshot-packs.png)
 
