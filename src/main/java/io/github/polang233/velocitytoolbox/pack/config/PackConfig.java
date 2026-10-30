@@ -1,59 +1,39 @@
 package io.github.polang233.velocitytoolbox.pack.config;
 
-import io.github.polang233.velocitytoolbox.config.ResourceFiles;
-import org.spongepowered.configurate.CommentedConfigurationNode;
+import org.spongepowered.configurate.ConfigurationNode;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.nio.file.Path;
 
 /**
  * {@code plugins/VelocityToolbox/config.yml} 里 {@code pack-host} 一段。
  *
- * <p>{@code packs-directory} 可以是绝对路径，或相对于本插件数据目录的路径。</p>
+ * <p>{@code packs-directory} 可以是绝对路径，或相对于本插件数据目录的路径。
+ * {@code warnings} 是可忽略的问题（如旧版选项），由调用方写入后台。</p>
  */
-public final class PackConfig {
-
-    private final boolean enabled;
-    private final String bind;
-    private final int port;
-    private final String publicUrl;
-    private final String packsDirectory;
-    private final HostLimits limits;
-
-    private PackConfig(
-            boolean enabled,
-            String bind,
-            int port,
-            String publicUrl,
-            String packsDirectory,
-            HostLimits limits
-    ) {
-        this.enabled = enabled;
-        this.bind = bind;
-        this.port = port;
-        this.publicUrl = publicUrl;
-        this.packsDirectory = packsDirectory;
-        this.limits = limits;
+public record PackConfig(boolean enabled, String bind, int port, String publicUrl, String packsDirectory,
+                         HostLimits limits, List<String> warnings) {
+    public PackConfig {
+        warnings = List.copyOf(warnings);
     }
 
-    public static PackConfig load(Path dataDirectory) throws IOException {
-        ResourceFiles.ensureDefaults(dataDirectory);
-        return from(ResourceFiles.loadYaml(dataDirectory.resolve("config.yml")).node("pack-host"));
-    }
-
-    public static PackConfig from(CommentedConfigurationNode node) throws IOException {
+    public static PackConfig from(ConfigurationNode node) throws IOException {
+        boolean enabled = node.node("enabled").getBoolean(false);
+        List<String> warnings = new ArrayList<>();
         PackConfig config = new PackConfig(
-                node.node("enabled").getBoolean(false),
-                node.node("bind").getString("0.0.0.0"),
+                enabled,
+                text(node.node("bind"), "0.0.0.0"),
                 node.node("port").getInt(8765),
-                blankToEmpty(node.node("public-url").getString("")),
-                blankToEmpty(node.node("packs-directory").getString("packs")),
-                node.node("enabled").getBoolean(false) ? HostLimits.read(node.node("security")) : HostLimits.defaults()
+                text(node.node("public-url"), ""),
+                text(node.node("packs-directory"), "packs"),
+                enabled ? HostLimits.read(node.node("security"), warnings::add) : HostLimits.defaults(),
+                warnings
         );
-        if (config.enabled()) validateOrigin(config.publicUrl());
+        if (enabled) validateOrigin(config.publicUrl());
         return config;
     }
 
@@ -70,29 +50,9 @@ public final class PackConfig {
         }
     }
 
-    public HostLimits limits() { return limits; }
-
-    public boolean enabled() {
-        return enabled;
-    }
-
-    public String bind() {
-        return bind == null || bind.isBlank() ? "0.0.0.0" : bind.trim();
-    }
-
-    public int port() {
-        return port;
-    }
-
-    public String publicUrl() {
-        return publicUrl;
-    }
-
-    public String packsDirectory() {
-        return packsDirectory.isBlank() ? "packs" : packsDirectory;
-    }
-
-    private static String blankToEmpty(String value) {
-        return value == null ? "" : value.trim();
+    /** 读取去掉首尾空白的文本；缺失或空白时使用默认值。 */
+    private static String text(ConfigurationNode node, String fallback) {
+        String value = node.getString("");
+        return value == null || value.isBlank() ? fallback : value.trim();
     }
 }

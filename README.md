@@ -6,9 +6,12 @@
 
 **Velocity 运维工具箱：插件热管理、自定义资源包下发与托管、入口域名排查、子服客户端版本限制。**
 
-资源包托管与下发分开开关；`@文件.zip` 自动计算哈希。可用 `/vtb pack check` 检查配置、用 status 查看匹配原因，并用 `resend all` 分批重发。自托管带请求与下载限流。
-
 [English](docs/README.en.md) · [Wiki 使用文档](https://github.com/polang233/VelocityToolbox/wiki) · [问题与建议](https://github.com/polang233/VelocityToolbox/issues)
+
+![Version](https://img.shields.io/github/v/release/polang233/VelocityToolbox?label=Version&color=2ea44f)
+![Velocity](https://img.shields.io/badge/Velocity-4.x-1197d1)
+![Java](https://img.shields.io/badge/Java-25-e76f00)
+![License](https://img.shields.io/github/license/polang233/VelocityToolbox)
 
 ## 下载与发布平台
 
@@ -18,20 +21,47 @@
 [![MineBBS](https://img.shields.io/badge/MineBBS-Download-1976D2?style=for-the-badge)](https://www.minebbs.com/resources/velocitytoolbox.18104/)
 [![苦力怕论坛](https://img.shields.io/badge/KLPBBS-Download-2E7D32?style=for-the-badge)](https://klpbbs.com/thread-173633-1-1.html)
 
+## 特性
+
+- **插件热管理**：查看、检查、加载、卸载和重载代理插件，并报告命令、监听器、任务等清理结果。
+- **资源包下发**：按子服、客户端版本和权限选包；1.20.3+ 多包叠加，旧客户端自动选完整单包；支持必需包、切服保留和分批重发。
+- **资源包托管**：内置 HTTP 下载，`@文件.zip` 自动生成链接和 SHA-1，自带限流与并发保护。
+- **入口域名排查**：按玩家加入时使用的域名和端口分组显示在线玩家。
+- **子服版本限制**：按子服限制客户端版本范围，无需 ViaVersion。
+- **多语言**：简体中文、繁体中文、英文及自定义语言文件，消息使用 MiniMessage。
+
+各模块默认关闭，互不依赖，按需开启。
+
 ## 安装
 
-将 JAR 放入代理的 plugins/ 后完整启动一次，生成 config.yml。当前构建目标为 Velocity 4 与 Java 25。
-管理员权限为 `velocitytoolbox.admin`，入口为 `/vtb help`，也可使用 `/vtoolbox`。
+1. 将 JAR 放入代理的 `plugins/`，完整启动一次生成 `config.yml`。
+2. 按需开启模块，替换示例中的文件和子服名，删除不用的样例。
+3. 执行 `/vtb reload` 应用修改。
 
-子服版本限制、HTTP 托管和资源包下发默认关闭。配置中提供完整样例，启用前替换文件及子服名，删除不用的样例。修改后执行 `/vtb reload`。
+首次生成的 config.yml 按系统地区使用中文（大陆、港澳台）或英文注释。更新时替换 JAR 后完整重启代理；已有配置和语言文件不会被覆盖，缺少的语言键自动使用内置文本。
 
-更新时替换 JAR 后完整重启代理。旧配置可以继续使用，想用资源包下发再补上 `resource-packs`，不加这段也不会启用下发。语言文件改动不多的话，建议备份后移走旧文件，再执行 `/vtb reload` 重新生成；自定义文案可按新键名补回。
+## 命令与权限
+
+主命令 `/vtoolbox`，别名 `/vtb`。管理员权限 `velocitytoolbox.admin` 包含全部命令。
+
+| 命令 | 说明 |
+| --- | --- |
+| `/vtb help` | 显示有权限的命令 |
+| `/vtb info` | 各模块运行状态 |
+| `/vtb reload` | 重载配置、语言和模块规则，不重载其它插件 |
+| `/vtb plugin list\|inspect\|load\|unload\|reload` | 插件管理 |
+| `/vtb pack list\|check` | 查看资源包与托管状态；检查配置但不应用 |
+| `/vtb pack status <玩家>` | 玩家的加载状态与匹配原因 |
+| `/vtb pack resend\|remove <玩家\|all>` | 重新下发或撤下资源包 |
+| `/vtb server hosts` | 按入口域名查看在线玩家 |
+
+细分权限按“基础 + 模块 + 动作”组合，见 [模块、命令和权限](https://github.com/polang233/VelocityToolbox/wiki/Modules)。
 
 ## 模块
 
 ### 插件管理
 
-`/vtb plugin list|inspect|load|unload|reload` 查看、检查或热管理代理插件，并报告清理结果。仍被其它插件硬依赖的插件不能卸载。权限、协议及连接管理插件建议重启代理更新。
+`load` 可省略 `.jar` 或只写部分文件名。仍被其它插件硬依赖的插件不能卸载。权限、协议及连接管理类插件建议重启代理更新。
 
 <p align="center">
   <img src="assets/screenshot-plugin-load.png" alt="插件加载" width="720">
@@ -40,22 +70,28 @@
   <img src="assets/screenshot-plugin-unload.png" alt="插件卸载与清理结果" width="720">
 </p>
 
-### 自定义资源包下发与托管
+### 资源包下发与托管
 
-`resource-packs` 可设置全服默认资源包，再按子服、客户端版本和权限分配。`pack-host` 提供 ZIP 下载、自动哈希和访问保护。两者独立开关，可以配合使用。
+`resource-packs` 决定给谁发哪个包，`pack-host` 提供 ZIP 下载，两者独立开关。来源有三种写法：
 
-- `url: "@文件.zip"`：从托管目录取文件，自动生成链接和 SHA-1。
-- 外部 HTTP/HTTPS 直链：客户端从该地址下载，须填写真实 hash。
-- `url: "@"`：不下发，无需文件或托管。
-- `servers.<子服>.keep-existing: true` 配合 `packs: []`：切服后保留已下发资源包，在该子服不发起新请求（1.3.6+）。
+- `"@文件.zip"`：取托管目录中的 ZIP，自动生成链接和 SHA-1。
+- 外部 HTTP/HTTPS 直链：客户端直接下载，需填写真实 hash。
+- `none`：不下发。
 
-自托管的 `public-url` 是玩家下载地址前缀。留空自动选本机局域网地址；公网服请填可访问的 IP 或域名，自行配置端口映射或反代。
+```yaml
+resource-packs:
+  enabled: true
+  packs:
+    survival: "@survival.zip"
+  servers:
+    default: keep           # 未列出的子服保留已有包
+    "survival-*": [survival]
+    minigame: []            # 撤下资源包
+```
 
-pack-host 是带限流的公开 HTTP 下载：知道完整 URL 的人都可以下载。查询参数里的票据用来关联下载诊断和过载重试，不是登录或鉴权。
+自托管时 `public-url` 是玩家下载地址前缀；留空自动选本机局域网地址，公网服请填可访问的 IP 或域名。托管是带限流的公开 HTTP，知道链接即可下载。
 
-1.20.3+ 支持多包叠加；旧客户端只接收首个匹配的完整包。已选中的必需包被拒绝、失败或超时会断开玩家。
-失败或超时会在代理后台记录玩家、子服、包名、客户端状态及可用的自托管 HTTP 诊断；玩家只收到“资源包未能成功应用：原因”。已确认的超时、连接中断、服务繁忙或文件变更分别提示；只有客户端笼统回报时标为原因未明。管理员可使用 `/vtb pack status 玩家` 查看状态，并结合客户端日志定位。
-用 `/vtb pack list`、`status 玩家`、`resend 玩家|all` 查看或重新下发。`/vtb pack remove 玩家|all` 撤掉 VTB 包并暂停当前子服下发，取消等待、重试及超时；重载不恢复，下次切服或手动 resend 才恢复。低于 1.20.3 的客户端仅取消任务并暂停，已应用的包需重连清除。`/vtb pack check` 只检查配置，不应用改动。
+下发失败时，玩家只看到简短原因，后台记录完整诊断；用 `/vtb pack status 玩家` 排查。详见 [资源包配置](https://github.com/polang233/VelocityToolbox/wiki/Resource-Packs)。
 
 <p align="center">
   <img src="assets/screenshot-packs.png" alt="客户端资源包下载提示" width="720">
@@ -69,20 +105,24 @@ pack-host 是带限流的公开 HTTP 下载：知道完整 URL 的人都可以�
   <img src="assets/screenshot-vhosts.jpg" alt="按入口域名分组查看玩家" width="720">
 </p>
 
-`server-versions` 按子服限制客户端的版本范围、允许列表和排除列表；无需 ViaVersion，但不提供协议转换。
+`server-versions` 按子服限制客户端的版本范围、允许列表和排除列表；不提供协议转换。详见 [子服版本限制](https://github.com/polang233/VelocityToolbox/wiki/Server-Versions)。
 
 <p align="center">
   <img src="assets/screenshot-server-versions.png" alt="子服客户端版本限制" width="720">
 </p>
 
-## 状态与文档
+## 语言
 
-`/vtb info` 按模块展示运行状态；`/vtb reload` 重载配置、语言、版本规则和资源包，不重载其它插件。
+`language` 留空跟随系统语言，无对应翻译时回退简体中文。见 [语言文件](https://github.com/polang233/VelocityToolbox/wiki/Language)。
 
-[模块、命令和权限](https://github.com/polang233/VelocityToolbox/wiki/Modules) · [资源包原理与配置](https://github.com/polang233/VelocityToolbox/wiki/Resource-Packs) · [子服版本限制](https://github.com/polang233/VelocityToolbox/wiki/Server-Versions)
+## 构建
 
-界面支持简体中文、繁体中文、英文和自定义语言文件，玩家消息使用 MiniMessage。language 留空跟随系统语言，无对应翻译时回退中文。
+需要 Java 25：
 
-[问题与建议](https://github.com/polang233/VelocityToolbox/issues) · [维护文档](docs/maintainer/README.md)
+```bash
+./gradlew build
+```
+
+产物位于 `build/libs/`。`check` 包含配置解析、资源包下发、HTTP 限流和插件清理等测试，实际客户端行为仍需实服验证。维护说明见 [维护文档](docs/maintainer/README.md)。
 
 [![bStats](https://bstats.org/signatures/velocity/VelocityToolbox.svg)](https://bstats.org/plugin/velocity/VelocityToolbox/33451)

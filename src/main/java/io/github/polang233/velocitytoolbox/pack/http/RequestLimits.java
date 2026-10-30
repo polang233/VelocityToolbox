@@ -5,7 +5,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.LongSupplier;
 
-/** 有容量和过期时间的 IP 令牌桶；下载名额不排队。 */
+/** 有容量和过期时间的 IP 令牌桶；下载名额不排队。trusted 请求只受全服限额约束。 */
 final class RequestLimits {
     private static final class Client {
         double tokens;
@@ -36,7 +36,8 @@ final class RequestLimits {
         globalTokens = limits.requestsPerSecond(); globalUpdated = clock.getAsLong();
     }
     synchronized void update(HostLimits next) { limits = next; }
-    synchronized int request(String ip) {
+    synchronized int request(String ip) { return request(ip, false); }
+    synchronized int request(String ip, boolean trusted) {
         long now = clock.getAsLong();
         sweep(now);
         globalTokens = Math.min(limits.requestsPerSecond(), globalTokens
@@ -53,13 +54,16 @@ final class RequestLimits {
         client.tokens = Math.min(limits.burst(), client.tokens
                 + Math.max(0, now - client.updated) / 60e9 * limits.requestsPerMinute());
         client.updated = now;
+        if (trusted) return 0;
         if (client.tokens < 1) return 429;
         client.tokens--;
         return 0;
     }
-    synchronized Lease download(String ip) {
+    synchronized Lease download(String ip) { return download(ip, false); }
+    synchronized Lease download(String ip, boolean trusted) {
         Client client = clients.get(ip);
-        if (client == null || downloads >= limits.downloads() || client.downloads >= limits.downloadsPerIp()) return null;
+        if (client == null || downloads >= limits.downloads()
+                || !trusted && client.downloads >= limits.downloadsPerIp()) return null;
         downloads++; client.downloads++;
         return new Lease(client);
     }

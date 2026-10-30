@@ -17,7 +17,9 @@ check 覆盖语言键、版本规则、资源包选择/回执、HTTP 限流和�
 ## 固定防护
 
 公开调参保留总/单 IP 并发、每分钟单 IP 请求额度、下载期限、总/单次带宽和可信反代。
-内部固定为总请求 200/s、单 IP 突发 20、IP 记录上限 10000、空闲 300 秒回收、请求大小 16 KiB、隐藏目录、限流重试 2 次且间隔 5 秒。旧配置若仍含这些内部键名，加载会失败并指出键名，删除即可。
+内部固定为总请求 200/s、单 IP 突发 40、IP 记录上限 10000、空闲 300 秒回收、请求大小 16 KiB、不提供目录列表、限流重试 2 次且间隔 5 秒（见 HostLimits 常量）。旧配置若仍含这些内部键名，加载时警告并忽略；拼错的公开选项仍会失败。
+
+有效票据的前 4 次 GET（DownloadTickets.TRUSTED_USES）免除单 IP 请求速率与并发限制，仍计入全服限额。本机或内网对端带 X-Forwarded-For 却未被信任时，每个地址提示一次；不默认信任 127.0.0.1，因为 frp 等 TCP 隧道会让外部访问者显示为本机地址。
 
 这些限制在请求头解析后生效；不要通过插件修改整个 JVM 的 HTTP 系统属性。公网的连接总数和慢请求头保护交给反代或运维启动参数。
 
@@ -30,11 +32,27 @@ check 覆盖语言键、版本规则、资源包选择/回执、HTTP 限流和�
 - 公开示例用 survival、rpg 等通用名称。自用部署位置和验证结果在本目录记录，不放入口介绍。
 - 保持缓存/配置解析与活跃下载状态边界，修改后测试限流重载、断线、旧回执和叠加顺序。
 
+## 资源包下发细节
+
+用户文档只写可观察的行为，以下实现约束在修改 PackSender 时需保持：
+
+- required 统一由当前有效的 VTB 请求校验，协议原生强制标记关闭；已取消请求的迟到回执不触发断开。
+- 每次下发使用新的请求 ID；回执和超时按玩家连接、当前实际子服与请求 ID 核对，旧回执不能撤掉新包。
+- 换包、更新和强制重发时，撤旧包后至少间隔 1 秒再发新包，与 delay 取较大值，重载分批再叠加；首次下发、只新增叠加包或保留相同包无需等待。
+- 重试保留前面已加载的包，撤下失败包及后续叠加项；keep-existing 子服不发起重试。
+- 相同配置的重载不提前待重试请求、不重置已有延迟；连续切服只发送最新分配。
+- remove/resend 以最后一次操作为准，reload 保留该意图：remove all → resend all → reload 恢复，resend all → remove all → reload 保持暂停。暂停只在本次连接有效。
+- 自托管 GET 记录 HTTP 状态、字节数、耗时和异常；HEAD 不覆盖 GET 诊断，同一票据的旧连接不覆盖较新请求。客户端回报 DOWNLOADED 后的超时归为应用超时。
+
+## 配置写法
+
+默认配置有 config.yml（中文注释）和 config.en.yml（英文注释）两份，由 ResourceFiles.configResource 按系统地区选择；修改时两份同步，测试会比较结构。旧写法 url: "@"、hash: "@"、conditions、完整 packs: 继续解析，不提示迁移。
+
 ## 旧预发布配置迁移
 
 备份 config.yml 后调整：全局选项移入 settings；每个包改为列表；file 改为 url: "@文件.zip"，sha1 改为 hash；versions/permission 放入 conditions；default 列表移入 servers.default.packs。子服只保留 packs，required/prompt 放到变体。用版本条件和完整包替代 legacy；required-prompt 统一为 prompt。
 
-原 /vtb packs、/vtb vhosts 分别改为 /vtb pack list、/vtb server hosts，细分权限随之调整。已有配置和语言文件不会自动覆盖。
+原 /vtb packs、/vtb vhosts 分别改为 /vtb pack list、/vtb server hosts，细分权限随之调整。已有配置和语言文件不会自动覆盖。1.3.9 之前默认的 max-downloads-per-ip 为 8，显式写在旧配置中的值仍然生效。
 
 ## 验证范围
 

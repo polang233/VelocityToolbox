@@ -9,6 +9,7 @@ import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.scheduler.ScheduledTask;
 import io.github.polang233.velocitytoolbox.lang.Lang;
+import io.github.polang233.velocitytoolbox.pack.config.HostLimits;
 import io.github.polang233.velocitytoolbox.pack.config.PackRules;
 import io.github.polang233.velocitytoolbox.pack.host.PackService;
 import io.github.polang233.velocitytoolbox.pack.http.DownloadTickets;
@@ -16,6 +17,7 @@ import org.slf4j.Logger;
 
 import java.util.ArrayList;
 import java.util.ArrayDeque;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
@@ -52,7 +54,7 @@ public final class PackSender implements AutoCloseable {
         int skipped;
         ScheduledTask task;
 
-        Batch(CommandSource source, java.util.Collection<BatchPlayer> players) {
+        Batch(CommandSource source, Collection<BatchPlayer> players) {
             this.source = source;
             this.players = new ArrayDeque<>(players);
         }
@@ -145,15 +147,20 @@ public final class PackSender implements AutoCloseable {
     public synchronized void backend(ServerResourcePackSendEvent event) {
         Player player = event.getServerConnection().getPlayer();
         if (!rules.enabled() || modern(player) || !event.getResult().isAllowed()) return;
-        Session session = sessions.get(player.getUniqueId());
-        if (session == null || session.player != player) {
-            if (session != null) clear(session, false);
-            session = new Session(player);
-            sessions.put(player.getUniqueId(), session);
-        }
+        Session session = session(player);
         session.backendServer = event.getServerConnection().getServerInfo().getName();
         clear(session, false);
         session.selection = null;
+    }
+
+    /** 取得玩家当前连接的会话；同 UUID 重连时丢弃旧连接的会话。 */
+    private Session session(Player player) {
+        Session session = sessions.get(player.getUniqueId());
+        if (session != null && session.player == player) return session;
+        if (session != null) clear(session, false);
+        session = new Session(player);
+        sessions.put(player.getUniqueId(), session);
+        return session;
     }
 
     @Subscribe
@@ -173,12 +180,7 @@ public final class PackSender implements AutoCloseable {
     /** 先暂停并清空当前请求，再撤客户端包；保持当前子服暂停，避免 reload 立即补发。 */
     public synchronized RemoveResult remove(Player player) {
         if (!player.isActive() || player.getCurrentServer().isEmpty()) return RemoveResult.OFFLINE;
-        Session session = sessions.get(player.getUniqueId());
-        if (session == null || session.player != player) {
-            if (session != null) clear(session, false);
-            session = new Session(player);
-            sessions.put(player.getUniqueId(), session);
-        }
+        Session session = session(player);
         boolean sent = session.offers.stream().anyMatch(offer -> offer.sent);
         boolean notify = session.pausedServer == null;
         session.server = server(player);
@@ -208,7 +210,7 @@ public final class PackSender implements AutoCloseable {
     public synchronized ResendResult resend(Player player) {
         if (!rules.enabled() || !player.isActive() || player.getCurrentServer().isEmpty()) return ResendResult.DISABLED;
         refresh(player, true);
-        if (rules.keepExisting(player.getCurrentServer().orElseThrow().getServerInfo().getName()))
+        if (keeping(sessions.get(player.getUniqueId()), player))
             return ResendResult.EMPTY;
         Session session = sessions.get(player.getUniqueId());
         if (session == null || session.player != player || session.selection == null) return ResendResult.DISABLED;
@@ -298,12 +300,7 @@ public final class PackSender implements AutoCloseable {
 
     private boolean refresh(Player player, boolean force, boolean enqueueOnly) {
         if (!rules.enabled() || !player.isActive() || player.getCurrentServer().isEmpty()) return false;
-        Session session = sessions.get(player.getUniqueId());
-        if (session == null || session.player != player) {
-            if (session != null) clear(session, false);
-            session = new Session(player);
-            sessions.put(player.getUniqueId(), session);
-        }
+        Session session = session(player);
         String server = server(player);
         session.server = server;
         if (session.pausedServer != null) {
@@ -312,11 +309,10 @@ public final class PackSender implements AutoCloseable {
         }
         if (force || !server.equals(session.backendServer)) session.backendServer = "";
         if (!session.backendServer.isEmpty()) return false;
-        if (rules.keepExisting(server)) {
-            // Do not start a delayed offer after the player has left its server.
+        if (keeping(session, player)) {
+            // 玩家已离开原子服，取消尚未发出的延迟请求。
             session.revision++;
-            if (session.delay != null) session.delay.cancel();
-            session.delay = null;
+            cancelDelay(session);
             session.offers.removeIf(offer -> {
                 if (offer.sent) return false;
                 offer.cancel();
@@ -329,8 +325,7 @@ public final class PackSender implements AutoCloseable {
         var selected = rules.select(server, player.getProtocolVersion(), player::hasPermission);
         if (enqueueOnly && force) {
             session.revision++;
-            if (session.delay != null) session.delay.cancel();
-            session.delay = null;
+            cancelDelay(session);
         }
         boolean changed = prepare(session, selected, force && (enqueueOnly || session.delay == null));
         if (changed && !selected.skipped().isEmpty())
@@ -338,8 +333,7 @@ public final class PackSender implements AutoCloseable {
         // 相同配置的重载不提前待重试请求，也不打断已有的分批下发。
         if (!changed && session.delay != null) return false;
         if (session.offers.size() >= selected.packs().size()) {
-            if (session.delay != null) session.delay.cancel();
-            session.delay = null;
+            cancelDelay(session);
             session.revision++;
             return false;
         }
@@ -347,9 +341,16 @@ public final class PackSender implements AutoCloseable {
         return true;
     }
 
+    /** 当前子服是否只保留、不下发：纯保留，或配了 packs 但本次连接已下发过 VTB 包。 */
+    private boolean keeping(Session session, Player player) {
+        String server = server(player);
+        if (!rules.keepExisting(server)) return false;
+        return rules.select(server, player.getProtocolVersion(), player::hasPermission).packs().isEmpty()
+                || session != null && session.offers.stream().anyMatch(offer -> offer.sent);
+    }
+
     private void schedule(Session session, long delay) {
-        if (session.delay != null) session.delay.cancel();
-        session.delay = null;
+        cancelDelay(session);
         long revision = ++session.revision;
         if (session.selection.packs().isEmpty()) return;
         delay = Math.max(delay, switchWait(session));
@@ -398,7 +399,7 @@ public final class PackSender implements AutoCloseable {
                     if (offer.ticket == null) {
                         if (retry(session, offer)) break;
                         offer.state = "busy";
-                        fail(player, offer.choice.required(), offer.choice.name(), "busy");
+                        fail(player, offer.choice.required(), offer.choice.name(), offer.state);
                         if (offer.choice.required()) break;
                         continue;
                     }
@@ -501,9 +502,10 @@ public final class PackSender implements AutoCloseable {
 
     /** 自托管下载失败或明确过载时，撤下失败包及后续叠加项，保留前缀；最多两次。 */
     private boolean retry(Session session, Offer offer) {
-        // Passive servers must not dispatch a new retry or remove retained packs.
-        if (rules.keepExisting(session.server)) return false;
-        if (session.retries >= host.limits().retries()) return false;
+        // keep-existing 子服只重试本子服分配的包，不撤下保留的包。
+        if (rules.keepExisting(session.server) && !rules.select(session.server, session.player.getProtocolVersion(),
+                session.player::hasPermission).packs().contains(offer.choice)) return false;
+        if (session.retries >= HostLimits.RETRIES) return false;
         int start = session.offers.indexOf(offer);
         if (start < 0) return false;
         session.retries++;
@@ -514,16 +516,12 @@ public final class PackSender implements AutoCloseable {
         removeFrom(session, start, true);
         lang.send(session.player, busy ? "pack.delivery.retry" : "pack.delivery.retry-download",
                 Lang.ph("attempt", session.retries));
-        schedule(session, host.limits().retrySeconds() * 1000L * session.retries);
+        schedule(session, HostLimits.RETRY_SECONDS * 1000L * session.retries);
         return true;
     }
 
     private void fail(Player player, boolean required, String name, String reason) {
-        fail(player, required, name, reason, reason);
-    }
-
-    private void fail(Player player, boolean required, String name, String reason, String detail) {
-        fail(player, required, name, reason, detail, null);
+        fail(player, required, name, reason, reason, null);
     }
 
     private void fail(Player player, boolean required, String name, String reason, String detail, DownloadTickets.Diagnostic http) {
@@ -571,7 +569,7 @@ public final class PackSender implements AutoCloseable {
         };
     }
 
-    public synchronized void show(Player player, com.velocitypowered.api.command.CommandSource source) {
+    public synchronized void show(Player player, CommandSource source) {
         Session session = sessions.get(player.getUniqueId());
         if (session == null || session.player != player) {
             lang.send(source, "pack.delivery.no-state", Lang.ph("player", player.getUsername()));
@@ -579,7 +577,7 @@ public final class PackSender implements AutoCloseable {
         }
         lang.send(source, "pack.delivery.player-title", Lang.ph("player", player.getUsername()), Lang.ph("server", session.server));
         if (session.pausedServer != null) lang.send(source, "pack.delivery.paused");
-        if (rules.keepExisting(session.server)) lang.send(source, "pack.delivery.kept");
+        if (keeping(session, player)) lang.send(source, "pack.delivery.kept");
         if (!session.backendServer.isEmpty()) lang.send(source, "pack.delivery.backend");
         if (session.delay != null) lang.send(source, "pack.delivery.waiting");
         if (session.selection != null && !session.selection.skipped().isEmpty())
@@ -612,11 +610,13 @@ public final class PackSender implements AutoCloseable {
         return player.getProtocolVersion().compareTo(ProtocolVersion.MINECRAFT_1_20_3) >= 0;
     }
 
+    private static final Set<String> TERMINAL = Set.of("loaded", "failed", "declined", "timeout", "unavailable", "busy");
+
     private static boolean terminal(String state) {
-        return Set.of("loaded", "failed", "declined", "timeout", "unavailable", "busy").contains(state);
+        return TERMINAL.contains(state);
     }
 
-    private void remove(Session session, Offer offer, boolean remove) {
+    private void retire(Session session, Offer offer, boolean remove) {
         offer.cancel();
         if (offer.sent) {
             session.withdrawn = true;
@@ -629,15 +629,17 @@ public final class PackSender implements AutoCloseable {
     private void removeFrom(Session session, int start, boolean withdraw) {
         var retired = new ArrayList<>(session.offers.subList(start, session.offers.size()));
         session.offers.subList(start, session.offers.size()).clear();
-        for (int i = retired.size() - 1; i >= 0; i--) remove(session, retired.get(i), withdraw);
+        for (int i = retired.size() - 1; i >= 0; i--) retire(session, retired.get(i), withdraw);
+    }
+
+    private static void cancelDelay(Session session) {
+        if (session.delay != null) session.delay.cancel();
+        session.delay = null;
     }
 
     private void clear(Session session, boolean remove) {
         session.revision++;
-        if (session.delay != null) {
-            session.delay.cancel();
-            session.delay = null;
-        }
+        cancelDelay(session);
         removeFrom(session, 0, remove);
     }
 

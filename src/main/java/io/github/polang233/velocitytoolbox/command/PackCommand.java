@@ -6,6 +6,7 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
+import com.velocitypowered.api.network.ProtocolVersion;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import net.kyori.adventure.text.Component;
@@ -42,7 +43,7 @@ final class PackCommand extends CommandView {
             boolean supportsAll = !action.equals("status");
             var command = literal(action)
                     .requires(source -> action(source, "pack", action))
-                    .executes(ctx -> usage(ctx, "/vtb pack " + action + (supportsAll ? " <player|all>" : " <player>")))
+                    .executes(ctx -> usage(ctx, syntax(action)))
                     .then(BrigadierCommand.requiredArgumentBuilder("player", StringArgumentType.word())
                             .suggests((ctx, builder) -> {
                                 List<String> names = new ArrayList<>(proxy.getAllPlayers().stream().map(Player::getUsername).sorted().toList());
@@ -56,6 +57,14 @@ final class PackCommand extends CommandView {
             node.then(command);
         }
         return node;
+    }
+
+    private static String syntax(String action) {
+        return "/vtb pack " + action + switch (action) {
+            case "list", "check" -> "";
+            case "status" -> " <player>";
+            default -> " <player|all>";
+        };
     }
 
     private boolean bulk(CommandSource source, String action) {
@@ -75,9 +84,7 @@ final class PackCommand extends CommandView {
         sectionLine(ctx.getSource(), "pack.title");
         for (String action : List.of("list", "check", "status", "resend", "remove"))
             if (action(ctx.getSource(), "pack", action))
-                helpLine(ctx.getSource(), "/vtb pack " + action + (List.of("list", "check").contains(action) ? ""
-                        : action.equals("status") ? " <player>" : " <player|all>"),
-                        "pack.help." + action);
+                helpLine(ctx.getSource(), syntax(action), "pack.help." + action);
         for (String action : List.of("resend", "remove"))
             if (bulk(ctx.getSource(), action)) helpLine(ctx.getSource(), "/vtb pack " + action + " all", "pack.help." + action + "-all");
         return 1;
@@ -121,34 +128,39 @@ final class PackCommand extends CommandView {
             lang.send(ctx.getSource(), "pack.delivery.offline");
             return 0;
         }
-        if (action.equals("remove")) {
-            var result = sender.remove(player);
-            lang.send(ctx.getSource(), switch (result) {
-                case REMOVED -> "pack.delivery.removed";
-                case EMPTY -> "pack.delivery.remove-empty";
-                case LEGACY -> "pack.delivery.remove-legacy";
-                case OFFLINE -> "pack.delivery.offline";
-            }, Lang.ph("player", player.getUsername()));
-            return result == PackSender.RemoveResult.OFFLINE ? 0 : 1;
-        }
-        if (action.equals("status")) {
-            sender.show(player, ctx.getSource());
-            explain(player, ctx.getSource());
-        }
-        else {
-            var result = sender.resend(player);
-            lang.send(ctx.getSource(), switch (result) {
-                case SCHEDULED -> "pack.delivery.resent";
-                case EMPTY -> "pack.delivery.resend-empty";
-                case DISABLED -> "pack.delivery.unavailable";
-            });
-            if (result == PackSender.ResendResult.EMPTY) {
-                sender.show(player, ctx.getSource());
-                explain(player, ctx.getSource());
+        CommandSource source = ctx.getSource();
+        switch (action) {
+            case "remove" -> {
+                var result = sender.remove(player);
+                lang.send(source, switch (result) {
+                    case REMOVED -> "pack.delivery.removed";
+                    case EMPTY -> "pack.delivery.remove-empty";
+                    case LEGACY -> "pack.delivery.remove-legacy";
+                    case OFFLINE -> "pack.delivery.offline";
+                }, Lang.ph("player", player.getUsername()));
+                return result == PackSender.RemoveResult.OFFLINE ? 0 : 1;
             }
-            return result == PackSender.ResendResult.SCHEDULED ? 1 : 0;
+            case "status" -> {
+                status(player, source);
+                return 1;
+            }
+            default -> {
+                var result = sender.resend(player);
+                lang.send(source, switch (result) {
+                    case SCHEDULED -> "pack.delivery.resent";
+                    case EMPTY -> "pack.delivery.resend-empty";
+                    case DISABLED -> "pack.delivery.unavailable";
+                });
+                // 没有可发的包时顺带显示原因，方便排查分配和条件。
+                if (result == PackSender.ResendResult.EMPTY) status(player, source);
+                return result == PackSender.ResendResult.SCHEDULED ? 1 : 0;
+            }
         }
-        return 1;
+    }
+
+    private void status(Player player, CommandSource source) {
+        sender.show(player, source);
+        explain(player, source);
     }
 
     private void explain(Player player, CommandSource source) {
@@ -164,7 +176,7 @@ final class PackCommand extends CommandView {
             lang.send(source, "pack.explain.variant", Lang.ph("pack", match.pack()), Lang.ph("index", match.index()),
                     Lang.ph("reason", lang.plain(reason)), Lang.ph("conditions", conditions(match.variant())));
         }
-        if (player.getProtocolVersion().compareTo(com.velocitypowered.api.network.ProtocolVersion.MINECRAFT_1_20_3) < 0)
+        if (player.getProtocolVersion().compareTo(ProtocolVersion.MINECRAFT_1_20_3) < 0)
             lang.send(source, "pack.explain.legacy");
     }
 

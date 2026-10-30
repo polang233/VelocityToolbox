@@ -8,7 +8,9 @@ import io.github.polang233.velocitytoolbox.pack.host.PackScanner;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
@@ -18,9 +20,11 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.Comparator;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -41,11 +45,19 @@ public final class PackHttpServer implements AutoCloseable {
     private final TransferControl transfers;
     private final DownloadTickets tickets;
     private final AtomicInteger handlers = new AtomicInteger();
+    private final Consumer<String> untrustedProxy;
+    private final Set<String> hinted = ConcurrentHashMap.newKeySet();
     private volatile HttpServer httpServer;
     private ExecutorService executor;
 
     public PackHttpServer(Path directory, Map<String, HostedPack> packs, HostLimits limits,
                           DownloadTickets tickets, Consumer<Traffic> report) throws IOException {
+        this(directory, packs, limits, tickets, report, address -> {});
+    }
+
+    public PackHttpServer(Path directory, Map<String, HostedPack> packs, HostLimits limits, DownloadTickets tickets,
+                          Consumer<Traffic> report, Consumer<String> untrustedProxy) throws IOException {
+        this.untrustedProxy = untrustedProxy;
         snapshot = Snapshot.create(directory, packs, limits);
         requests = new RequestLimits(limits);
         transfers = new TransferControl(report);
@@ -82,13 +94,15 @@ public final class PackHttpServer implements AutoCloseable {
                 return;
             }
             try (var transfer = transfers.begin(exchange, request)) {
-                if (requestBytes(exchange) > current.limits().requestBytes()) {
-                    int rejection = requests.request(exchange.getRemoteAddress().getAddress().getHostAddress());
+                if (requestBytes(exchange) > HostLimits.REQUEST_BYTES) {
+                    int rejection = requests.request(peer(exchange));
                     if (rejection != 0) { reject(exchange, request, rejection); return; }
                     respond(exchange, request, 431, "Request too large\n"); return;
                 }
                 String ip = current.addresses().resolve(exchange);
-                int rejection = requests.request(ip);
+                if (ip.equals(peer(exchange)) && exchange.getRequestHeaders().containsKey("X-Forwarded-For"))
+                    hintProxy(ip);
+                int rejection = requests.request(ip, request.trusted);
                 if (rejection != 0) { reject(exchange, request, rejection); return; }
                 String method = exchange.getRequestMethod();
                 if (!method.equals("GET") && !method.equals("HEAD")) {
@@ -96,17 +110,9 @@ public final class PackHttpServer implements AutoCloseable {
                     respond(exchange, request, 405, "Method not allowed\n"); return;
                 }
                 if (exchange.getRequestHeaders().containsKey("Transfer-Encoding")
-                        || exchange.getRequestHeaders().getOrDefault("Content-Length", java.util.List.of("0"))
+                        || exchange.getRequestHeaders().getOrDefault("Content-Length", List.of("0"))
                         .stream().anyMatch(value -> !value.equals("0"))) {
                     respond(exchange, request, 400, "Request body not accepted\n"); return;
-                }
-                String path = exchange.getRequestURI().getPath();
-                if ("/".equals(path)) {
-                    if (!current.limits().index()) { respond(exchange, request, 404, "Not found\n"); return; }
-                    StringBuilder body = new StringBuilder("VelocityToolBox packs\n");
-                    current.packs().values().stream().sorted(Comparator.comparing(HostedPack::fileName))
-                            .forEach(pack -> body.append(pack.fileName()).append('\n'));
-                    respond(exchange, request, 200, body.toString()); return;
                 }
                 String name = requestedFileName(exchange.getRequestURI());
                 HostedPack pack = name == null ? null : current.packs().get(name.toLowerCase(Locale.ROOT));
@@ -125,7 +131,7 @@ public final class PackHttpServer implements AutoCloseable {
                 exchange.getResponseHeaders().set("X-Content-Type-Options", "nosniff");
                 exchange.getResponseHeaders().set("Content-Length", Long.toString(pack.size()));
                 if (method.equals("HEAD")) { request.response(200); exchange.sendResponseHeaders(200, -1); return; }
-                try (var lease = requests.download(ip)) {
+                try (var lease = requests.download(ip, request.trusted)) {
                     if (lease == null) { reject(exchange, request, 503); return; }
                     transfer.downloading(current.limits());
                     try (SeekableByteChannel input = open(pack.path(), request)) {
@@ -155,7 +161,7 @@ public final class PackHttpServer implements AutoCloseable {
                 }
             }
         } catch (IOException failure) {
-            request.failed(failure instanceof java.net.SocketTimeoutException
+            request.failed(failure instanceof SocketTimeoutException
                             ? DownloadTickets.Stage.TIMED_OUT : DownloadTickets.Stage.INTERRUPTED,
                     failure.getClass().getSimpleName() + ": " + failure.getMessage());
             // 诊断只随玩家失败或重试写入后台，不为公开 HTTP 请求逐条刷日志。
@@ -166,10 +172,22 @@ public final class PackHttpServer implements AutoCloseable {
         }
     }
 
+    private static String peer(HttpExchange exchange) {
+        return exchange.getRemoteAddress().getAddress().getHostAddress();
+    }
+
+    /** 本机或内网地址带着 X-Forwarded-For 却未被信任时，多半是漏配了 trusted-proxies；每个地址只提示一次。 */
+    private void hintProxy(String address) {
+        InetAddress peer;
+        try { peer = InetAddress.getByName(address); } catch (IOException invalid) { return; }
+        if (!peer.isLoopbackAddress() && !peer.isSiteLocalAddress()) return;
+        if (hinted.size() < 16 && hinted.add(address)) untrustedProxy.accept(address);
+    }
+
     private void reject(HttpExchange exchange, DownloadTickets.Request request, int status) throws IOException {
         if (status == 429) transfers.rejected.increment(); else transfers.busy.increment();
         tickets.limited(exchange.getRequestURI());
-        exchange.getResponseHeaders().set("Retry-After", Integer.toString(snapshot.limits().retrySeconds()));
+        exchange.getResponseHeaders().set("Retry-After", Integer.toString(HostLimits.RETRY_SECONDS));
         respond(exchange, request, status, status == 429 ? "Too many requests\n" : "Server busy\n");
     }
 

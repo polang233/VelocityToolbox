@@ -218,6 +218,7 @@ pack:
     files-title: "    <gray>Hosted files: <#CCFFFF><count>"
     log:
       traffic: "<yellow>Pack request summary: <detail>"
+      untrusted-proxy: "<yellow>Received X-Forwarded-For from <address>, which is not in pack-host.security.trusted-proxies, so players share the limits of <address>. If it is your HTTP reverse proxy (such as Nginx), add it to trusted-proxies. Do not add TCP tunnels such as frp."
       warn-localhost: "<yellow>pack-host.public-url uses localhost. Only clients on the proxy machine can download these packs."
       warn-wildcard: "<yellow>0.0.0.0 is not a download address. Set pack-host.public-url to an IP or domain players can reach."
       warn-lan: "<yellow>The automatic download URL <url> uses a LAN address. Public players usually cannot reach it; set public-url for public access."
@@ -285,8 +286,6 @@ pack:
       timeout: "timed out"
       unavailable: "unavailable"
     status: "<gray>Pack delivery: <#CCFFFF><state>"
-  log:
-    load-failed: "Resource pack initialization failed."
   check:
     ok: "<green>Pack configuration check passed. No changes were applied."
     summary: "<gray>Hosting: <host>; delivery: <delivery>; <files> hosted files, <packs> pack definitions."

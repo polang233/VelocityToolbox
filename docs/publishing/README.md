@@ -19,13 +19,13 @@ SpigotMC 标题可用：`[Velocity] VelocityToolBox - Plugin Management & Resour
 
 ## 版本更新日志
 
-版本名使用 `VelocityToolBox 1.3.9`，版本号为 `1.3.9`。
+版本名使用 `VelocityToolBox 1.4.0`，版本号为 `1.4.0`。
 
-- [中文 Markdown 更新日志](RELEASE-1.3.9.md)
-- [中文 BBCode 更新日志](RELEASE-1.3.9.bbcode.txt)
-- [英文更新日志](RELEASE-1.3.9.en.md)
+- [中文 Markdown 更新日志](RELEASE-1.4.0.md)
+- [中文 BBCode 更新日志](RELEASE-1.4.0.bbcode.txt)
+- [英文更新日志](RELEASE-1.4.0.en.md)
 
-上传 `VelocityToolbox-1.3.9.jar`，也可从 [GitHub Release](https://github.com/polang233/VelocityToolbox/releases/tag/v1.3.9) 下载。Hangar / Modrinth 平台元数据填写 Velocity 4.0+、Java 25+；客户端资源包兼容范围按实际 ZIP 与测试结果填写。正文里不必反复强调运行环境。
+上传 `VelocityToolbox-1.4.0.jar`，也可从 [GitHub Release](https://github.com/polang233/VelocityToolbox/releases/tag/v1.4.0) 下载。Hangar / Modrinth 平台元数据填写 Velocity 4.0+、Java 25+；客户端资源包兼容范围按实际 ZIP 与测试结果填写。正文里不必反复强调运行环境。
 
 历史稿：[1.3.0 中文](RELEASE-1.3.0.md) · [BBCode](RELEASE-1.3.0.bbcode.txt) · [English](RELEASE-1.3.0.en.md)。
 

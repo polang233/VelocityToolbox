@@ -1,0 +1,110 @@
+# Interface language: zh_cn, zh_tw, en_us or a custom file in lang/. Empty follows the system language.
+language: ""
+
+# Per-server client version rules.
+server-versions:
+  enabled: false
+  # Keys are server names from velocity.toml. Unlisted servers are not restricted.
+  #   min / max  Inclusive; omitted values follow the proxy's supported range.
+  #   allow      When set, the version must be listed.
+  #   deny       Always excluded first.
+  # Quote version names, or use protocol numbers.
+  servers:
+    survival:
+      min: "1.15"
+    rpg:
+      min: "1.15"
+      deny: ["1.19.1", "1.19.2"]
+    minigame:
+      allow: ["1.20.1", "1.21.1"]
+
+# Resource pack HTTP hosting. Not needed when you only use external URLs.
+pack-host:
+  enabled: false
+  # Local listen address and port. Public access needs a firewall rule or port forwarding.
+  bind: 0.0.0.0
+  port: 8765
+  # Download address prefix for players, such as http://public-ip:8765 or https://packs.example.com.
+  # Empty selects a local network address; public servers should set this.
+  public-url: ""
+  # ZIP directory, relative to the plugin folder or absolute.
+  packs-directory: packs
+  # Download protection. The defaults suit most servers, and this section can be omitted.
+  security:
+    # Concurrent downloads for the whole server / per IP. VTB offers to online players skip the per-IP limit.
+    max-downloads: 64
+    max-downloads-per-ip: 12
+    # Requests per IP per minute.
+    requests-per-minute-per-ip: 120
+    # Deadline for one download, in seconds.
+    max-download-seconds: 60
+    # Total / per-download bandwidth in MiB/s. 0 is unlimited.
+    bandwidth-mib: 0
+    per-download-mib: 0
+    # Trusted HTTP reverse proxy IPs/CIDRs, such as ["127.0.0.1/32"]. Keep empty for direct access or TCP tunnels such as frp.
+    trusted-proxies: []
+
+# Resource pack selection and delivery.
+# Docs: https://github.com/polang233/VelocityToolbox/wiki/Resource-Packs-English
+resource-packs:
+  enabled: false
+  # Defaults.
+  settings:
+    # Seconds to wait after a player enters a server.
+    delay: 3
+    # Seconds from sending the request to a successful load.
+    timeout: 60
+    # Whether the pack is mandatory. Declining, failing or timing out disconnects the player.
+    required: false
+    # Prompt on the client's confirmation screen (MiniMessage). Can be empty.
+    prompt: "<#CCFFFF>Please load the server resource pack."
+
+  # A single file is written as name: "@file.zip".
+  # To choose by conditions, use a list. The first matching entry wins. Options:
+  #   url         Required. "@file.zip" is a ZIP in the hosting directory; external URLs also need hash.
+  #   hash        40-character SHA-1 of an external ZIP.
+  #   required    Optional, defaults to settings.
+  #   prompt      Optional, defaults to settings.
+  #   versions    Optional, any version by default. Same rules as server-versions; only picks a file, no conversion.
+  #   permission  Optional, no permission by default. Both must match when combined with versions.
+  # If nothing matches, the pack is skipped and the player is told. End with - none to send nothing silently.
+  packs:
+    base: "@base.zip"
+
+    survival:
+      - url: "@survival.zip"
+        required: true
+        prompt: "<#CCFFFF>This server requires a resource pack."
+        versions:
+          min: "1.20.3"
+      # Older clients receive only one pack, so give them a complete one.
+      - url: "@survival-legacy.zip"
+        versions:
+          min: "1.15"
+          max: "1.20.2"
+      - none
+
+    vip:
+      - url: "@vip.zip"
+        permission: "velocitytoolbox.pack.vip"
+        versions:
+          min: "1.20.3"
+
+    # External URL example:
+    # event:
+    #   - url: "https://packs.example.com/event.zip"
+    #     hash: "40-character SHA-1 of the actual ZIP"
+
+  # Server assignments. Unlisted servers use default; entries do not inherit from default.
+  # Server names can use * wildcards. Exact names win; among wildcards, the first written wins.
+  #   [a, b]  Send these packs. 1.20.3+ stacks them in order; later ones override earlier ones.
+  #   []      Send nothing and withdraw VTB packs (1.20.3+).
+  #   keep    Keep packs already sent and send no new ones.
+  # Full form keep-existing: true with packs: keep VTB packs if any, otherwise send these.
+  servers:
+    default: keep
+    lobby:
+      keep-existing: true
+      packs: [base]
+    "survival-*": [survival, vip]
+    minigame: []

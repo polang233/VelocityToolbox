@@ -2,25 +2,56 @@
 
 # VelocityToolBox
 
-Hot plugin management, custom resource pack delivery and hosting, entry-domain diagnostics, and server version rules for Velocity.
+**Hot plugin management, custom resource pack delivery and hosting, entry-domain diagnostics, and per-server client version rules for Velocity.**
 
-Hosting and delivery have separate switches. Hosted `@file.zip` URLs get an automatic SHA-1. `/vtb pack check` reports configuration problems, status shows match reasons, and `resend all` works in batches. The pack host rate-limits public HTTP downloads.
+[中文](../README.md) · [Wiki](https://github.com/polang233/VelocityToolbox/wiki/English) · [Releases](https://github.com/polang233/VelocityToolbox/releases) · [Hangar](https://hangar.papermc.io/polang/VelocityToolBox) · [Modrinth](https://modrinth.com/plugin/velocitytoolbox) · [Issues](https://github.com/polang233/VelocityToolbox/issues)
 
-[中文](../README.md) · [Wiki](https://github.com/polang233/VelocityToolbox/wiki/English) · [Releases](https://github.com/polang233/VelocityToolbox/releases) · [Hangar](https://hangar.papermc.io/polang/VelocityToolBox) · [Modrinth](https://modrinth.com/plugin/velocitytoolbox)
+![Version](https://img.shields.io/github/v/release/polang233/VelocityToolbox?label=Version&color=2ea44f)
+![Velocity](https://img.shields.io/badge/Velocity-4.x-1197d1)
+![Java](https://img.shields.io/badge/Java-25-e76f00)
+![License](https://img.shields.io/github/license/polang233/VelocityToolbox)
+
+## Features
+
+- **Hot plugin management**: list, inspect, load, unload and reload proxy plugins, with cleanup reports for commands, listeners and tasks.
+- **Resource pack delivery**: choose packs by backend, client version and permission. 1.20.3+ clients stack packs; older clients get one complete pack. Supports required packs, keeping packs across servers and batched resends.
+- **Resource pack hosting**: built-in HTTP downloads. `@file.zip` gets an automatic URL and SHA-1, with rate and concurrency limits.
+- **Entry-domain diagnostics**: group online players by the domain and port they joined with.
+- **Server version rules**: restrict client versions per backend without ViaVersion.
+- **Languages**: Simplified Chinese, Traditional Chinese, English and custom MiniMessage language files.
+
+Every module is disabled by default and works on its own.
 
 ## Install
 
-Put the JAR in the proxy's plugins/ directory and start the proxy. Current build target is Velocity 4 and Java 25. Grant `velocitytoolbox.admin` and run `/vtb help`. The full command name is `/vtoolbox`.
+1. Put the JAR in the proxy's `plugins/` and start the proxy once to generate `config.yml`.
+2. Enable the modules you need, replace example files and server names, and remove unused examples.
+3. Run `/vtb reload`.
 
-Version rules, HTTP hosting and pack delivery default to disabled. Replace example files and server names before enabling them. Apply configuration changes with `/vtb reload`.
+The generated config.yml has Chinese comments in mainland China, Hong Kong, Macau and Taiwan, and English comments elsewhere. To update, replace the JAR and restart the proxy. Existing configuration and language files are never overwritten; missing language keys fall back to bundled text.
 
-When updating, replace the JAR and restart the proxy. Existing configuration still works: add `resource-packs` when you want pack delivery; leaving it out keeps delivery disabled. If you made few language changes, back up and move the old language files, then run `/vtb reload` to generate fresh copies. Reapply any custom text using the new keys.
+## Commands and permissions
+
+The command is `/vtoolbox`, alias `/vtb`. `velocitytoolbox.admin` grants every command.
+
+| Command | Description |
+| --- | --- |
+| `/vtb help` | Show commands you can use |
+| `/vtb info` | Module status |
+| `/vtb reload` | Reload configuration, language and module rules (not other plugins) |
+| `/vtb plugin list\|inspect\|load\|unload\|reload` | Plugin management |
+| `/vtb pack list\|check` | Show packs and hosting; check configuration without applying it |
+| `/vtb pack status <player>` | A player's load status and match reasons |
+| `/vtb pack resend\|remove <player\|all>` | Resend or withdraw packs |
+| `/vtb server hosts` | Online players grouped by entry domain |
+
+Fine-grained permissions combine base, module and action nodes. See [Modules and permissions](https://github.com/polang233/VelocityToolbox/wiki/Modules-English).
 
 ## Modules
 
 ### Plugin management
 
-`/vtb plugin list|inspect|load|unload|reload` lists, inspects and manages proxy plugins, including cleanup reports. Required dependencies prevent unloading. Restart the proxy when updating permission, protocol or connection plugins.
+`load` accepts names without `.jar` or a partial filename. Plugins that are still required by others cannot be unloaded. Restart the proxy to update permission, protocol or connection plugins.
 
 <p align="center">
   <img src="../assets/screenshot-plugin-load.png" alt="Loading a plugin" width="720">
@@ -29,21 +60,28 @@ When updating, replace the JAR and restart the proxy. Existing configuration sti
   <img src="../assets/screenshot-plugin-unload.png" alt="Unloading a plugin and cleanup results" width="720">
 </p>
 
-### Resource packs
+### Resource pack delivery and hosting
 
-`resource-packs` sets network-wide defaults and lets you choose packs by backend, client version and permission. `pack-host` serves local ZIPs, calculates hashes and limits downloads. Enable each module separately.
+`resource-packs` decides who gets which pack; `pack-host` serves the ZIPs. Each has its own switch. A source is one of:
 
-- `url: "@filename.zip"` uses VTB hosting with an automatic URL and SHA-1.
-- External HTTP/HTTPS URLs download directly and require the actual hash.
-- `url: "@"` sends nothing and needs no hosting.
+- `"@file.zip"`: a ZIP in the hosting directory, with an automatic URL and SHA-1.
+- An external HTTP/HTTPS URL: clients download it directly; the real hash is required.
+- `none`: send nothing.
 
-For hosted files, `public-url` is the client's download address prefix. An empty value selects a local network address. Public servers need a reachable IP/domain with port forwarding or a reverse proxy.
+```yaml
+resource-packs:
+  enabled: true
+  packs:
+    survival: "@survival.zip"
+  servers:
+    default: keep           # unlisted servers keep current packs
+    "survival-*": [survival]
+    minigame: []            # withdraw packs
+```
 
-pack-host is public HTTP with rate limits. Anyone who knows the full URL can download the ZIP. The ticket query parameter only correlates overload retries; it is not authentication.
+For hosted files, `public-url` is the download address prefix given to clients. Empty selects a local network address; public servers need a reachable IP or domain. Hosting is public HTTP with rate limits: anyone with the URL can download.
 
-Clients on 1.20.3+ can stack packs. Older clients receive the first matching complete pack. A selected required pack disconnects on rejection, failure or timeout. Use `/vtb pack list`, `status player` and `resend player|all` to inspect or resend packs. `/vtb pack check` checks configuration without applying it.
-
-`/vtb pack remove player|all` withdraws packs and pauses delivery until a server switch or manual resend; reload preserves the pause. Clients below 1.20.3 must reconnect to clear loaded packs. Console logs retain client status and HTTP diagnostics, while player notices omit pack names.
+On failure, players see a short reason and the console keeps full diagnostics; use `/vtb pack status player`. See [Resource packs](https://github.com/polang233/VelocityToolbox/wiki/Resource-Packs-English).
 
 <p align="center">
   <img src="../assets/screenshot-packs.png" alt="Client resource pack prompt" width="720">
@@ -51,24 +89,28 @@ Clients on 1.20.3+ can stack packs. Older clients receive the first matching com
 
 ### Servers and entries
 
-`/vtb server hosts` groups online players by their entry domain and shows ports and latency. Click an entry for player details.
+`/vtb server hosts` groups online players by entry domain and shows ports and latency. Click an entry for player details.
 
 <p align="center">
   <img src="../assets/screenshot-vhosts.jpg" alt="Players grouped by entry domain" width="720">
 </p>
 
-`server-versions` restricts client versions per backend using min/max/allow/deny. It needs no ViaVersion and does not translate protocols.
+`server-versions` restricts client versions per backend using min/max/allow/deny. It does not translate protocols. See the [Chinese version rules guide](https://github.com/polang233/VelocityToolbox/wiki/Server-Versions).
 
 <p align="center">
   <img src="../assets/screenshot-server-versions.png" alt="Client version rules by backend" width="720">
 </p>
 
-## Status and documentation
+## Language
 
-`/vtb info` shows module status. `/vtb reload` reloads configuration and language without reloading other plugins.
+Leave `language` empty to follow the system locale, or set `zh_cn`, `zh_tw` or `en_us`. Unsupported languages fall back to Simplified Chinese.
 
-[Modules and permissions](https://github.com/polang233/VelocityToolbox/wiki/Modules-English) · [Resource packs](https://github.com/polang233/VelocityToolbox/wiki/Resource-Packs-English) · [中文版本限制指南](https://github.com/polang233/VelocityToolbox/wiki/Server-Versions)
+## Build
 
-Messages support Simplified Chinese, Traditional Chinese, English and custom MiniMessage language files. Set language to zh_tw for Traditional Chinese, or leave it empty to follow the system locale. Unsupported languages fall back to Simplified Chinese.
+Requires Java 25:
 
-[Issues](https://github.com/polang233/VelocityToolbox/issues) · [Maintenance notes](maintainer/README.md)
+```bash
+./gradlew build
+```
+
+The JAR is written to `build/libs/`. `check` covers configuration parsing, pack delivery, HTTP limits and plugin cleanup; real client behavior still needs testing on a live proxy. See the [maintenance notes](maintainer/README.md).

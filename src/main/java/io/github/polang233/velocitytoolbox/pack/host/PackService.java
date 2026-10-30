@@ -12,6 +12,7 @@ import io.github.polang233.velocitytoolbox.config.ResourceFiles;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
@@ -87,7 +88,7 @@ public final class PackService implements AutoCloseable {
         boolean reuse = enabled() && next.config().enabled()
                 && config.bind().equals(next.config().bind()) && config.port() == next.config().port();
         if (next.config().enabled() && !reuse) {
-            replacement = new PackHttpServer(next.directory(), next.packs(), next.config().limits(), tickets, this::reportHttp);
+            replacement = new PackHttpServer(next.directory(), next.packs(), next.config().limits(), tickets, this::reportHttp, this::reportProxy);
             try {
                 replacement.bind(next.config().bind(), next.config().port());
             } catch (IOException failure) {
@@ -97,11 +98,11 @@ public final class PackService implements AutoCloseable {
                 httpServer.close();
                 httpServer = null;
                 try {
-                    replacement = new PackHttpServer(next.directory(), next.packs(), next.config().limits(), tickets, this::reportHttp);
+                    replacement = new PackHttpServer(next.directory(), next.packs(), next.config().limits(), tickets, this::reportHttp, this::reportProxy);
                     replacement.bind(next.config().bind(), next.config().port());
                 } catch (IOException retry) {
                     replacement.close();
-                    PackHttpServer restored = new PackHttpServer(packsDirectory, packs, config.limits(), tickets, this::reportHttp);
+                    PackHttpServer restored = new PackHttpServer(packsDirectory, packs, config.limits(), tickets, this::reportHttp, this::reportProxy);
                     try {
                         restored.bind(config.bind(), config.port());
                         httpServer = restored;
@@ -125,20 +126,8 @@ public final class PackService implements AutoCloseable {
         packs.putAll(next.packs());
     }
 
-    public synchronized void start() throws IOException {
-        start(PackConfig.load(dataDirectory));
-    }
-
     public synchronized void start(PackConfig config) throws IOException {
         apply(prepare(config));
-    }
-
-    public synchronized void reload() throws IOException {
-        start();
-    }
-
-    public synchronized void reload(PackConfig config) throws IOException {
-        start(config);
     }
 
     public synchronized DownloadTickets.Ticket ticket(String url, long lifetimeMs) { return tickets.issue(url, lifetimeMs); }
@@ -148,6 +137,10 @@ public final class PackService implements AutoCloseable {
         var stats = httpServer.stats();
         return lang.plain("pack.host.stats-detail", Lang.ph("downloads", stats.downloads()), Lang.ph("clients", stats.clients()),
                 Lang.ph("limited", stats.limited()), Lang.ph("busy", stats.busy()), Lang.ph("bytes", stats.bytes()));
+    }
+
+    private void reportProxy(String address) {
+        console("pack.host.log.untrusted-proxy", Lang.ph("address", address));
     }
 
     private void reportHttp(PackHttpServer.Traffic traffic) {
@@ -210,7 +203,7 @@ public final class PackService implements AutoCloseable {
                     Lang.ph("selected", candidates.getFirst()));
         }
         String origin = "http://" + candidates.getFirst() + ":" + next.port();
-        if (!quiet && java.net.InetAddress.getByName(candidates.getFirst()).isSiteLocalAddress())
+        if (!quiet && InetAddress.getByName(candidates.getFirst()).isSiteLocalAddress())
             console("pack.host.log.warn-lan", Lang.ph("url", origin));
         return origin;
     }

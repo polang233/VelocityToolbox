@@ -25,12 +25,19 @@ public final class ResourceFiles {
 
     public static void ensureDefaults(Path dataDirectory) throws IOException {
         Files.createDirectories(dataDirectory);
-        copyIfMissing("config.yml", dataDirectory.resolve("config.yml"));
+        copyIfMissing(configResource(Locale.getDefault()), dataDirectory.resolve("config.yml"));
         Path langDirectory = dataDirectory.resolve("lang");
         Files.createDirectories(langDirectory);
         copyIfMissing("lang/zh_cn.yml", langDirectory.resolve("zh_cn.yml"));
         copyIfMissing("lang/zh_tw.yml", langDirectory.resolve("zh_tw.yml"));
         copyIfMissing("lang/en_us.yml", langDirectory.resolve("en_us.yml"));
+    }
+
+    /** 中国大陆、港澳台使用中文注释的配置，其它地区使用英文注释。 */
+    public static String configResource(Locale locale) {
+        boolean chinese = Set.of("CN", "TW", "HK", "MO").contains(locale.getCountry())
+                || locale.getCountry().isEmpty() && "zh".equals(locale.getLanguage());
+        return chinese ? "config.yml" : "config.en.yml";
     }
 
     public static CommentedConfigurationNode loadYaml(Path file) throws IOException {

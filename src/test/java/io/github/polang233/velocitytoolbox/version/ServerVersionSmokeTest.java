@@ -121,9 +121,8 @@ public final class ServerVersionSmokeTest {
 
             var packs = ResourceFiles.loadBundledYaml("config.yml").node("resource-packs");
             packs.node("enabled").set(true);
-            var defaultVariant = packs.node("packs", "default").copy();
             packs.node("packs").set(java.util.Map.of());
-            packs.node("packs", "default").set(defaultVariant);
+            packs.node("packs", "default").set(List.of(java.util.Map.of("url", "@")));
             packs.node("servers").set(java.util.Map.of("default", java.util.Map.of("packs", List.of("default"))));
             var variant = packs.node("packs", "default").childrenList().getFirst();
             variant.node("url").set("https://example.com/pack.zip");

@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.regex.Pattern;
 
 /**
  * 保存有效配置，按玩家版本、权限和子服选择资源包。
@@ -19,7 +20,8 @@ public record PackRules(boolean enabled, long delay, long timeout, Map<String, P
                         Assignment defaults, Map<String, Assignment> servers) {
     public PackRules {
         packs = Collections.unmodifiableMap(new LinkedHashMap<>(packs));
-        servers = Map.copyOf(servers);
+        // 保留书写顺序，多个通配符同时匹配时取第一个。
+        servers = Collections.unmodifiableMap(new LinkedHashMap<>(servers));
     }
 
     public record File(String url, String sha1, boolean local) {
@@ -40,8 +42,6 @@ public record PackRules(boolean enabled, long delay, long timeout, Map<String, P
     public record Assignment(List<String> packs, boolean keepExisting) {
         public Assignment {
             packs = List.copyOf(packs);
-            if (keepExisting && !packs.isEmpty())
-                throw new IllegalArgumentException("keep-existing requires an empty pack list");
         }
 
         public Assignment(List<String> packs) { this(packs, false); }
@@ -96,14 +96,30 @@ public record PackRules(boolean enabled, long delay, long timeout, Map<String, P
         return explain(server, version, permission).selection();
     }
 
-    /** A passive assignment keeps this connection's previously offered packs. */
+    /** keep-existing 子服保留本次连接已下发的资源包；配了 packs 时，玩家没有 VTB 包才下发。 */
     public boolean keepExisting(String server) {
-        return servers.getOrDefault(server.toLowerCase(Locale.ROOT), defaults).keepExisting();
+        return servers.getOrDefault(assignment(server), defaults).keepExisting();
+    }
+
+    /** 分配键：精确名称优先，其次按书写顺序取首个匹配的通配符，否则为 default。 */
+    private String assignment(String server) {
+        String name = server.toLowerCase(Locale.ROOT);
+        if (servers.containsKey(name)) return name;
+        for (String key : servers.keySet())
+            if (key.contains("*") && glob(key, name)) return key;
+        return "default";
+    }
+
+    private static boolean glob(String pattern, String name) {
+        var regex = new StringBuilder();
+        for (String part : pattern.split("\\*", -1)) regex.append(Pattern.quote(part)).append(".*");
+        regex.setLength(regex.length() - 2);
+        return name.matches(regex.toString());
     }
 
     /** 选包与诊断共用一次判定，诊断信息不参与已发送包的变化比较。 */
     public Explanation explain(String server, ProtocolVersion version, Predicate<String> permission) {
-        String assignment = servers.containsKey(server.toLowerCase(Locale.ROOT)) ? server.toLowerCase(Locale.ROOT) : "default";
+        String assignment = assignment(server);
         Assignment rule = servers.getOrDefault(assignment, defaults);
         boolean modern = version.compareTo(ProtocolVersion.MINECRAFT_1_20_3) >= 0;
         List<Choice> selected = new ArrayList<>();
@@ -127,7 +143,7 @@ public record PackRules(boolean enabled, long delay, long timeout, Map<String, P
             if (match == null) skipped.add(name);
             else if (!match.file().empty()) {
                 selected.add(new Choice(name, match.file(), match.required(), match.prompt()));
-                // Old clients can use only one complete pack.
+                // 旧客户端只能使用一个完整包。
                 if (!modern) break;
             }
         }

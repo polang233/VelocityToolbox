@@ -15,7 +15,6 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import io.github.polang233.velocitytoolbox.command.VelocityToolboxCommand;
 import io.github.polang233.velocitytoolbox.command.ModuleStatus;
 import io.github.polang233.velocitytoolbox.config.PluginConfig;
-import io.github.polang233.velocitytoolbox.config.ResourceFiles;
 import io.github.polang233.velocitytoolbox.lang.Lang;
 import io.github.polang233.velocitytoolbox.hook.Metrics;
 import io.github.polang233.velocitytoolbox.pack.config.PackConfig;
@@ -83,17 +82,10 @@ public final class VelocityToolboxPlugin {
 
     @Subscribe
     public void onProxyInitialization(ProxyInitializeEvent event) {
-        PluginConfig config = loadConfigAndLang();
         metricsFactory.make(this, BSTATS_ID);
-
         packService = new PackService(dataDirectory, proxy.getConsoleCommandSource(), lang);
         packSender = new PackSender(this, proxy, packService, lang, logger);
-        try {
-            reloadPacks(config != null ? config.packHost() : PackConfig.load(dataDirectory));
-        } catch (Exception exception) {
-            packError = true;
-            logger.error(lang.plain("pack.log.load-failed"), exception);
-        }
+        reloadConfig();
 
         pluginLoadService = new PluginLoadService(proxy, logger, lang, dataDirectory);
         serverVersionService = new ServerVersionService(this, proxy, dataDirectory, lang, logger);
@@ -126,18 +118,7 @@ public final class VelocityToolboxPlugin {
      * 重载语言、配置、资源包托管和子服版本限制，不重载其它插件。
      */
     public synchronized boolean reloadAll() {
-        boolean success = true;
-        try {
-            PluginConfig config = PluginConfig.load(dataDirectory);
-            lang.load(config.language());
-            lang.sendRegenerationNotice(proxy.getConsoleCommandSource());
-            reloadPacks(config.packHost());
-            packError = false;
-        } catch (Exception exception) {
-            packError = true;
-            logger.error(lang.plain("main.log.reload-failed"), exception);
-            success = false;
-        }
+        boolean success = reloadConfig();
         // 各模块分别重载，单个模块失败不阻断其它模块。
         try {
             serverVersionService.reload();
@@ -167,28 +148,33 @@ public final class VelocityToolboxPlugin {
         }
     }
 
-    private void reloadPacks(PackConfig config) throws java.io.IOException {
-        PackService.Prepared prepared = packService.prepare(config);
-        PackRules rules = PackRules.read(ResourceFiles.loadYaml(dataDirectory.resolve("config.yml"))
-                .node("resource-packs"), prepared.list(), prepared.directory(), config.enabled(), logger::warn);
-        packService.apply(prepared);
-        packSender.apply(rules);
-    }
-
-    private PluginConfig loadConfigAndLang() {
+    /** 读取一次 config.yml，依次应用语言与资源包；失败时保留已生效的部分。 */
+    private boolean reloadConfig() {
         try {
             PluginConfig config = PluginConfig.load(dataDirectory);
             lang.load(config.language());
             lang.sendRegenerationNotice(proxy.getConsoleCommandSource());
-            return config;
+            PackConfig host = config.packHost();
+            for (String warning : host.warnings()) logger.warn(warning);
+            PackService.Prepared prepared = packService.prepare(host);
+            PackRules rules = PackRules.read(config.resourcePacks(), prepared.list(), prepared.directory(),
+                    host.enabled(), logger::warn);
+            packService.apply(prepared);
+            packSender.apply(rules);
+            packError = false;
+            return true;
         } catch (Exception exception) {
-            logger.error("Configuration or language initialization failed. / 配置或语言初始化失败。", exception);
-            try {
-                lang.load("zh_cn");
-            } catch (Exception ignored) {
-                // 随包 zh_cn.yml 损坏时命令仍会回退显示 key。
+            packError = true;
+            // 首次加载失败时语言尚未就绪，回退随包简体中文。
+            if (!lang.loaded()) {
+                try {
+                    lang.load("zh_cn");
+                } catch (Exception ignored) {
+                    // 随包 zh_cn.yml 损坏时命令仍会回退显示 key。
+                }
             }
-            return null;
+            logger.error(lang.plain("main.log.reload-failed"), exception);
+            return false;
         }
     }
 }

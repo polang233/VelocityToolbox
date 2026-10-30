@@ -38,6 +38,7 @@ public final class HttpSecurityTest {
             tickets();
             http();
             switchingHttp();
+            proxyHint();
             transfers();
             bandwidth();
             System.out.println("HTTP security tests passed: rate/concurrency, proxies, files, cache, deadlines and cleanup.");
@@ -55,7 +56,7 @@ public final class HttpSecurityTest {
     }
 
     private static HostLimits internal(int globalRate, int burst, int clients, int idle) {
-        return new HostLimits(2, 1, globalRate, 120, burst, clients, idle, 16384, 60, 0, 0, false, List.of(), 2, 5);
+        return new HostLimits(2, 1, globalRate, 120, burst, clients, idle, 60, 0, 0, List.of());
     }
 
     private static void limits() throws Exception {
@@ -79,17 +80,33 @@ public final class HttpSecurityTest {
         second.close();
         check(guard.active() == 0, "all slots released");
         for (String invalid : List.of("max-downloads: 0", "bandwidth-mib: 1.5",
-                "trusted-proxies: invalid", "unknown: true", "show-index: true",
-                "burst-per-ip: 1", "requests-per-second: 50", "download-retries: 0")) {
+                "trusted-proxies: invalid", "unknown: true")) {
             try { config(invalid); throw new AssertionError("invalid security config: " + invalid); }
             catch (java.io.IOException expected) { }
         }
-        try {
-            config("show-index: true\nmax-request-bytes: 999999\ndownload-retries: 0\n");
-            throw new AssertionError("obsolete security keys must fail load");
-        } catch (java.io.IOException expected) {
-            check(expected.getMessage().contains("obsolete"), "obsolete keys named in load error");
-        }
+        Path old = directory.resolve("security.yml");
+        Files.writeString(old, "show-index: true\nmax-request-bytes: 999999\ndownload-retries: 0\nmax-downloads: 5\n");
+        var warnings = new java.util.ArrayList<String>();
+        HostLimits migrated = HostLimits.read(ResourceFiles.loadYaml(old), warnings::add);
+        check(warnings.size() == 3 && warnings.getFirst().contains("obsolete") && migrated.downloads() == 5
+                && migrated.burst() == HostLimits.defaults().burst(), "obsolete keys warn and are ignored");
+        var shared = new RequestLimits(internal(200, 1, 10, 300));
+        check(shared.request("nat") == 0 && shared.request("nat") == 429 && shared.request("nat", true) == 0,
+                "ticketed request skips per-IP rate");
+        var plain = shared.download("nat");
+        check(plain != null && shared.download("nat") == null, "plain download keeps per-IP concurrency");
+        var ticketed = shared.download("nat", true);
+        check(ticketed != null && shared.download("nat", true) == null, "ticketed download still bounded globally");
+        plain.close(); ticketed.close();
+        var tickets = new DownloadTickets();
+        var ticket = tickets.issue("http://127.0.0.1/packs/a.zip", 60000);
+        URI ticketUri = URI.create(ticket.url());
+        for (int i = 0; i < DownloadTickets.TRUSTED_USES; i++)
+            check(tickets.begin(ticketUri, true).trusted, "ticket trusted use " + i);
+        check(!tickets.begin(ticketUri, true).trusted, "ticket trust is limited");
+        check(!tickets.begin(URI.create("http://127.0.0.1/packs/a.zip"), true).trusted, "direct link not trusted");
+        check(!tickets.begin(URI.create("http://127.0.0.1/packs/a.zip?vtb=" + java.util.UUID.randomUUID()), true).trusted,
+                "unknown ticket not trusted");
     }
 
     /** 切服时 HEAD、GET 和旧包下载可短时重叠，但同一 IP 仍受硬上限约束。 */
@@ -279,6 +296,29 @@ public final class HttpSecurityTest {
         check(!PackHttpServer.matchesTag("\"xabc\"", "\"abc\""), "exact ETag");
     }
 
+    /** 本机地址带转发头但未被信任时提示一次；已信任时不提示。 */
+    private static void proxyHint() throws Exception {
+        Path root = Files.createDirectories(directory.resolve("proxy-hint")).toRealPath();
+        Path file = root.resolve("hint.zip");
+        Files.write(file, new byte[16]);
+        for (boolean trusted : List.of(false, true)) {
+            int port = port();
+            String url = "http://127.0.0.1:" + port + "/packs/hint.zip";
+            HostLimits limits = config(trusted ? "trusted-proxies: [\"127.0.0.1/32\"]\n" : "{}");
+            var hints = new ArrayList<String>();
+            try (HttpClient client = HttpClient.newHttpClient();
+                 var server = new PackHttpServer(root, Map.of("hint.zip", pack(file, url)), limits,
+                         new DownloadTickets(), message -> {}, hints::add)) {
+                server.bind("127.0.0.1", port);
+                var forwarded = HttpRequest.newBuilder(URI.create(url)).header("X-Forwarded-For", "203.0.113.9").build();
+                for (int i = 0; i < 3; i++) status(client, forwarded);
+                status(client, request(url));
+            }
+            check(trusted ? hints.isEmpty() : hints.equals(List.of("127.0.0.1")),
+                    "untrusted proxy hint once, trusted proxy silent: " + trusted + " " + hints);
+        }
+    }
+
     private static void switchingHttp() throws Exception {
         Path root = Files.createDirectories(directory.resolve("switching")).toRealPath();
         Path a = root.resolve("a.zip"), b = root.resolve("b.zip");
@@ -306,9 +346,17 @@ public final class HttpSecurityTest {
                     check(response.statusCode() == 200, "switching GET remains available: " + i);
                 }
                 check(server.stats().downloads() == 12, "old and new downloads occupy bounded slots");
+                check(status(client, request(bUrl)) == 503, "shared direct link obeys per-IP concurrency");
                 try (var ticket = tickets.issue(bUrl, 60000)) {
+                    var response = client.send(request(ticket.url()), HttpResponse.BodyHandlers.ofInputStream());
+                    responses.add(response);
+                    check(response.statusCode() == 200 && !ticket.limited(), "ticketed download skips per-IP concurrency");
+                }
+                try (var ticket = tickets.issue(bUrl, 60000)) {
+                    URI used = URI.create(ticket.url());
+                    for (int i = 0; i < DownloadTickets.TRUSTED_USES; i++) tickets.begin(used, true);
                     check(status(client, request(ticket.url())) == 503 && ticket.limited(),
-                            "shared download link and ticket still obey concurrency limit");
+                            "ticket beyond trusted uses obeys concurrency limit");
                     check(ticket.diagnostic().status() == 503, "concurrency rejection distinguished from request-rate rejection");
                 }
             } finally {

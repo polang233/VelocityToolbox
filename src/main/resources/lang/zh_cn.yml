@@ -218,6 +218,7 @@ pack:
     files-title: "    <gray>托管文件：<#CCFFFF><count>"
     log:
       traffic: "<yellow>资源包请求统计：<detail>"
+      untrusted-proxy: "<yellow>收到来自 <address> 的 X-Forwarded-For，但该地址不在 pack-host.security.trusted-proxies 中，玩家会按 <address> 共用限额。若它是你的 HTTP 反代（如 Nginx），请将其加入 trusted-proxies；内网穿透的 TCP 隧道（如 frp）不要填写。"
       warn-localhost: "<yellow>pack-host.public-url 使用了 localhost，只有本机客户端能下载。"
       warn-wildcard: "<yellow>pack-host.public-url 不能使用 0.0.0.0，请改成玩家能访问的 IP 或域名。"
       warn-lan: "<yellow>自动下载地址 <url> 是局域网地址，公网玩家通常无法访问；外网使用请设置 public-url。"
@@ -285,8 +286,6 @@ pack:
       timeout: "加载超时"
       unavailable: "资源包不可用"
     status: "<gray>资源包下发：<#CCFFFF><state>"
-  log:
-    load-failed: "资源包初始化失败 / Resource pack initialization failed."
   check:
     ok: "<green>资源包配置检查通过，尚未应用。"
     summary: "<gray>托管：<host>；下发：<delivery>；托管文件 <files> 个，包定义 <packs> 个。"

@@ -7,13 +7,20 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-/** 关联本插件发出的下载、HTTP 诊断与限流结果；不是下载权限凭据。 */
+/**
+ * 关联本插件发出的下载、HTTP 诊断与限流结果；不是下载权限凭据，无票据的直链仍可下载。
+ * 有效票据的前几次 GET 视为在线玩家的下载，可免除单 IP 限额，避免同一出口的玩家互相挤占。
+ */
 public final class DownloadTickets {
+    /** 每张票据免除单 IP 限额的请求次数；超出后与普通请求相同。 */
+    public static final int TRUSTED_USES = 4;
+
     public enum Stage { NOT_REQUESTED, REQUESTED, RESPONDED, SENDING, SENT, TIMED_OUT, INTERRUPTED, FILE_ERROR, STOPPED }
     public record Diagnostic(int status, Stage stage, long bytes, long expectedBytes, long elapsedMs, String error) {}
 
     /** 每个 HTTP 请求独立记录；旧连接的迟到结果不覆盖同一票据的较新请求。 */
     static final class Request {
+        final boolean trusted;
         private final long started = System.nanoTime();
         private volatile int status;
         private volatile Stage stage = Stage.REQUESTED;
@@ -21,6 +28,8 @@ public final class DownloadTickets {
         private volatile long expectedBytes = -1;
         private volatile String error = "";
         private volatile long finished;
+
+        Request(boolean trusted) { this.trusted = trusted; }
 
         synchronized void response(int status) { if (!failed()) { this.status = status; stage = Stage.RESPONDED; } }
         synchronized void sending(long expectedBytes) {
@@ -55,6 +64,7 @@ public final class DownloadTickets {
         private final String url;
         private volatile boolean limited;
         private volatile Request request;
+        private int uses;
         private Ticket(String source, long milliseconds) {
             path = fileName(URI.create(source));
             expires = System.nanoTime() + Math.min(milliseconds, 86400000L) * 1_000_000L;
@@ -71,11 +81,9 @@ public final class DownloadTickets {
 
     private final Map<String, Ticket> tickets = new HashMap<>();
     synchronized Request begin(URI uri, boolean download) {
-        Request request = new Request();
-        if (download) {
-            Ticket ticket = find(uri);
-            if (ticket != null) ticket.request = request;
-        }
+        Ticket ticket = download ? find(uri) : null;
+        Request request = new Request(ticket != null && ticket.uses++ < TRUSTED_USES);
+        if (ticket != null) ticket.request = request;
         return request;
     }
     public synchronized Ticket issue(String url, long lifetimeMs) {

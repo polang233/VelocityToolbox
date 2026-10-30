@@ -27,15 +27,14 @@ public final class PackArchive {
             throw new IOException("not a regular ZIP file: " + path);
         try (ZipFile zip = new ZipFile(path.toFile())) {
             var entry = zip.getEntry("pack.mcmeta");
-            // Java ZipFile (also used by Minecraft) resolves pack.mcmeta to
-            // pack.mcmeta/ when a protected archive stores its payload there.
+            // Java ZipFile（Minecraft 同样使用）在加密/混淆包把内容放进 pack.mcmeta/ 时
+            // 会把 pack.mcmeta 解析到该目录项。
             if (entry == null)
                 throw new IOException("missing pack.mcmeta at ZIP root; check for an extra parent folder");
             if (zip.stream().filter(e -> e.getName().equals("pack.mcmeta")
                     || e.getName().equals("pack.mcmeta/")).count() != 1)
                 throw new IOException("duplicate pack.mcmeta entries");
-            // Protected archives may deliberately misreport the declared size.
-            // Always bound the actual decoded bytes instead of trusting ZIP headers.
+            // 混淆包可能故意谎报声明大小，始终限制实际解压字节数，不信任 ZIP 头。
             byte[] bytes;
             try (var input = zip.getInputStream(entry)) {
                 bytes = input.readNBytes(MAX_METADATA + 1);

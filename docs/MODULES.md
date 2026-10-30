@@ -16,18 +16,15 @@
 
 ## 资源包
 
-托管和下发放在同一模块介绍，因为自托管文件可以直接参与下发；两者独立开关。
+`pack-host` 提供 ZIP 下载与限流，`resource-packs` 按子服、版本和权限选包并下发，两者独立开关。配置见 [资源包配置](RESOURCE_PACKS.md)。
 
-- `pack-host`：HTTP 下载、SHA-1 扫描、限频、并发和带宽控制。它不负责决定哪个玩家使用哪个包。
-- `resource-packs`：按子服、协议版本和权限选择变体，发送下载链接并处理回执。可使用托管文件或外部直链。
-- `/vtb pack list`：配置来源与条件、托管文件、HTTP 统计。
-- `/vtb pack status 玩家`：当前子服、加载状态，以及按当前版本和权限计算的分配来源、变体与不匹配原因。
-- `/vtb pack resend 玩家`：重新计算并下发，没有匹配包时说明原因。
-- `/vtb pack remove 玩家|all`：撤掉 VTB 自己的包，取消等待、重试和超时，并暂停当前子服的自动下发；重载不恢复，下次切服或手动 resend 才恢复。all 取消原批量队列，单人撤包使对应的旧队列条目失效。低于 1.20.3 的客户端仅取消任务并暂停，已应用的包需重连清除。
-- `/vtb pack check`（1.3.5+）：检查磁盘配置、哈希和本地包元数据，不应用配置或发包；失败会向执行者和后台说明具体位置。
-- `/vtb pack resend all`（1.3.5+）：先作废全部旧请求，再按每秒最多 5 人重发；重复调用不叠加队列，重载按最新规则接续，停用或 remove all 取消。完成提示是安排结果，加载结果仍看 status。
+- `/vtb pack list`：各包的来源与条件、托管文件和 HTTP 统计。
+- `/vtb pack check`：检查磁盘上的配置、哈希和 ZIP 元数据，不应用改动；失败时指出配置位置。
+- `/vtb pack status 玩家`：当前子服和加载状态，以及按版本、权限计算的匹配结果与不匹配原因。
+- `/vtb pack resend 玩家|all`：按当前规则重新下发；all 每秒最多 5 人，重复执行不叠加，完成提示只表示已安排。
+- `/vtb pack remove 玩家|all`：撤下 VTB 的包并暂停当前子服的下发，reload 不恢复，切服或 resend 后恢复。低于 1.20.3 的客户端需重连才能清除已加载的包。
 
-托管成功启动不代表公网可达，也不代表客户端已加载。详见 [资源包原理与配置](RESOURCE_PACKS.md)。
+托管启动成功不代表公网可达，也不代表客户端已加载。
 
 ## 子服与入口
 
@@ -52,5 +49,3 @@
 - 入口模块：`velocitytoolbox.command.server`，加 `velocitytoolbox.command.server.hosts`。
 
 例如只查看资源包状态，需要 `velocitytoolbox.command`、`velocitytoolbox.command.pack` 和 `velocitytoolbox.command.pack.status`。资源包变体里的 permission 控制选包，与管理命令权限分开。
-
-旧版 packs/vhosts 命令改为 pack list/server hosts，相关脚本和细分权限需同步调整。

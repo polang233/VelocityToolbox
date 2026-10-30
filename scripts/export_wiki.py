@@ -62,9 +62,7 @@ Velocity 运维工具箱。
 - [完整默认配置]({WIKI}/Configuration)
 - [English]({WIKI}/English)
 
-资源包在 config.yml 的 resource-packs 中配置，HTTP 托管在 pack-host 中配置。两者默认关闭；启用前替换示例文件及子服名，删除不用的样例。
-
-旧配置可以继续使用，需要下发时再补充 resource-packs，不加这段也不会启用下发。语言文件改动不多的话，建议备份后移走旧文件，再执行 /vtb reload 重新生成；自定义文案可按新键名补回。
+各模块默认关闭。启用前替换示例文件及子服名，删除不用的样例，再执行 /vtb reload。已有配置和语言文件不会被覆盖。
 
 [下载]({REPO}/releases/latest) · [问题与建议]({REPO}/issues)
 """
@@ -79,7 +77,7 @@ Velocity 运维工具箱。
     version = re.search(r"^version = '([^']+)'", (ROOT / "build.gradle").read_text(encoding="utf-8"), re.MULTILINE)[1]
     result["Configuration"] = ("# 完整默认配置\n\n"
         f"适用于 {version}。[配置源文件]({REPO}/blob/main/src/main/resources/config.yml)\n\n"
-        "已有配置不会自动覆盖，也不必整份替换。需要下发时再补充 resource-packs，不加这段也不会启用下发。启用前替换样例文件及子服名，删除不用的定义。\n\n"
+        "已有配置不会自动覆盖，也不必整份替换；缺少的段落按关闭处理。启用前替换样例文件及子服名。\n\n"
         f"```yaml\n{config.rstrip()}\n```\n")
     return result
 

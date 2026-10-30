@@ -5,6 +5,7 @@ import io.github.polang233.velocitytoolbox.pack.delivery.PackSender;
 import io.github.polang233.velocitytoolbox.pack.config.PackRules;
 
 import io.github.polang233.velocitytoolbox.pack.config.PackConfig;
+import io.github.polang233.velocitytoolbox.pack.http.DownloadTickets;
 
 import com.velocitypowered.api.command.*;
 import com.velocitypowered.api.event.EventManager;
@@ -255,7 +256,6 @@ public final class PackDeliveryTest {
                 "remaining variants and other servers still send");
         for (String invalid : List.of(
                 config.replace("packs: [deleted]", "packs: [deleted, deleted]"),
-                config.replace("packs: [deleted]", "keep-existing: true\n    packs: [deleted]"),
                 config.replace("url: '@deleted.zip'", "url: '@deleted.zip'\n      hash: invalid"),
                 config.replace("url: '@deleted.zip'", "url: '@deleted.zip'\n      required: 'yes'"),
                 config.replace("url: '@deleted.zip'", "url: '@deleted.zip'\n      conditions:\n        versions:\n          min: invalid"))) {
@@ -309,6 +309,97 @@ public final class PackDeliveryTest {
                 && warnings.getFirst().contains("hosted file not found"), "missing hosted file is skipped");
     }
 
+    /** keep-existing 加 packs：没有 VTB 包才下发，已有则保留。 */
+    private static void keepWithPacks() throws Exception {
+        var rules = rules("""
+                enabled: true
+                settings:
+                  delay: 1
+                  timeout: 2
+                packs:
+                  base:
+                    - url: https://example.com/base.zip
+                      hash: HASH
+                  other:
+                    - url: https://example.com/other.zip
+                      hash: HASH
+                servers:
+                  default: keep
+                  lobby:
+                    keep-existing: true
+                    packs: [base]
+                  target: [other]
+                """.replace("HASH", HASH));
+        Harness h = new Harness(dir.resolve("keep-with-packs"));
+        h.server = "lobby";
+        try (PackSender sender = h.sender()) {
+            sender.apply(rules);
+            h.run(1000);
+            check(h.sent.size() == 1 && h.sent.getLast().getUrl().contains("base.zip"), "first lobby join downloads base");
+            sender.status(reply(h, h.sent.getLast(), "SUCCESSFUL"));
+            h.server = "target";
+            sender.connected(new ServerPostConnectEvent(h.player, null));
+            h.run(2000);
+            var other = h.sent.getLast();
+            check(other.getUrl().contains("other.zip"), "assigned server replaces pack");
+            sender.status(reply(h, other, "SUCCESSFUL"));
+            int sent = h.sent.size();
+            h.server = "lobby";
+            sender.connected(new ServerPostConnectEvent(h.player, null));
+            h.run(3000);
+            check(h.sent.size() == sent && !h.removed.contains(other.getId()), "lobby keeps packs instead of sending base");
+            check(sender.resend(h.player) == PackSender.ResendResult.EMPTY, "resend respects retained packs");
+        }
+    }
+
+    private static void configShorthands() throws Exception {
+        var rules = rules("""
+                enabled: true
+                packs:
+                  flat:
+                    - url: https://example.com/a.zip
+                      hash: HASH
+                      permission: pack.a
+                      versions:
+                        min: "1.20.3"
+                    - none
+                  old:
+                    - url: https://example.com/a.zip
+                      hash: HASH
+                      conditions:
+                        permission: pack.a
+                        versions:
+                          min: "1.20.3"
+                    - url: "@"
+                servers:
+                  default: keep
+                  "game-*": [flat]
+                  "game-1*": [old]
+                  game-2: []
+                """.replace("HASH", HASH));
+        var modern = ProtocolVersion.MINECRAFT_1_20_3;
+        check(rules.packs().get("flat").variants().get(0).equals(rules.packs().get("old").variants().get(0))
+                && rules.packs().get("flat").variants().get(1).file().empty(), "flat conditions and none match legacy form");
+        check(rules.select("GAME-7", modern, x -> true).packs().getFirst().name().equals("flat"), "wildcard assignment");
+        check(rules.select("game-11", modern, x -> true).packs().getFirst().name().equals("flat"), "first written wildcard wins");
+        check(rules.select("game-2", modern, x -> true).packs().isEmpty() && !rules.keepExisting("game-2"), "exact name beats wildcard");
+        check(rules.keepExisting("other"), "keep shorthand");
+        check(rules.select("game-7", modern, x -> false).skipped().isEmpty(), "none suppresses skipped notice");
+        for (String invalid : List.of("  default: maybe\n", "  default: 1\n")) {
+            try {
+                rules("enabled: true\npacks: {}\nservers:\n" + invalid);
+                throw new AssertionError("invalid assignment accepted: " + invalid);
+            } catch (IOException expected) { }
+        }
+        try {
+            rules(("enabled: true\npacks:\n  a:\n    - url: https://example.com/a.zip\n      hash: HASH\n"
+                    + "      permission: x\n      conditions:\n        permission: y\n").replace("HASH", HASH));
+            throw new AssertionError("duplicate conditions accepted");
+        } catch (IOException expected) {
+            check(expected.getMessage().contains("conditions"), "duplicate conditions diagnostic");
+        }
+    }
+
     private static void keepExistingAssignments() throws Exception {
         String policy = """
                 enabled: true
@@ -351,14 +442,8 @@ public final class PackDeliveryTest {
                 check(expected.getMessage().contains("keep-existing"), "retention type diagnostic");
             }
         }
-        var conflict = yaml(policy);
-        conflict.node("servers", "default", "packs").set(List.of("base"));
-        try {
-            PackRules.read(conflict, List.of());
-            throw new AssertionError("retention with new packs accepted");
-        } catch (IOException expected) {
-            check(expected.getMessage().contains("keep-existing"), "retention conflict diagnostic");
-        }
+        keepWithPacks();
+        configShorthands();
         for (var version : List.of(ProtocolVersion.MINECRAFT_1_20_3, ProtocolVersion.MINECRAFT_1_20_2)) {
             Harness h = new Harness(dir.resolve("keep-" + version.getProtocol()));
             h.version = version;
@@ -452,6 +537,10 @@ public final class PackDeliveryTest {
             for (int i = 0; i < config.limits().burst(); i++) client.send(request, HttpResponse.BodyHandlers.discarding());
             for (int i = 0; i < 3; i++) {
                 var offer = h.sent.getLast();
+                // 先用完票据的免限额次数，再验证真实限流触发的重试。
+                var get = HttpRequest.newBuilder(URI.create(offer.getUrl())).GET().build();
+                for (int j = 0; j < DownloadTickets.TRUSTED_USES; j++)
+                    check(client.send(get, HttpResponse.BodyHandlers.discarding()).statusCode() == 200, "ticketed request bypasses IP rate");
                 var limited = client.send(HttpRequest.newBuilder(URI.create(offer.getUrl())).GET().build(),
                         HttpResponse.BodyHandlers.discarding());
                 check(limited.statusCode() == 429, "real host records limiting");
@@ -737,7 +826,7 @@ public final class PackDeliveryTest {
         Path root = dir.resolve("host");
         Files.createDirectories(root.resolve("packs"));
         zip(root.resolve("packs/base.zip"), "first");
-        for (String example : List.of("survival.zip", "rpg-modern.zip", "rpg-legacy.zip", "ui.zip", "vip.zip")) {
+        for (String example : List.of("base.zip", "survival.zip", "survival-legacy.zip", "vip.zip")) {
             zip(root.resolve("packs").resolve(example), "example");
         }
         Harness h = new Harness(root);
@@ -749,19 +838,43 @@ public final class PackDeliveryTest {
             check(!PackRules.read(bundled, List.of()).enabled(), "bundled delivery disabled");
             bundled.node("enabled").set(true);
             var enabledDefaults = PackRules.read(bundled, staged.list(), staged.directory());
-            check(enabledDefaults.select("unlisted", ProtocolVersion.MINECRAFT_1_20_3, x -> true).packs().isEmpty(),
-                    "default @ is an empty selection");
-            check(enabledDefaults.packs().size() == 6, "all reference packs parsed");
-            check(enabledDefaults.select("lobby", ProtocolVersion.MINECRAFT_1_20_3, permission -> true).packs().isEmpty(),
-                    "lobby clears packs");
-            check(enabledDefaults.select("rpg", ProtocolVersion.MINECRAFT_1_20_3, permission -> true).packs().size() == 2,
-                    "modern rpg layers");
-            check(enabledDefaults.select("rpg", ProtocolVersion.MINECRAFT_1_15, permission -> true)
-                    .packs().getFirst().file().url().endsWith("/packs/rpg-legacy.zip"), "legacy complete pack");
-            check(enabledDefaults.select("vip", ProtocolVersion.MINECRAFT_1_20_3, permission -> false).skipped().contains("vip"),
+            check(enabledDefaults.select("unlisted", ProtocolVersion.MINECRAFT_1_20_3, x -> true).packs().isEmpty()
+                    && enabledDefaults.keepExisting("unlisted"), "default keeps existing packs");
+            check(enabledDefaults.packs().size() == 3, "all reference packs parsed");
+            check(enabledDefaults.keepExisting("lobby")
+                    && enabledDefaults.select("lobby", ProtocolVersion.MINECRAFT_1_20_3, permission -> true).packs().size() == 1,
+                    "lobby keeps existing packs or sends base");
+            check(enabledDefaults.select("survival-1", ProtocolVersion.MINECRAFT_1_20_3, permission -> true).packs().size() == 2,
+                    "modern survival layers");
+            check(enabledDefaults.select("survival-1", ProtocolVersion.MINECRAFT_1_15, permission -> true)
+                    .packs().getFirst().file().url().endsWith("/packs/survival-legacy.zip"), "legacy complete pack");
+            check(enabledDefaults.select("survival-1", ProtocolVersion.MINECRAFT_1_20_3, permission -> false).skipped().contains("vip"),
                     "vip permission example");
+            var english = ResourceFiles.loadBundledYaml("config.en.yml");
+            var chinese = ResourceFiles.loadBundledYaml("config.yml");
+            english.node("resource-packs").node("enabled").set(true);
+            var englishRules = PackRules.read(english.node("resource-packs"), staged.list(), staged.directory());
+            check(englishRules.packs().keySet().equals(enabledDefaults.packs().keySet())
+                    && englishRules.servers().equals(enabledDefaults.servers())
+                    && english.node("pack-host").equals(chinese.node("pack-host"))
+                    && english.node("server-versions").equals(chinese.node("server-versions")), "English config matches Chinese");
+            check(ResourceFiles.configResource(java.util.Locale.of("en", "US")).equals("config.en.yml")
+                    && ResourceFiles.configResource(java.util.Locale.of("zh", "SG")).equals("config.en.yml")
+                    && ResourceFiles.configResource(java.util.Locale.of("en", "CN")).equals("config.yml")
+                    && ResourceFiles.configResource(java.util.Locale.of("zh", "HK")).equals("config.yml")
+                    && ResourceFiles.configResource(java.util.Locale.of("zh", "TW")).equals("config.yml")
+                    && ResourceFiles.configResource(java.util.Locale.of("zh")).equals("config.yml"), "config follows region");
             PackRules local = PackRules.read(yaml("enabled: true\npacks:\n  base:\n    - url: \"@base.zip\"\nservers:\n  default:\n    packs: [base]\n"), staged.list());
             check(local.packs().get("base").variants().getFirst().file().local(), "resolved local file");
+            PackRules shorthand = PackRules.read(yaml("enabled: true\npacks:\n  base: \"@base.zip\"\n  none: \"@\"\nservers:\n  default:\n    packs: [base, none]\n"), staged.list());
+            check(shorthand.packs().get("base").equals(local.packs().get("base"))
+                    && shorthand.select("x", ProtocolVersion.MINECRAFT_1_20_3, x -> true).packs().size() == 1, "single-file shorthand");
+            try {
+                PackRules.read(yaml("enabled: true\npacks:\n  ext: \"https://example.com/a.zip\"\n"), staged.list());
+                throw new AssertionError("external shorthand needs hash");
+            } catch (IOException expected) {
+                check(expected.getMessage().contains("packs.ext.hash"), "shorthand error path");
+            }
             host.apply(staged);
             check(host.httpStatus().contains("active downloads") && !host.httpStatus().contains("<downloads>"),
                     "HTTP statistics are localized with real values");

@@ -26,7 +26,7 @@ Set packs as required or optional, add prompts, set loading timeouts, check play
 
 - `url: "@filename.zip"` uses a file from `pack-host.packs-directory`. VTB creates its URL and calculates SHA-1, so you can omit `hash`.
 - External HTTP/HTTPS URLs require the ZIP's actual 40-character SHA-1 for caching, update detection and download checks. Local hosting is not needed.
-- `url: "@"` sends no pack and needs no file, hash or hosting.
+- `none` sends no pack and needs no file, hash or hosting.
 
 Clients on 1.20.3+ can stack packs. Older clients receive the first matching complete pack. Version conditions select files; they do not convert resource formats. On modern clients, VTB removes only its own packs. Older clients cannot remove individual packs.
 

@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.function.Predicate;
 
-/** Resolves command arguments against flat filenames already listed in plugins/. */
+/** 将命令参数匹配到 plugins/ 目录下已有的 JAR 文件名，不进入子目录。 */
 final class PluginJarMatcher {
     private PluginJarMatcher() { }
 
@@ -43,7 +43,7 @@ final class PluginJarMatcher {
 
     static List<String> suggestions(String query, List<String> filenames) {
         if (query == null || query.isBlank()) return filenames;
-        // Offer every matching full filename, including when typing part of ".jar".
+        // 补全所有匹配的完整文件名，输入到 ".jar" 中间时也能匹配。
         if (!valid(query)) return List.of();
         String needle = stem(query.trim()).toLowerCase(Locale.ROOT);
         return filenames.stream().filter(name -> name.toLowerCase(Locale.ROOT).contains(needle)).toList();

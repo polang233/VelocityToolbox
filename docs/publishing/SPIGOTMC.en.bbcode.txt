@@ -25,7 +25,7 @@ Set network-wide defaults and assign packs by backend, client version and permis
 [list]
 [*]url: "@filename.zip": use a hosted file with an automatically generated URL and SHA-1.
 [*]External HTTP/HTTPS URL: supply the actual file hash. The client downloads directly from that address.
-[*]url: "@": send no pack; no file or hosting is needed.
+[*]none: send no pack; no file or hosting is needed.
 [/list]
 
 Clients on 1.20.3+ can stack packs. Older clients receive the first matching complete pack. A selected required pack disconnects the player if declined, failed or timed out.

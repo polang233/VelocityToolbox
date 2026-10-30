@@ -104,6 +104,9 @@ public final class Lang {
 
     public boolean needsRegeneration() { return state.outdatedFile() != null; }
 
+    /** 是否已成功加载过任一语言文件。 */
+    public boolean loaded() { return !state.messages().isEmpty(); }
+
     public void sendRegenerationNotice(CommandSource source) {
         State current = state;
         if (current.outdatedFile() != null) {

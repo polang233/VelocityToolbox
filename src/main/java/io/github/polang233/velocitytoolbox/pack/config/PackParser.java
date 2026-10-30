@@ -6,6 +6,7 @@ import io.github.polang233.velocitytoolbox.pack.host.PackArchive;
 import io.github.polang233.velocitytoolbox.version.VersionRule;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
+import org.spongepowered.configurate.BasicConfigurationNode;
 import org.spongepowered.configurate.ConfigurationNode;
 
 import java.io.IOException;
@@ -47,14 +48,23 @@ final class PackParser {
             configuredPacks.add(name);
             String path = "packs." + name;
             ConfigurationNode node = entry.getValue();
-            if (!node.isList() || node.childrenList().isEmpty())
-                throw error(path, "expected a non-empty variant list (- url: ...); see docs/RESOURCE_PACKS.md");
             List<Variant> variants = new ArrayList<>();
-            int i = 0;
-            for (ConfigurationNode variant : node.childrenList()) {
-                Variant parsed = variant(variant, files, path + "[" + i++ + "]", required, prompt,
+            if (node.raw() instanceof String url) {
+                // 单文件简写：包名: "@文件.zip"，等同只有 url 的单个变体。
+                Variant parsed = variant(single(url), files, path, required, prompt,
                         directory, hostEnabled, checkedArchives, warning);
                 if (parsed != null) variants.add(parsed);
+            } else {
+                if (!node.isList() || node.childrenList().isEmpty())
+                    throw error(path, "expected \"@file.zip\" or a non-empty variant list (- url: ...); see docs/RESOURCE_PACKS.md");
+                int i = 0;
+                for (ConfigurationNode variant : node.childrenList()) {
+                    // 列表项也可只写来源，如 - none。
+                    ConfigurationNode item = variant.raw() instanceof String url ? single(url) : variant;
+                    Variant parsed = variant(item, files, path + "[" + i++ + "]", required, prompt,
+                            directory, hostEnabled, checkedArchives, warning);
+                    if (parsed != null) variants.add(parsed);
+                }
             }
             if (!variants.isEmpty()) packs.put(name, new Pack(variants));
         }
@@ -66,14 +76,18 @@ final class PackParser {
             String path = "servers." + name;
             if (name.isBlank() || !name.equals(name.trim())) throw error(path, "invalid server name");
             ConfigurationNode node = entry.getValue();
-            keys(node, path, "packs", "keep-existing");
-            boolean keep = bool(node.node("keep-existing"), false, path + ".keep-existing");
-            if (!keep && node.node("packs").virtual()) throw error(path + ".packs", "expected a list");
-            List<String> assigned = keep && node.node("packs").virtual()
-                    ? List.of() : names(node.node("packs"), configuredPacks, packs, path + ".packs");
-            if (keep && !node.node("packs").virtual() && !node.node("packs").childrenList().isEmpty())
-                throw error(path + ".keep-existing", "cannot be combined with a non-empty pack list");
-            Assignment rule = new Assignment(assigned, keep);
+            Assignment rule;
+            if (node.isList()) {
+                rule = new Assignment(names(node, configuredPacks, packs, path));
+            } else if (node.raw() instanceof String value) {
+                if (!value.trim().equals("keep")) throw error(path, "expected keep, a pack list or a map");
+                rule = new Assignment(List.of(), true);
+            } else {
+                keys(node, path, "packs", "keep-existing");
+                boolean keep = bool(node.node("keep-existing"), false, path + ".keep-existing");
+                if (!keep && node.node("packs").virtual()) throw error(path + ".packs", "expected a list");
+                rule = new Assignment(names(node.node("packs"), configuredPacks, packs, path + ".packs"), keep);
+            }
             if (servers.putIfAbsent(name.toLowerCase(Locale.ROOT), rule) != null) throw error(path, "duplicate server");
         }
         Assignment defaults = servers.remove("default");
@@ -84,26 +98,34 @@ final class PackParser {
     private static Variant variant(ConfigurationNode node, Map<String, HostedPack> files, String path,
                                    boolean required, Component prompt, Path directory, boolean hostEnabled,
                                    Set<Path> checkedArchives, Consumer<String> warning) throws IOException {
-        keys(node, path, "url", "hash", "conditions", "required", "prompt");
+        keys(node, path, "url", "hash", "versions", "permission", "conditions", "required", "prompt");
         String url = string(node.node("url"), "", path + ".url");
         String hash = string(node.node("hash"), "", path + ".hash").toLowerCase(Locale.ROOT);
-        ConfigurationNode conditions = node.node("conditions");
-        if (!conditions.virtual()) keys(conditions, path + ".conditions", "versions", "permission");
-        VersionRule versions = VersionRule.read(conditions.node("versions"), "resource-packs." + path + ".conditions.versions");
-        String permission = string(conditions.node("permission"), "", path + ".conditions.permission");
+        // versions、permission 直接写在变体上；旧写法 conditions 继续解析。
+        ConfigurationNode conditions = node;
+        String conditionPath = path;
+        if (!node.node("conditions").virtual()) {
+            conditions = node.node("conditions");
+            conditionPath = path + ".conditions";
+            keys(conditions, conditionPath, "versions", "permission");
+            if (!node.node("versions").virtual() || !node.node("permission").virtual())
+                throw error(conditionPath, "cannot be combined with versions or permission on the variant");
+        }
+        VersionRule versions = VersionRule.read(conditions.node("versions"), "resource-packs." + conditionPath + ".versions");
+        String permission = string(conditions.node("permission"), "", conditionPath + ".permission");
         boolean variantRequired = bool(node.node("required"), required, path + ".required");
         Component variantPrompt = prompt(node.node("prompt"), prompt, path + ".prompt");
         File source;
-        if (url.equals("@")) {
+        if (url.equals("none") || url.equals("@")) {
             if (!node.node("hash").virtual() && !hash.equals("@"))
-                throw error(path + ".hash", "no hash is needed for url: '@'");
+                throw error(path + ".hash", "no hash is needed for none");
             source = new File("@", "", false);
         } else if (url.startsWith("@")) {
             String file = url.substring(1);
             if (!hostEnabled) throw error(path + ".url",
                     "self-hosting is disabled; enable pack-host.enabled to use " + url);
             if (!PackScanner.isSafeZipFileName(file))
-                throw error(path + ".url", "expected @ or @filename.zip without a directory");
+                throw error(path + ".url", "expected none or @filename.zip without a directory");
             if (!(node.node("hash").virtual() || hash.equals("@")) && !hash.matches("[0-9a-f]{40}"))
                 throw error(path + ".hash", "expected @ or 40 hexadecimal characters");
             HostedPack hosted = files.get(file);
@@ -137,6 +159,13 @@ final class PackParser {
             throw error(path + ".url", "expected an HTTP(S) download URL with port 1-65535 and no credentials or fragment");
         }
         return new Variant(source, versions, permission, variantRequired, variantPrompt);
+    }
+
+    /** 把只写来源的简写转成只有 url 的变体节点。 */
+    private static ConfigurationNode single(String url) throws IOException {
+        ConfigurationNode node = BasicConfigurationNode.root();
+        node.node("url").set(url);
+        return node;
     }
 
     private static List<String> names(ConfigurationNode node, Set<String> configuredPacks,
